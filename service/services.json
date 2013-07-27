@@ -1,11 +1,11 @@
 {
-   "id":"org.webos-ports.carddav-sync.contacts.service",
+   "id":"org.webosports.carddavsync.service",
    "description":"CardDAV Contact Service",
    "engine":"node",
    "activityTimeout":30,
    "services":[
       {
-         "name":"org.webos-ports.carddav-sync.contacts.service",
+         "name":"org.webosports.carddavsync.service",
          "description":"CardDAV Contact",
          "globalized":false,
          "commands":[

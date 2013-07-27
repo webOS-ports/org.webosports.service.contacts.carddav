@@ -1,6 +1,5 @@
 {
-    "id": "org.webos-ports.carddav-sync.testacct:1",
-    "owner": "org.webos-ports.carddav-sync.contacts.service",
+    "id": "org.webosports.carddavsync.contact:1",
     "sync": true,
     "indexes": [{
        "name": "accountId",

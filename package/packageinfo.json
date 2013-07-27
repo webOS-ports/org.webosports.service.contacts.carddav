@@ -1,11 +1,11 @@
 {
-  "id": "org.webos-ports.carddav-sync",
+  "id": "org.webosports.carddavsync",
   "package_format_version": 2,
   "loc_name": "CardDAV synergy connector",
   "version": "0.0.1",
   "vendor": "WebOS Ports - Stefan Schmidt",
   "vendorurl": "www.webos-ports.org",
-  "app": "org.webos-ports.carddav-sync",
-  "services": ["org.webos-ports.carddav-sync.contacts.service"],
-  "accounts": ["org.webos-ports.carddav-sync.contact"]
+  "app": "org.webosports.carddavsync",
+  "services": ["org.webosports.carddavsync.service"],
+  "accounts": ["org.webosports.carddavsync.account"]
 }
