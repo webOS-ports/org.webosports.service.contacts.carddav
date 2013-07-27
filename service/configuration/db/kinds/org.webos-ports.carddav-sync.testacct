@@ -1,0 +1,9 @@
+{
+    "id": "org.webos-ports.carddav-sync.testacct:1",
+    "owner": "org.webos-ports.carddav-sync.contacts.service",
+    "sync": true,
+    "indexes": [{
+       "name": "accountId",
+       "props": [{ "name": "accountId"}]}],
+    "extends": ["com.palm.contact:1"]
+}

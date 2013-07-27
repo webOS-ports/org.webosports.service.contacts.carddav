@@ -1,0 +1,8 @@
+{
+    "id": "org.webos-ports.carddav-sync.transport:1",
+    "owner": "org.webos-ports.carddav-sync.contacts.service",
+    "indexes": [{
+       "name": "lastSync",
+       "props": [{ "name": "lastSync"}]}
+       ]
+}

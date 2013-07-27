@@ -1,0 +1,10 @@
+{
+	"id": "org.webos-ports.carddav-sync",
+	"version": "0.0.1",
+	"vendor": "WebOS Ports - Stefan Schmidt",
+	"type": "web",
+	"main": "index.html",
+	"title": "org.webos-ports.carddav-sync",
+	"icon": "images/icon.png",
+	"uiRevision":2
+}

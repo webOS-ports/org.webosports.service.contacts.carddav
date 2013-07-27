@@ -1,0 +1,23 @@
+{
+    "templateId": "org.webos-ports.carddav-sync.contact",
+    "loc_name": "CardDAV Contacts",
+    "readPermissions": ["org.webos-ports.carddav-sync.contacts.service"],
+    "writePermissions": ["org.webos-ports.carddav-sync.contacts.service"],
+    "validator": "palm://org.webos-ports.carddav-sync.contacts.service/checkCredentials",
+    "onCapabiltiesChanged" : "palm://org.webos-ports.carddav-sync.contacts.service/onCapabiltiesChanged",
+    "onCredentialsChanged" : "palm://org.webos-ports.carddav-sync.contacts.service/onCredentialsChanged",
+    "loc_usernameLabel": "Username",
+    "icon": {"loc_32x32": "images/plaxo32.png"},
+    "capabilityProviders": [{
+        "capability": "CONTACTS",
+        "id"        : "org.webos-ports.carddav-sync",
+        "onCreate"  : "palm://org.webos-ports.carddav-sync.contacts.service/onCreate",
+        "onEnabled" : "palm://org.webos-ports.carddav-sync.contacts.service/onEnabled",
+        "onDelete"  : "palm://org.webos-ports.carddav-sync.contacts.service/onDelete",
+        "sync"      : "palm://org.webos-ports.carddav-sync.contacts.service/sync",
+        "loc_name"  : "CardDAV Contacts",
+        "dbkinds": {
+                "contact": "org.webos-ports.carddav-sync:1"
+        }
+    }]
+}
