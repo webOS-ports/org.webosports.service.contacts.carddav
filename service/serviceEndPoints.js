@@ -1,9 +1,14 @@
+/* Simple debug function to print out to console error */
+var debug = function(param) {
+    console.error("DEBUG: " + param);
+}
+
 /* Validate contact username/password */
 var checkCredentialsAssistant = function(future) {};
 
 checkCredentialsAssistant.prototype.run = function(future) {
      var args = this.controller.args;
-     console.log("Test Service: checkCredentials args =" + JSON.stringify(args));
+     debug("Account args =" + JSON.stringify(args));
 
      //...Base64 encode our entered username and password
      var base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
@@ -17,10 +22,12 @@ checkCredentialsAssistant.prototype.run = function(future) {
         {
             //...Pass back credentials and config (username/password); config is passed to onCreate where
             //...we will save username/password in encrypted storage
+            debug("Password accepted");
             future.result = {returnValue: true, "credentials": {"common":{ "password" : args.password, "username":args.username}},
                                                 "config": { "password" : args.password, "username":args.username} };
         }
         else   {
+           debug("Password rejected");
            future.result = {returnValue: false};
         }
      });
