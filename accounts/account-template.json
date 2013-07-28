@@ -7,7 +7,7 @@
     "onCapabiltiesChanged" : "palm://org.webosports.carddavsync.service/onCapabiltiesChanged",
     "onCredentialsChanged" : "palm://org.webosports.carddavsync.service/onCredentialsChanged",
     "loc_usernameLabel": "Username",
-    "icon": {"loc_32x32": "images/plaxo32.png"},
+    "icon": {"loc_32x32": "images/webos-ports32.png"},
     "capabilityProviders": [{
         "capability": "CONTACTS",
         "id"        : "org.webosports.carddavsync.account",

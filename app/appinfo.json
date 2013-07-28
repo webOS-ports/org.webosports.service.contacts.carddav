@@ -5,6 +5,6 @@
 	"type": "web",
 	"main": "index.html",
 	"title": "org.webosports.carddavsync",
-	"icon": "images/icon.png",
+	"icon": "images/webos-ports.png",
 	"uiRevision":2
 }
