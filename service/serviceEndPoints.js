@@ -10,10 +10,17 @@ checkCredentialsAssistant.prototype.run = function(future) {
      var args = this.controller.args;
      debug("Account args =" + JSON.stringify(args));
 
-     //...Base64 encode our entered username and password
-     var base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
+     var resources = args.username.split("@");
 
-     var syncURL = "";
+     if (resources.length < 2) {
+         future.result = {"errorCode": "400_BAD_REQUEST", "returnValue": false};
+     }
+
+     var username = resources[0];
+     var syncURL = resources[1];
+
+     //...Base64 encode our entered username and password
+     var base64Auth = "Basic " + Base64.encode(username + ":" + args.password);
 
      //...If request fails, the user is not valid
      AjaxCall.get(syncURL, {headers: {"Authorization":base64Auth, "Connection": "keep-alive"}}).then ( function(f2)
@@ -23,8 +30,8 @@ checkCredentialsAssistant.prototype.run = function(future) {
             //...Pass back credentials and config (username/password); config is passed to onCreate where
             //...we will save username/password in encrypted storage
             debug("Password accepted");
-            future.result = {returnValue: true, "credentials": {"common":{ "password" : args.password, "username":args.username}},
-                                                "config": { "password" : args.password, "username":args.username} };
+            future.result = {returnValue: true, "credentials": {"common":{"password" : args.password, "username":username}},
+                                                "config": { "password" : args.password, "username":username} };
         }
         else   {
            debug("Password rejected");
