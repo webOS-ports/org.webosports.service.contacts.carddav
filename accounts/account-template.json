@@ -1,23 +1,23 @@
 {
-    "templateId": "org.webosports.carddavsync.account",
+    "templateId": "org.webosports.service.contacts.carddav.account",
     "loc_name": "CardDAV Contacts",
-    "readPermissions": ["org.webosports.carddavsync.service"],
-    "writePermissions": ["org.webosports.carddavsync.service"],
-    "validator" : "palm://org.webosports.carddavsync.service/checkCredentials",
-    "onCapabiltiesChanged" : "palm://org.webosports.carddavsync.service/onCapabiltiesChanged",
-    "onCredentialsChanged" : "palm://org.webosports.carddavsync.service/onCredentialsChanged",
+    "readPermissions": ["org.webosports.service.contacts.carddav.service"],
+    "writePermissions": ["org.webosports.service.contacts.carddav.service"],
+    "validator" : "palm://org.webosports.service.contacts.carddav.service/checkCredentials",
+    "onCapabiltiesChanged" : "palm://org.webosports.service.contacts.carddav.service/onCapabiltiesChanged",
+    "onCredentialsChanged" : "palm://org.webosports.service.contacts.carddav.service/onCredentialsChanged",
     "loc_usernameLabel": "Username",
     "icon": {"loc_32x32": "images/webos-ports32.png"},
     "capabilityProviders": [{
         "capability": "CONTACTS",
-        "id"        : "org.webosports.carddavsync.account",
-        "onCreate"  : "palm://org.webosports.carddavsync.service/onCreate",
-        "onEnabled" : "palm://org.webosports.carddavsync.service/onEnabled",
-        "onDelete"  : "palm://org.webosports.carddavsync.service/onDelete",
-        "sync"      : "palm://org.webosports.carddavsync.service/sync",
+        "id"        : "org.webosports.service.contacts.carddav.account",
+        "onCreate"  : "palm://org.webosports.service.contacts.carddav.service/onCreate",
+        "onEnabled" : "palm://org.webosports.service.contacts.carddav.service/onEnabled",
+        "onDelete"  : "palm://org.webosports.service.contacts.carddav.service/onDelete",
+        "sync"      : "palm://org.webosports.service.contacts.carddav.service/sync",
         "loc_name"  : "CardDAV Contacts",
         "dbkinds": {
-                "contact": "org.webosports.carddavsync.contact:1"
+                "contact": "org.webosports.service.contacts.carddav.contact:1"
         }
     }]
 }

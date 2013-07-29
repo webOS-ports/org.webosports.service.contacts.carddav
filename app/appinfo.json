@@ -1,10 +1,10 @@
 {
-	"id": "org.webosports.carddavsync",
+	"id": "org.webosports.service.contacts.carddav",
 	"version": "0.0.1",
 	"vendor": "WebOS Ports - Stefan Schmidt",
 	"type": "web",
 	"main": "index.html",
-	"title": "org.webosports.carddavsync",
+	"title": "org.webosports.service.contacts.carddav",
 	"icon": "images/webos-ports.png",
 	"uiRevision":2
 }

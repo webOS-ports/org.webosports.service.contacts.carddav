@@ -106,7 +106,7 @@ onDeleteAssistant.prototype.run = function(future) {
 
     //..Create query to delete contacts from our extended kind associated with this account
     var args = this.controller.args;
-    var q ={ "query":{ "from":"org.webosports.carddavsync.account:1", "where":[{"prop":"accountId","op":"=","val":args.accountId}] }};
+    var q ={ "query":{ "from":"org.webosports.service.contacts.carddav.account:1", "where":[{"prop":"accountId","op":"=","val":args.accountId}] }};
 
     //...Delete contacts from our extended kind
     PalmCall.call("palm://com.palm.db/", "del", q).then( function(f)
@@ -114,7 +114,7 @@ onDeleteAssistant.prototype.run = function(future) {
         if (f.result.returnValue === true)
         {
            //..Delete our housekeeping/sync data
-           var q2 = {"query":{"from":"org.webosports.carddavsync.transport:1"}};
+           var q2 = {"query":{"from":"org.webosports.service.contacts.carddav.transport:1"}};
            PalmCall.call("palm://com.palm.db/", "del", q2).then( function(f1)
            {
               if (f1.result.returnValue === true)
@@ -161,12 +161,12 @@ onEnabledAssistant.prototype.run = function(future) {
         //...Save initial sync-tracking info. Set "lastSync" to a value that returns all records the first-time
         var acctId = args.accountId;
         var ids = [];
-        var syncRec = { "objects":[{ _kind: "org.webosports.carddavsync.transport:1", "lastSync":"2005-01-01T00:00:00Z", "accountId":acctId, "remLocIds":ids}]};
+        var syncRec = { "objects":[{ _kind: "org.webosports.service.contacts.carddav.transport:1", "lastSync":"2005-01-01T00:00:00Z", "accountId":acctId, "remLocIds":ids}]};
         PalmCall.call("palm://com.palm.db/", "put", syncRec).then( function(f)
         {
             if (f.result.returnValue === true)
             {
-               PalmCall.call("palm://org.webosports.carddavsync.service/", "sync", {}).then( function(f2)
+               PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "sync", {}).then( function(f2)
                {
                   // Here you could schedule additional syncing via the Activity Manager.
                   future.result = f2.result;
