@@ -35,7 +35,8 @@ checkCredentialsAssistant.prototype.run = function(future) {
         }
         else   {
            debug("Password rejected");
-           future.result = {returnValue: false};
+           /* FIXME Returning false should stop the account creation but it does get created. */
+           future.result = {"errorCode": "401_UNAUTHORIZED", "returnValue": false};
         }
      });
 };
@@ -76,6 +77,7 @@ onCreateAssistant.prototype.run = function(future) {
     var B64username = Base64.encode(args.config.username);
     var B64password = Base64.encode(args.config.password);
 
+    /* FIXME Add server URL into config */
     var keystore1 = { "keyname":"AcctUsername", "keydata": B64username, "type": "AES", "nohide":true};
     var keystore2 = { "keyname":"AcctPassword", "keydata": B64password, "type": "AES", "nohide":true};
 
