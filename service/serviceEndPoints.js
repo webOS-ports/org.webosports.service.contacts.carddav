@@ -35,7 +35,6 @@ checkCredentialsAssistant.prototype.run = function(future) {
         }
         else   {
            debug("Password rejected");
-           /* FIXME Returning false should stop the account creation but it does get created. */
            future.result = {"errorCode": "401_UNAUTHORIZED", "returnValue": false};
         }
      });
