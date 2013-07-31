@@ -3,7 +3,7 @@
     "loc_name": "CardDAV Contacts",
     "readPermissions": ["org.webosports.service.contacts.carddav.service"],
     "writePermissions": ["org.webosports.service.contacts.carddav.service"],
-    "validator" : "palm://org.webosports.service.contacts.carddav.service/checkCredentials",
+    "validator" : {"address": "palm://org.webosports.service.contacts.carddav.service/checkCredentials", "customUI":{"appId":"org.webosports.service.contacts.carddav","name":"accountSetup"},},
     "onCapabiltiesChanged" : "palm://org.webosports.service.contacts.carddav.service/onCapabiltiesChanged",
     "onCredentialsChanged" : "palm://org.webosports.service.contacts.carddav.service/onCredentialsChanged",
     "loc_usernameLabel": "Username",

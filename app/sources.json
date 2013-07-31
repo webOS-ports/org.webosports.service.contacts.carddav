@@ -1,8 +1,8 @@
 [
     {   "source": "app/assistants/stage-assistant.js" },
     {
-        "scenes": "first",
-        "source": "app/assistants/first-assistant.js"
+        "scenes": "accountSetup",
+        "source": "app/assistants/account-setup-assistant.js"
     },
     {   "source": "app/models/helpers.js" }
 ]
