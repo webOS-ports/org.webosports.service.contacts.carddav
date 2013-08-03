@@ -10,5 +10,8 @@
    },
    {
       "source":"serviceEndPoints.js"
+   },
+   {
+      "source": "assistants/checkCredentialsAssistant.js"
    }
 ]
