@@ -112,8 +112,7 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 
             template.loc_name = this.account.name;
             this.accountSettings = {
-                //"template":this.params.initialTemplate,
-                "template": initialTemplate,
+                "template": this.params.initialTemplate,
                 "username": this.account.username,
                 "defaultResult": {
                     "result": {
