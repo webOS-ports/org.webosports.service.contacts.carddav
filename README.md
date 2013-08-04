@@ -15,7 +15,7 @@ Roadmap would look roughly like this:
 * Do regular sync with the Activity Manager
 * Implement two way sync
 * Implement addressbook detection with .well-known and DAV magic.
-* Use all this knowledge to implement a caldav connector (or maybe
-  combine both?)
+* Add calDAV support for calendar events
+* Add tasks support via calDAV VTODO items
 
 No timeline is given for this. Pull requests are always welcome.
