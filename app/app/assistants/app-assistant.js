@@ -13,7 +13,6 @@ AppAssistant.prototype.handleLaunch = function(launchParams) {
 	
 	//the following check is necessary to prevent the app from spawning a new stage when custom validator is called from accounts app
   var cardStageController = this.controller.getStageController("stage");
-	console.error("CardStageController:  " + cardStageController);
   if (!cardStageController) {
     this.controller.createStageWithCallback("stage", function(r) { log("Stage created."); r.pushScene({name: "welcome"}); } );
   }
