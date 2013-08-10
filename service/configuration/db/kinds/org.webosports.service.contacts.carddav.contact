@@ -1,0 +1,34 @@
+{
+	"id": "org.webosports.service.contacts.carddav.contact:1",
+	"sync": false,
+	"extends": ["com.palm.contact:1"],
+	"indexes": [
+		{
+			"name": "accountId",
+			"props": [{
+				"name": "accountId"
+			}]
+		},
+		{
+			"name": "accountId_remoteId",
+			"props": [
+				{
+					"name": "accountId"
+				}, {
+					"name": "remoteId"
+				}
+			]
+		},
+		{
+			"name": "accountId_deleted",
+			"incDel": true,
+			"props": [
+				{
+					"name": "accountId"
+				}
+			]
+		},
+		{ "name":"accountIdRevision", "incDel": true, "props": [{"name": "accountId"}, {"name": "_rev"}]},
+		{ "name":"revNumber", "incDel": true, "props": [{"name": "_rev"}]}
+	]
+}
