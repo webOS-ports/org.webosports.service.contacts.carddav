@@ -57,24 +57,23 @@ var CalDav = (function () {
 		}
 		return procRes;
 	}
-
-	function getCTagFromResponse(body) {
+	
+	function getKeyValueFromResponse(body, searchedKey) {
 		var responses = parseResponseBody(body), i, j, prop, key;
 		for (i = 0; i < responses.length; i += 1) {
 			for (j = 0; j < responses[i].propstats.length; j += 1) {
 				prop = responses[i].propstats[j].prop;
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						if (key.indexOf('getctag') >= 0) {
-							log("got ctag: " + prop[key][0]);
+						if (key.indexOf(searchedKey) >= 0) {
 							return prop[key][0];
 						}
 					}
 				}
 			}
-		}
+		}	
 	}
-	
+		
 	function getETags (body) {
 		var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag;
 		for (i = 0; i < responses.length; i += 1) {
@@ -128,7 +127,7 @@ var CalDav = (function () {
 		}
 		
 		if (data.length > 0) {
-			options.headers["Content-Length"] = data.length; //TODO: is that always correct? Have a look in syncml!
+			options.headers["Content-Length"] = data.length;
 		}
 		log("Sending request " + data + " to server.");
 		log("Options: " + JSON.stringify(options));
@@ -179,7 +178,7 @@ var CalDav = (function () {
 	function preProcessOptions(params) {
 		var options = {
 			path: params.path,
-			method: "REPORT",
+			method: "PROPFIND",
 			headers: {
 				Depth: 1, //used for DAV reports.
 				Prefer: "return-minimal", //don't really know why that is.
@@ -195,6 +194,7 @@ var CalDav = (function () {
 	//define public interface
 	return {
 		//configures internal httpClient for new host/port
+		//returns pathname, i.e. the not host part of the url.
 		setHostAndPort: function(inUrl) {
 			var parsedUrl = url.parse(inUrl);
 			
@@ -204,11 +204,13 @@ var CalDav = (function () {
 			
 			serverHost = parsedUrl.hostname;
 			httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
+			
+			return parsedUrl.pathname;
 		},
 		
 		//checks only authorization.
 		//check result.returnValue from feature.
-		//TODO: does not really look at the error message. All codes >= 400 return a false => i.e. auth error.
+		//this does not really look at the error message. All codes >= 400 return a false => i.e. auth error. But also returns status code.
 		checkCredentials: function(params) {
 			var options = preProcessOptions(params), future = new Future();
 			options.method = "GET";
@@ -239,7 +241,7 @@ var CalDav = (function () {
 			future.then(function() {
 				var result = future.result, ctag;
 				if (result.returnValue) {
-					ctag = getCTagFromResponse(result.parsedBody);
+					ctag = getKeyValueFromResponse(result.parsedBody, 'getctag');
 				} else {
 					log("Could not receive ctag.");
 				}
@@ -258,9 +260,8 @@ var CalDav = (function () {
 			
 			//maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
 			//be sure to not delete local objects that are beyond that timerange! ;)
-			//TODO: Hmpf.. why is this different for caldav and carddav? This sucks! :( Does any server really care about that?
-			data = "<c:calendar-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCALENDAR'><c:comp-filter name='VEVENT'></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
 			
+			data = "<c:calendar-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCALENDAR'><c:comp-filter name='VEVENT'></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
 			if (params.cardDav) {
 				 data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
 			}
@@ -340,6 +341,234 @@ var CalDav = (function () {
 			
 			future.nest(sendRequest(options, data));
 						
+			return future;
+		},
+		
+		//discovers folders for contacts and calendars.
+		//future.result will contain array folders.
+		//folders contain uri, resource = contact/calendar/task
+		discovery: function(params) {
+			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = {}, foldersCB;
+			options.method = "PROPFIND";
+			
+			//first get user principal:
+			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
+			future.nest(sendRequest(options, data));
+			future.then(this, function principalDataCB() {
+				var result = future.result, principal;
+				if (result.returnVale === true) {
+					principal = getKeyValueFromResponse(result.parsedBody, 'getctag');
+					options.path = principal;
+					options.headers.Depth = 0;
+					
+					//first try to find calendar homes:
+					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:calendar-home-set /></d:propfind>";
+					future.nest(sendRequest(options, data));
+				} else {
+					//error, stop, return failure.
+					log("Error in getPrincipal: " + JSON.stringify(result));
+					future.result = result;
+				}
+			});
+			
+			future.then(this, function calendarHomeCB() {
+				var result = future.result, home;
+				if (result.returnValue === true) {
+					//look for either calendar- or addressbook-home-set :)
+					home = getKeyValueFromResponse(result.parsedBody, "-home-set");
+					homes.push(home);
+					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:addressbook-home-set /></d:propfind>";
+					
+					folders.calendarHome = home;
+					future.nest(sendRequest(options, data));
+				} else {
+					//error, stop, return failure.
+					log("Error in getCalenderHome: " + JSON.stringify(result));
+					future.result = result;
+				}
+			});
+			
+			future.then(this, function addressbookHomeCB() {
+				var result = future.result, home;
+				if (result.returnValue === true) {
+					//look for either calendar- or addressbook-home-set :)
+					home = getKeyValueFromResponse(result.parsedBody, "-home-set");
+					if (home !== homes[0]) {
+						homes.push(home);
+					} else {
+						log("Homes identical, ignore second one.");
+					}
+					folders.addressbookHome = home;
+
+					//start folder search and consume first folder.
+					future.nest(this.getFolders(params, homes.shif()));
+					future.then(this, folderCB.bind(this));
+				} else {
+					//error, stop, return failure.
+					log("Error in getCalenderHome: " + JSON.stringify(result));
+					future.result = result;
+				}
+			});
+			
+			folderCB = function() {
+				var result = future.result, i, f, fresult = [], key;
+				if (result.returnValue === true) {
+					//prevent duplicates by URI.
+					for (i = 0; i < result.folders.length; i += 1) {
+						f = result.folders[i];
+						folders[f.uri] = f;
+					}
+				
+					if (homes.length > 0) { //if we still have unsearched home-foders, search them:
+						future.nest(this.getFolders(params, homes.shift()));
+						future.then(this, folderCB);
+					} else {
+						future.result = {
+							returnValue: true,
+							folders: fresult,
+							calendarHome: folders.calendarHome,
+							contactHome: folders.addressbookHome
+						};
+						for (key in folders) {
+							if (folders.hasOwnProperty(key)) {
+								fresult.push(folders[key]);
+							}
+						}
+					}
+				} else {
+					log("Error during folder-search: " + JSON.stringify(result));
+					future.result = result;
+				}
+			};
+			
+			return future;
+		},
+		
+		//get's folders below uri. Can filter for addressbook, calendar or tasks.
+		//future.result will contain array folders
+		getFolders: function (params, uri, filter) {
+			var future = new Future(), options = preProcessOptions(params), data, folders,
+				getResourceType = function(rt) {
+					var key, unspecCal = false;
+					for (key in rt) {
+						if (rt.hasOwnProperty(key)) {
+							if (key.indexOf('vevent-collection') >= 0) {
+								return "calendar";
+							} 
+							if (key.indexOf('vcard-collection') >= 0 || key.indexOf('addressbook') >= 0) {
+								return "contact";
+							}
+							if (key.indexOf('vtodo-collection') >= 0) {
+								return "tasks";
+							}
+							if(key.indexOf('calendar') >= 0) {
+								//issue: calendar can be todo or calendar.
+								unspecCal = true;
+							}
+						}
+					}	
+					
+					if (unspecCal) {
+						//if only found "calendar" must decide by supported components:
+						return "calendar_tasks";
+					}
+					return "ignore";
+				},
+
+				parseSupportedComponents = function(xmlComp) {
+					var key, comps = [], array, i;
+					for (key in xmlComp) {
+						if (xmlComp.hasOwnProperty(key)) {
+							if (key.indexOf('comp') >= 0) { //found list of components
+								array = xmlComp[key];
+								for (i = 0; i < array.length; i += 1) {
+									comps.push(array[i].$.name);
+								}
+								break;
+							}
+						}
+					}
+					return comps;
+				},
+
+				decideByComponents = function (supComp) {
+					var i, calHint = 0, taskHint = 0;
+					if (supComp) {
+						for (i = 0; i < supComp.length; i += 1) {
+							if (supComp[i] === "VEVENT") {
+								calHint += 1;
+							} else if (supComp[i] === "VTODO") {
+								taskHint += 1;
+							}
+						}
+					}
+
+					if (taskHint > calHint) {
+						return "task";
+					}
+					return "calendar"; //if don't have information, try calendar.. ;)
+				},
+
+				getFolderList = function(body) {
+					var responses = parseResponseBody(body), i, j, prop, key, folders = [], folder;
+					for (i = 0; i < responses.length; i += 1) {
+						folder = {
+							uri: responses[i].href
+						};
+						for (j = 0; j < responses[i].propstats.length; j += 1) {
+							prop = responses[i].propstats[j].prop;
+							for (key in prop) {
+								if (prop.hasOwnProperty(key)) {
+									if (key.indexOf('displayname') >= 0) {
+										folder.name = prop[key][0];
+									} else if (key.indexOf('resourcetype') >= 0) {
+										folder.resource = getResourceType(prop[key][0]);
+									} else if (key.indexOf('supported-calendar-component-set') >= 0) {
+										folder.supportedComponents = parseSupportedComponents(prop[key][0]);
+									} else if (key.indexOf('getctag') >= 0) {
+										folder.ctag = prop[key][0];
+									}
+								}
+							}
+							if (folder.resource === "calendar_tasks") {
+								folder.resource = decideByComponents(folder.supportedComponents);
+							}
+							//delete supportedComponents;
+							if (!filter || folder.resource === filter) {
+								folders.push(folder);
+							}
+						}
+					}
+					log("Got folders: ");
+					for (i = 0; i < folders.length; i += 1) {
+						log(JSON.stringify(folders[i]));
+					}
+					return folders;
+				};
+			
+			options.headers.Depth = 1;
+			options.path = uri;
+			
+			data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
+			if (params.cardDav) {
+				data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
+			}
+			future.nest(sendRequest(options, data));
+			
+			future.then(this, function foldersCB() {
+				var result = future.result;
+				if (result.returnValue === true) {
+					folders = getFolderList(result.parsedBody);
+					future.result = {
+						returnValue: true,
+						folders: folders
+					};
+				} else {
+					log("Error during getFolders: " + JSON.stringify(result));
+					future.resul = result;
+				}
+			});
+			
 			return future;
 		}
 	};	

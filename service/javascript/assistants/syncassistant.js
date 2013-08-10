@@ -39,6 +39,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			postfix = ".vcf";
 			prefix = "/egroupware/groupdav.php/Achim/addressbook/";
 		} else {
+			//can we create calendars on server? I don't think we'll try very soon.
 			throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
 		}
 
@@ -56,6 +57,27 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("--------------> transformation type: " + name + "for kind: " + kindName + "\n");
 		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
 			return this._getObjectTransformer(name);
+		}
+		
+		if (kindName === Kinds.object.calendar.name) {
+			if (name === "remote2local") {
+				return function(to, from) {
+					log("Transform calendar.");
+					log("From: " + JSON.stringify(from));
+					log("To: " + JSON.stringify(to));
+					
+					to.accountId = this.client.accountId;
+					to.color = "purple"; //yes, I'm purple. :P
+					to.excludeFromAll = false;
+					to.isReadOnly = from.isReadOnly; //we might want to get that from webdav?
+					to.name = from.name;
+					to.syncSource = "CalDav";
+					to.UID = from.uri;
+					to.uri = from.uri;
+				};
+			}
+			//can only downsync calendars.
+			return undefined;
 		}
 		
 		throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
@@ -130,7 +152,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getRemoteId: function (obj, kindName) {
 		log("\n\n**************************SyncAssistant:getRemoteID*****************************");
 		
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name
+				|| kindName === Kinds.objects.calendar.name) {
 			log("obj.uri: " + obj.uri);
 			return obj.uri; //use uri, it is unique and constant.
 		}
@@ -145,7 +168,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	isDeleted: function (obj, kindName) {
 		//log("\n\n**************************SyncAssistant:isDeleted*****************************");
 
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name
+				|| kindName === Kinds.objects.calendar.name) {
 			if (obj && obj.doDelete) {
 				return true;
 			}
@@ -166,46 +190,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 */
 	getRemoteChanges: function (state, kindName) {
 		log("\n\n**************************SyncAssistant:getRemoteChanges*****************************");
-
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
-			return this._getRemoteChanges(state, kindName);
-		}
-		
-		throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
-	},
-	
-	/*
-	 * First checks ctag of collection, then checks etag of single entries.
-	 * If it changed, we also get the object and transfer it into webos datatype,
-	 * because that is not possible later.
-	 * ctag and etag is the same for caldav and carddav. Changes are only with objects.
-	 */
-	_getRemoteChanges: function (state, kindName) {
-		log("\n\n**************************SyncAssistant:_getRemoteChanges*****************************");
-		var future = new Future(),
-			savedTransportObject = this.client.transport;
-		//TODO: get calendar URL somewhere from DB..? ;) Best would be to find calendar url from general url and save in this.client.
-
-		if (savedTransportObject && savedTransportObject.config) {
-			log("Initializing CalDav connector for " + savedTransportObject.config.url);
-			CalDav.setHostAndPort(savedTransportObject.config.url);
-		} else {
-			throw new Error("No config stored. Can't determine URL, no sync possible.");
-		}
-		
-		if (!this.client.userAuth) {
-			throw new Error("No userAuth information. Something wrong with keystore. Can't authenticate with server.");
-		}
-		
-		this.params = { authToken: this.client.userAuth.authToken };
-		
-		if (kindName === Kinds.objects.contact.name) {
-				this.params.path = feedURLContacts;
-				this.params.cardDav = true;
-			} else if (kindName === Kinds.objects.calendarevent.name) {
-				this.params.path = feedURLCalendar;
-			}
-			
+		var savedTransportObject = this.client.transport, path;
 		
 		if (!savedTransportObject) {
 			savedTransportObject = {};
@@ -216,18 +201,87 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (!savedTransportObject.syncKey) {
 			savedTransportObject.syncKey = {};
 		}
-		//TODO: remove that after next emulator reset.. ;)
-		delete savedTransportObject.syncKey.localEtags;
-		delete savedTransportObject.syncKey.ctag;
-		delete savedTransportObject.syncKey.next_ctag;
+		
+		if (!savedTransportObject.syncKey[kindName]) {
+			savedTransportObject.syncKey[kindName] = {};
+		}
+		
+		if (savedTransportObject && savedTransportObject.config) {
+			log("Initializing CalDav connector for " + savedTransportObject.config.url);
+			path = CalDav.setHostAndPort(savedTransportObject.config.url);
+		} else {
+			throw new Error("No config stored. Can't determine URL, no sync possible.");
+		}
+		
+		if (!this.client.userAuth) {
+			throw new Error("No userAuth information. Something wrong with keystore. Can't authenticate with server.");
+		}
+		
+		this.params = { authToken: this.client.userAuth.authToken, path: path };
 
+		
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+			return this._getRemoteChanges(state, kindName);
+		}
+		if (kindName === Kinds.objects.calendar.name) {
+			return this._getRemoteCollectionChanges(state, kindName);
+		}
+		
+		throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
+	},
+	
+	/*
+	 * Get remote changes in calendars.. i.e. if calendars were removed or added.
+	 */
+	_getRemoteCollectionChanges: function (state, kindName) {
+		var future = new Future(), folders = this.client.transport.config[kindName].folders,
+			home = this.client.transport.config[kindName].homeFolder,
+			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact";
+		
+		log("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
+		
+		future.nest(CalDav.getFolders(this.params, home, filter));
+		future.then(this, function foldersCB() {
+			var result = future.result, rFolders = result.folders;
+			
+			if (result.returnValue === true) {
+				log("Got " + rFolders.length + " remote folders, comparing them to " + folders.length + " local ones.");
+				future.result = {
+					more: false,
+					entries: this._parseEtags(folders, rFolders) //etags will be undefined for both. But that is fine. Just want to compare uris.
+				};
+			} else {
+				log("Could not get remote collection. Skipping down sync.");
+				future.result = {
+					more: false,
+					entries: []
+				};
+			}
+		});
+	},
+	
+	/*
+	 * First checks ctag of collection, then checks etag of single entries.
+	 * If it changed, we also get the object and transfer it into webos datatype,
+	 * because that is not possible later.
+	 * ctag and etag is the same for caldav and carddav. Changes are only with objects.
+	 */
+	_getRemoteChanges: function (state, kindName) {
+		log("\n\n**************************SyncAssistant:_getRemoteChanges*****************************");
+		var future = new Future(), folders = this.client.transport.config[kindName].folders, 
+			index = this.client.transport.syncKey[kindName].folderIndex,
+			folder = folders[index];
+		
+		this.params.path = folder.uri;
+		if (kindName === Kinds.objects.contact.name) {
+			this.params.cardDav = true;
+		}
+		
+		log("Starting sync for " + folder.name + ".");
+		
 		future.now(this, function() {
-			this.params.ctag = (savedTransportObject &&	savedTransportObject.syncKey 
-								&& savedTransportObject.syncKey[kindName] && savedTransportObject.syncKey[kindName].ctag) || 0;
-			//log("Read last ctag from transport obj:" + this.params.ctag);
-			//log("SavedTransportObject: " + JSON.stringify(savedTransportObject));
-
-			future.nest(CalDav.checkForChanges(this.params)); 
+			this.params.ctag = folder.ctag || 0;
+			future.nest(CalDav.checkForChanges(this.params));
 		}); 
 		
 		//called from success callback, if needs update, determine which objects to update
@@ -236,19 +290,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			log("------------- Got need update response: " + result.needsUpdate);
 			
 			if (result.needsUpdate) {
-			//save ctag for later.
-			if (!savedTransportObject.syncKey[kindName]) {
-					savedTransportObject.syncKey[kindName] = {};
-				}
-				savedTransportObject.syncKey[kindName].next_ctag = result.ctag;
 
 				//download etags and possibly data
 				future.nest(this._doUpdate(kindName));
+				future.then(this, function updateCB() {
+					var result = future.result;
+					result.more = index < folders.length;
+					future.result = result;
+					
+					log("Sync for folder " + folder.name + " finished.");
+					
+					//save ctag to fastly determine if sync is necessary at all.
+					folder.ctag = result.ctag;
+				});
 			} else { 
 				//we don't need an update, tell sync engine that we are finished.
 				log("Don't need update. Return empty set.");
 				future.result = {
-					more: false, 
+					more: index < folders.length,
 					entries: []
 				};
 			}
@@ -327,34 +386,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 				//now download object data and transfer it into webos datatypes.
 				future.nest(this._downloadData(kindName, entries, 0));
-				
-				//if all went well, store ctag in client.transport.
-				future.then(this, function () {
-					var result = future.result;
-					//remote to local mapping is done by framework. Yeah.. so just save our stuff here:
-					if (this.client.transport && this.client.transport.syncKey) {
-						if (!this.client.transport.syncKey[kindName]) {
-							this.client.transport.syncKey[kindName] = {};
-						}
-						//save ctag to fastly determine if sync is necessary at all.
-						this.client.transport.syncKey[kindName].ctag = this.client.transport.syncKey[kindName].next_ctag; 
-					}
-					
-					future.result = result; //just transfer results to outer future.
-				});
 			}
 		});
 		return future;
 	},
 
 	/*
-	 * Finds an {etag, uri} object by uri.
+	 * Finds an form an array by uri.
+	 * Used for etag directories and collections.
 	 */
-	_findEtag: function(uri, etags) {
+	_findMatch: function(uri, objs) {
 		var i;
-		for (i = 0; i < etags.length; i += 1) {
-			if (etags[i].uri === uri) {
-				return etags[i];
+		for (i = 0; i < objs.length; i += 1) {
+			if (objs[i].uri === uri) {
+				return objs[i];
 			}
 		}
 	},
@@ -363,7 +408,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * just parses the local & remote etag lists and determines which objects to add/update or delete.
 	 */
 	_parseEtags: function(remoteEtags, localEtags) {
-	var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0};
+		var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0};
 		log("Got local etags: " + localEtags.length);
 		log("Got remote etags: " + remoteEtags.length);
 
@@ -379,7 +424,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			l = localEtags[i];
 			//log("Finding match for " + JSON.stringify(l));
 			found = false;
-			r = this._findEtag(l.uri, remoteEtags);
+			r = this._findMatch(l.uri, remoteEtags);
 			
 			if (r) {
 				//log("Found match: " + JSON.stringify(r));
@@ -501,11 +546,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			results.push({uri: remoteIds[i]});
 		}
 
-		log("Incomming remoteIds: " + remoteIds.length);
-		log("Sending remote matches: " + results.length);
-		
 		future.result = results;
-		
 		return future;
 	},
 		
