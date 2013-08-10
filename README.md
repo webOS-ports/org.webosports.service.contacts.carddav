@@ -6,8 +6,6 @@ Node.js service to provide synergy connector for carddav.
 In its current status it is non-functional.
 
 Roadmap would look roughly like this:
-* Use knowledge from SyncML connector to setup a custom validator with
-  username, password and URL input fields.
 * Choose a webdav client lib for node to get a file listing in the
   addressbook folder.
 * Parse the vards with one of the available vcard parsers out there

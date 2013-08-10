@@ -1,0 +1,7 @@
+0.1.0:
+	o Initial version (Not functional yet).
+	o Synergy account connector based on Plaxo example from HP documentation.
+	o Custom validator UI scene to allow an URL input field and maybe more options later.
+
+2013-08-10: Stefan Schmidt <stefan@datenfreihafen.org>
+

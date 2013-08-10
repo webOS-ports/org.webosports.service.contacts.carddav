@@ -1,6 +1,6 @@
 {
 	"id": "org.webosports.service.contacts.carddav.app",
-	"version": "0.0.1",
+	"version": "0.1.0",
 	"vendor": "WebOS Ports - Stefan Schmidt",
 	"type": "web",
 	"main": "index.html",
