@@ -1,7 +1,0 @@
-{
-    "id": "org.webosports.service.contacts.carddav.transport:1",
-    "indexes": [{
-       "name": "lastSync",
-       "props": [{ "name": "lastSync"}]}
-       ]
-}

@@ -1,8 +1,0 @@
-{
-    "id": "org.webosports.service.contacts.carddav.contact:1",
-    "sync": true,
-    "indexes": [{
-       "name": "accountId",
-       "props": [{ "name": "accountId"}]}],
-    "extends": ["com.palm.contact:1"]
-}
