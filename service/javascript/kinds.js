@@ -19,7 +19,12 @@ var Kinds = {
             identifier: "org.webosports.service.contacts.carddav.contact",
             id: "org.webosports.service.contacts.carddav.contact:1",
             //metadata_id: "org.webosports.service.contacts.carddav.contact.transport:1" //see above.
-        }
+        },
+		task: {
+			name: "task",
+			identifier: "org.webosports.service.contacts.carddav.task",
+			id: "org.webosports.service.contacts.carddav.task:1"
+		}
     },
     account: {
         id: "com.palm.account:1",
@@ -29,5 +34,6 @@ var Kinds = {
 
 Kinds.syncOrder = [
     Kinds.objects.contact.name,
-    //Kinds.objects.calendarevent.name
+	Kinds.objects.calendar.name,
+    Kinds.objects.calendarevent.name
 ];
