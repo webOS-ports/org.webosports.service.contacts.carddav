@@ -1,0 +1,13 @@
+{
+	"id": "org.webosports.service.contacts.carddav.contactset:1",
+	"sync": false,
+	"indexes": [{"name": "accountId", "props": [{"name": "accountId"}]},
+	{
+		"name": "accountId_remoteId",
+		"props": [{
+			"name": "accountId"
+		}, {
+			"name": "remoteId"
+		}]
+	}]
+}
