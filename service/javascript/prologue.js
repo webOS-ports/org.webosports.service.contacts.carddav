@@ -36,18 +36,11 @@ var xml2js = require('xml2js');
 
 console.error("--------->Loaded Libraries OK");
 
-//TODO: REALLY get rid of that.. ;)
-//TODO: especially find calendar and addressbook url(s) from server url.
-//use SSL when doing basic authentication over HTTP!
-var feedURLCalendar = "/egroupware/groupdav.php/CalDav/calendar/"; //used to get contacts - adjust if getting large result count
-var feedURLContacts = "/egroupware/groupdav.php/CalDav/addressbook/";
-var feedHost = "garfonso.darktech.org";
-
 var log = function (msg) {
 	console.error(msg);
-}
+};
 
 /* Simple debug function to print out to console error */
 var debug = function (msg) {
 	console.error(msg);
-}
+};
