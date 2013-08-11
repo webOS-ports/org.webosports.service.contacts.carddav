@@ -9,22 +9,26 @@ var Kinds = {
 		calendar: {
 			name: "calendar",
 			identifier: "org.webosports.service.contacts.carddav.calendar",
-			id: "org.webosports.service.contacts.carddav.calendar:1"
+			id: "org.webosports.service.contacts.carddav.calendar:1",
+			connected_kind: "calendarevent"
 		},
         calendarevent: {
             name: "calendarevent",
             identifier: "org.webosports.service.contacts.carddav.calendarevent",
-            id: "org.webosports.service.contacts.carddav.calendarevent:1"
+            id: "org.webosports.service.contacts.carddav.calendarevent:1",
+			connected_kind: "calendar"
         },
 		contactset: {
 			name: "contactcollection",
 			identifier: "org.webosports.service.contacts.carddav.contactset",
-			id: "org.webosports.service.contacts.carddav.contactset:1"
+			id: "org.webosports.service.contacts.carddav.contactset:1",
+			connected_kind: "contact"
 		},
         contact: {
             name: "contact",
             identifier: "org.webosports.service.contacts.carddav.contact",
-            id: "org.webosports.service.contacts.carddav.contact:1"
+            id: "org.webosports.service.contacts.carddav.contact:1",
+			connected_kind: "contactset"
         },
 		task: {
 			name: "task",
