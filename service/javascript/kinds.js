@@ -3,6 +3,9 @@ Contains global kinds references - NOT USED BY CONFIGURATOR
 *************************************************************/
 var Kinds = {
     objects: {
+		//all those could also have a metadata_id field. We don't use that.
+		//if one wants to store more transport data, one can create another DB kind
+		//and put that into the metadata_id field.
 		calendar: {
 			name: "calendar",
 			identifier: "org.webosports.service.contacts.carddav.calendar",
@@ -11,14 +14,17 @@ var Kinds = {
         calendarevent: {
             name: "calendarevent",
             identifier: "org.webosports.service.contacts.carddav.calendarevent",
-            id: "org.webosports.service.contacts.carddav.calendarevent:1",
-            //metadata_id: "org.webosports.service.contacts.carddav.calendarevent.transport:1" //not used right now. uri & etag are stored in objects directly
+            id: "org.webosports.service.contacts.carddav.calendarevent:1"
         },
+		contactset: {
+			name: "contactcollection",
+			identifier: "org.webosports.service.contacts.carddav.contactset",
+			id: "org.webosports.service.contacts.carddav.contactset:1"
+		},
         contact: {
             name: "contact",
             identifier: "org.webosports.service.contacts.carddav.contact",
-            id: "org.webosports.service.contacts.carddav.contact:1",
-            //metadata_id: "org.webosports.service.contacts.carddav.contact.transport:1" //see above.
+            id: "org.webosports.service.contacts.carddav.contact:1"
         },
 		task: {
 			name: "task",
