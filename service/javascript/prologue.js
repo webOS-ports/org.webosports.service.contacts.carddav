@@ -49,9 +49,16 @@ var createLocks = {};
 var lockCreateAssistant = function(accountId) {
 	debug("Locking account " + accountId + " for creation.");
 	if (createLocks[accountId]) {
+		debug("Already locked: " + JSON.stringify(createLocks));
 		return false;
 	} else {
 		createLocks[accountId] = true;
 		return true;
 	}
+};
+
+var unlockCreateAssistant = function(accountId) {
+	debug("Unlocking account " + accountId);
+	delete createLocks[accountId];
+	debug("Locks now are: " + JSON.stringify(createLocks));
 };
