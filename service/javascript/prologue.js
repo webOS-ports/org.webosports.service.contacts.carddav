@@ -44,3 +44,14 @@ var log = function (msg) {
 var debug = function (msg) {
 	console.error(msg);
 };
+
+var createLocks = {};
+var lockCreateAssistant = function(accountId) {
+	debug("Locking account " + accountId + " for creation.");
+	if (createLocks[accountId]) {
+		return false;
+	} else {
+		createLocks[accountId] = true;
+		return true;
+	}
+};
