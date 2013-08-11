@@ -1,10 +1,10 @@
-/*global Class, Sync, Future, log, CalDav, Kinds */
+/*global Class, Sync, Future, log, CalDav, Kinds, unlockCreateAssistant, lockCreateAssistant, debug */
 
 var OnCreate = Class.create(Sync.CreateAccountCommand,
 {
 	run: function(outerFuture)
 	{
-		var future = new Future();
+		var future = new Future(), lockCheck;
 		if (lockCreateAssistant(this.client.clientId)) {
 			future.nest(this.handler.createAccount());
 		
@@ -40,12 +40,20 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 				config[Kinds.objects.calendar.name] = {
 					folders: [{
 						name: "Calendar Home",
-						uri: result.calendarHome
+						uri: result.calendarHome,
+						remoteId: result.calendarHome
 					}]
 				};
 				config[Kinds.objects.contact.name] = {
 					folders: [],
 					homeFolder: result.contactHome
+				};
+				config[Kinds.objects.contactset.name] = {
+					folders: [{
+						name: "Contact Home",
+						uri: result.contactHome,
+						remoteId: result.contactHome
+					}]
 				};
 				config[Kinds.objects.task.name] = {
 					folders: []
@@ -57,13 +65,13 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 						f = result.folders[i];
 						switch(f.resource) {
 							case "calendar":
-								config[Kinds.objects.calendarevent.name].folders.push({uri: f.uri, name: f.name});
+								config[Kinds.objects.calendarevent.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
 								break;
 							case "contact":
-								config[Kinds.objects.contact.name].folders.push({uri: f.uri, name: f.name});
+								config[Kinds.objects.contact.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
 								break;
 							case "task":
-								config[Kinds.objects.task.name].folders.push({uri: f.uri, name: f.name});
+								config[Kinds.objects.task.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
 								break;
 							default:
 								log("Discovery confused. Don't know resource type " + f.resource);
@@ -80,10 +88,22 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 			future.then(this, function storeCB() {
 				var result = future.result;
 				debug("Store came back: " + JSON.stringify(result));
+				unlockCreateAssistant(this.client.clientId);
 				outerFuture.result = {};
 			});
 		} else { //other create assistant already running. Prevent multiple account objects. 
 			log("Another create assistant is already running. Stopping.");
+			
+			lockCheck = function() {
+				if (lockCreateAssistant(this.client.clientId)) {
+					unlockCreateAssistant(this.client.clientId);
+					outerFuture.result = {};
+				} else {
+					setTimeout(lockCheck.bind(this), 1000);
+				}
+			};
+			
+			setTimeout(lockCheck.bind(this), 1000);
 		}
 	}
 });
