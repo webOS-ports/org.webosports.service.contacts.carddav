@@ -474,7 +474,7 @@ var CalDav = (function () {
 								return "contact";
 							}
 							if (key.indexOf('vtodo-collection') >= 0) {
-								return "tasks";
+								return "task";
 							}
 							if(key.indexOf('calendar') >= 0) {
 								//issue: calendar can be todo or calendar.
@@ -528,7 +528,8 @@ var CalDav = (function () {
 					var responses = parseResponseBody(body), i, j, prop, key, folders = [], folder;
 					for (i = 0; i < responses.length; i += 1) {
 						folder = {
-							uri: responses[i].href
+							uri: responses[i].href,
+							remoteId: responses[i].href
 						};
 						for (j = 0; j < responses[i].propstats.length; j += 1) {
 							prop = responses[i].propstats[j].prop;
