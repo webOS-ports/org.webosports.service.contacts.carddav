@@ -19,7 +19,7 @@ var Kinds = {
 			connected_kind: "calendar"
         },
 		contactset: {
-			name: "contactcollection",
+			name: "contactset",
 			identifier: "org.webosports.service.contacts.carddav.contactset",
 			id: "org.webosports.service.contacts.carddav.contactset:1",
 			connected_kind: "contact"
@@ -43,6 +43,7 @@ var Kinds = {
 };
 
 Kinds.syncOrder = [
+	Kinds.objects.contactset.name,
     Kinds.objects.contact.name,
 	Kinds.objects.calendar.name,
     Kinds.objects.calendarevent.name
