@@ -18,14 +18,14 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			//for testing only - will expose credentials to log file if left open
 			//debug("\n------------------->accountId:"+JSON.stringify(accountid));
 			//debug("\n------------------->launchConfig"+JSON.stringify(launchConfig));
-			//debug"\n------------------->launchArgs"+JSON.stringify(launchArgs));
+			//debug("\n------------------->launchArgs"+JSON.stringify(launchArgs));
 			log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
 	
 			//this seems necessary for super class constructor during checkCredentials calls.
 			this.accountId = launchArgs.accountId || "";
 			
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
-			if (launchArgs.config && launchArgs.config.isModified) {
+			if (launchArgs.config) {
 				this.config = {
 					name: launchArgs.config.name,
 					url:  launchArgs.config.url
