@@ -32,46 +32,34 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 			});
 			
 			future.then(this, function discoverCB() {
-				var result = future.result, i, f, config = this.client.transport.config;
+				var result = future.result, i, f, config = this.client.transport.config, syncKey = {};
 				config[Kinds.objects.calendarevent.name] = {
-					folders: [],
 					homeFolder: result.calendarHome
 				};
-				config[Kinds.objects.calendar.name] = {
-					folders: [{
-						name: "Calendar Home",
-						uri: result.calendarHome,
-						remoteId: result.calendarHome
-					}]
-				};
 				config[Kinds.objects.contact.name] = {
-					folders: [],
 					homeFolder: result.contactHome
 				};
-				config[Kinds.objects.contactset.name] = {
-					folders: [{
-						name: "Contact Home",
-						uri: result.contactHome,
-						remoteId: result.contactHome
-					}]
-				};
-				config[Kinds.objects.task.name] = {
-					folders: []
-					//no home for tasks
-				};
+				
+				for (i in Kinds.objects) {
+					if (Kinds.objects.hasOwnProperty(i)) {
+						syncKey[Kinds.objects[i].name] = {
+							folders: []
+						};
+					}
+				}
 				
 				if (result.returnValue === true) {
 					for (i = 0; i < result.folders.length; i += 1) {
 						f = result.folders[i];
 						switch(f.resource) {
 							case "calendar":
-								config[Kinds.objects.calendarevent.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
+								syncKey[Kinds.objects.calendarevent.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
 								break;
 							case "contact":
-								config[Kinds.objects.contact.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
+								syncKey[Kinds.objects.contact.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
 								break;
 							case "task":
-								config[Kinds.objects.task.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
+								syncKey[Kinds.objects.task.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
 								break;
 							default:
 								log("Discovery confused. Don't know resource type " + f.resource);
