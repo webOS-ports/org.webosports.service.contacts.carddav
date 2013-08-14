@@ -2,6 +2,7 @@
  * SyncAssistant
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
+/*jslint node: true, nomen: true, sloppy: true */
 /*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB */
  
 var SyncAssistant = Class.create(Sync.SyncCommand, {
@@ -26,7 +27,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		var i;
 		for (i = uri.length - 1; i >= 0; i -= 1) {
 			if (uri.charAt(i) === '/') {
-				return uri.substring(i+1);
+				return uri.substring(i + 1);
 			}
 		}
 		return uri; //fallback
@@ -35,28 +36,59 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
 	 * This is needed during upsync. This will become the input for the local2remote transformer
 	 * on the remote side... I think we just return an empty object with a new uri here. 
-	 * Also I am not sure if we really need to download remote objects in getRemoteMatches... shouldn't it be
-	 * sufficient to just generate the ical/vcard?
-	 * I guess that is the case as long as we can handle all fields... :)
+	 * Also this object can augment a local/remote object pair with an uri. I'm not sure why that
+	 * can happen. Maybe transformer produced that sometimes.
 	 */
-	getNewRemoteObject: function(kindName) {
+	getNewRemoteObject: function (kindName, obj) {
 		log("\n\n**************************SyncAssistant: getNewRemoteObject*****************************");
-		var postfix, uri, prefix, remoteId;
+		var postfix, uri, prefix, remoteId, result, i;
+		
+		if (!obj) {
+			obj = {};
+		}
+		
+		if (obj.local.calendarId) {
+			for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
+				if (this.client.transport.syncKey[kindName].folders[i].collectionId === obj.local.calendarId) {
+					prefix = this.client.transport.syncKey[kindName].folders[i].uri;
+					break;
+				}
+			}
+		}
+		
+		if (!prefix) {
+			prefix = this.client.transport.syncKey[kindName].folders[0].uri; //if non collection yet, use first folder.
+		}
+		
+		if (prefix.charAt(prefix.length - 1) !== '/') {
+			prefix += "/";
+		}
+		
+		if (obj.remote.remoteId) {
+			remoteId = obj.remote.remoteId;
+		} else if (obj.local.remoteId) {
+			remoteId = obj.local.remoteId;
+		}
+		
 		if (kindName === Kinds.objects.calendarevent.name) {
 			postfix = ".ics";
-			prefix = "/egroupware/groupdav.php/Achim/calendar/";
 		} else if (kindName === Kinds.objects.contact.name) {
 			postfix = ".vcf";
-			prefix = "/egroupware/groupdav.php/Achim/addressbook/";
 		} else {
 			//can we create calendars on server? I don't think we'll try very soon.
 			throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
 		}
 
-		//generate a random uri.
-		remoteId = "webos-" + Date.now() + postfix; //uses timestamp in miliseconds since 1970 
+		if (!remoteId) {
+			//generate a random uri.
+			remoteId = "webos-" + Date.now() + postfix; //uses timestamp in miliseconds since 1970 
+		}
 		uri = prefix + remoteId;
-		return { uri: uri, remoteId: remoteId, add: true };
+		result = { uri: uri, remoteId: remoteId, add: true };
+		obj.uri = uri;
+		obj.remoteId = remoteId;
+		debug("Result: " + JSON.stringify(result));
+		return result;
 	},
 
 	/*
@@ -70,7 +102,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		
 		if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
 			if (name === "remote2local") {
-				return function(to, from) {					
+				return function (to, from) {
 					to.accountId = this.client.clientId;
 					to.color = "purple"; //yes, I'm purple. :P
 					to.excludeFromAll = false;
@@ -139,14 +171,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback. Hm.
 					//empty method. Work will be done later.
 					debug("Transforming " + JSON.stringify(from));
-					to.etag = from.etag;
-					to.uri = from.uri;
-					to._id = from._id;
+					if (!to.add) {
+						if (from.etag) {
+							to.etag = from.etag;
+						}
+						if (from.uri) {
+							to.uri = from.uri;
+						}
+						if (from._id) {
+							to._id = from._id;
+						}
+						if (from.remoteId) {
+							to.remoteId = from.remoteId;
+						}
+					}
 					
 					debug("Result: " + JSON.stringify(to));
 					
 					return true;
-				};			
+				};
 			}
 			
 			//upsync disabled:
@@ -272,9 +315,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 */
 	_getRemoteCollectionChanges: function (state, kindName) {
 		log("\n\n**************************SyncAssistant:_getRemoteCollectionChanges*****************************");
-		var future = new Future(), 
+		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
-			home = this.client.transport.config[subKind].homeFolder, 
+			home = this.client.transport.config[subKind].homeFolder,
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 		
@@ -332,7 +375,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 */
 	_getRemoteChanges: function (state, kindName) {
 		log("\n\n**************************SyncAssistant:_getRemoteChanges*****************************");
-		var future = new Future(), folders = this.client.transport.syncKey[kindName].folders, 
+		var future = new Future(), folders = this.client.transport.syncKey[kindName].folders,
 			index = this.client.transport.syncKey[kindName].folderIndex || 0,
 			nextIndex = index + 1, //just for convinience
 			folder = folders[index];
@@ -362,10 +405,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		debug("Starting sync for " + folder.name + ".");
 		this.client.transport.syncKey[kindName].error = true;
 		future.nest(this._initCollectionId(kindName));
-		future.then(this, function() {
+		future.then(this, function () {
 			this.params.ctag = this.client.transport.syncKey[kindName].folders[index].ctag || 0;
 			future.nest(CalDav.checkForChanges(this.params));
-		}); 
+		});
 		
 		//called from success callback, if needs update, determine which objects to update
 		future.then(this, function handleDoNeedSyncResponse() {
@@ -390,7 +433,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					this.client.transport.syncKey[kindName].error = false;
 					this.client.transport.syncKey[kindName].folderIndex = nextIndex;
 				});
-			} else { 
+			} else {
 				//we don't need an update, tell sync engine that we are finished.
 				log("Don't need update. Return empty set.");
 				this.client.transport.syncKey[kindName].error = false;
@@ -402,7 +445,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		});
 			
-		return future; 
+		return future;
 	},
 	
 	/*
@@ -449,12 +492,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * database objects (i.e. with the contact or calendarevent). 
 	 * It will return a future wich has the array of { etag, uri } objects as result.results field.
 	 */
-	_getLocalEtags: function(kindName) {
+	_getLocalEtags: function (kindName) {
 		var query =
 			{
 				from: Kinds.objects[kindName].id,
+				//we could filter for calendarId here. Issue is that we then get adds, if
+				//collections overlap, i.e. if events/contacts are in multiple collections on the server
+				//at the same time.
 				where: [ { prop: "accountId", op: "=", val: this.client.clientId } ],
-				select: ["etag", "remoteId", "_id", "uri"]
+				select: ["etag", "remoteId", "_id", "uri", "calendarId"]
 			};
 		return DB.find(query, false, false);
 	},
@@ -462,8 +508,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
 	 * Initializes the collectionId for subKinds (i.e. calendarevent and contacts) from local database.
 	 */
-	_initCollectionId: function(kindName) {
-		var future = new Future(), 
+	_initCollectionId: function (kindName) {
+		var future = new Future(),
 			folderIndex = this.client.transport.syncKey[kindName].folderIndex,
 			uri = this.client.transport.syncKey[kindName].folders[folderIndex].uri,
 			query = {
@@ -480,6 +526,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (dbFolder) {
 					debug("Setting collectionId to " + dbFolder._id);
 					this.client.transport.syncKey[kindName].folders[folderIndex].collectionId = dbFolder._id;
+					this.currentCollectionId = dbFolder._id;
 					future.result = { returnValue: true };
 				} else {
 					throw new Error("No lokal id for folder " + uri);
@@ -563,7 +610,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Finds an form an array by remoteId.
 	 * Used for etag directories and collections.
 	 */
-	_findMatch: function(remoteId, objs) {
+	_findMatch: function (remoteId, objs) {
 		var i;
 		for (i = 0; i < objs.length; i += 1) {
 			if (objs[i].remoteId === remoteId) {
@@ -576,7 +623,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
 	 * just parses the local & remote etag lists and determines which objects to add/update or delete.
 	 */
-	_parseEtags: function(remoteEtags, localEtags, key) {
+	_parseEtags: function (remoteEtags, localEtags, key) {
 		var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0};
 		log("Got local etags: " + localEtags.length);
 		log("Got remote etags: " + remoteEtags.length);
@@ -617,9 +664,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				//not found => deleted on server.
 				if (!found) {
 					//log("Not found => must have been deleted.");
-					l.doDelete = true;
-					stats.del += 1;
-					entries.push(l);
+					
+					//only delete if object is in same collection.
+					if (l.calendarId && l.calendarId === this.currentCollectionId) {
+						debug(l.remoteId + " was not found on server, but is in another collection locally. Do not delete.");
+						l.doDelete = true;
+						stats.del += 1;
+						entries.push(l);
+					}
 				}
 			}
 		}
@@ -635,7 +687,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 		
-		log ("Got " + entries.length + " remote changes: " + JSON.stringify(stats));
+		log("Got " + entries.length + " remote changes: " + JSON.stringify(stats));
 		return entries;
 	},
 	
@@ -650,25 +702,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (entriesIndex < entries.length) {
 			if (entries[entriesIndex].doDelete) { //no need to download for deleted entry, skip.
 				future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
-			} else {		
+			} else {
 				//this is currently just a get, should work fine for vCard and iCal alike.
-				future.nest(CalDav.downloadObject(this.params, entries[entriesIndex])); 
+				future.nest(CalDav.downloadObject(this.params, entries[entriesIndex]));
 				
 				future.then(this, function downloadCB() {
 					var result = future.result;
 					if (result.returnValue === true) {
 						log("Download of entry " + entriesIndex + "ok. Now converting.");
 
-						if (kindName === Kinds.objects.calendarevent.name) {									
+						if (kindName === Kinds.objects.calendarevent.name) {
 							//transform recevied iCal to webos calendar object:
 							debug("Starting iCal conversion");
 							future.nest(iCal.parseICal(result.data, {serverId: "" }));
 						} else if (kindName === Kinds.objects.contact.name) {
 							//TODO: rework iCal and vCard and equalize their outer api, so that the calls are the same... :(
 							debug("Starting vCard conversion");
-							future.nest(vCard.parseVCard({account: { name: this.client.transport.config.name, 
-																		kind: Kinds.objects[kindName].id, account: this.client.clientId }, 
-																		vCard: result.data} ));
+							future.nest(vCard.parseVCard({account: { name: this.client.transport.config.name,
+																		kind: Kinds.objects[kindName].id, account: this.client.clientId },
+																		vCard: result.data}));
 						} else {
 							throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
 						}
@@ -696,7 +748,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 					}
 				});
-			 } //end update
+            } //end update
 		} else { //entriesIndex >= entries.length => finished.
 			log("All items received and converted. Return.");
 			future.result = {
@@ -754,9 +806,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return future;
 	},
 	
-	_processOne: function(index, remoteIds, batch, kindName) {
-		log("Processing change " + (index+1) + " of " + batch.length);
-		var future = this._putOneRemoteObject(batch[index], kindName).then(this, function oneObjectCallback () {
+	_processOne: function (index, remoteIds, batch, kindName) {
+		log("Processing change " + (index + 1) + " of " + batch.length);
+		var future = this._putOneRemoteObject(batch[index], kindName).then(this, function oneObjectCallback() {
 			var result = future.result, rid;
 			
 			if (result.returnValue === true) {
@@ -789,14 +841,22 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * converts object into vCard/iCal and triggers upload to server (if not deleted).
 	 * if deleted, obj is only deleted on server.
 	 */
-	_putOneRemoteObject: function(obj, kindName) {
+	_putOneRemoteObject: function (obj, kindName) {
 		log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
 		var future = new Future();
 		
 		function conversionCB(f) {
+			var i;
 			if (f.result.returnValue === true) {
 				obj.remote.data = f.result.result; //copy vCard/iCal result into obj.
 			}
+			
+			if (!obj.remote.uri) {
+				log("Did not have uri in converted object. How can that happen?");
+				this.getNewRemoteObject(kindName, obj);
+			}
+			
+			
 			future.nest(this._sendObjToServer(obj.remote));
 		}
 		
@@ -804,11 +864,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (kindName === Kinds.objects.calendarevent.name) {
 				future.nest(iCal.generateICal(obj.local, {}));
 			} else if (kindName === Kinds.objects.contact.name) {
-				future.nest(vCard.generateVCard({accountName: this.client.transport.config.name, 
+				future.nest(vCard.generateVCard({accountName: this.client.transport.config.name,
 												contact: obj.local, kind: Kinds.objects[kindName].id}));
 			} else {
 				throw new Error("Kind '" + kindName + "' not supported in _putOneRemoteObject.");
-			} 
+			}
 			
 			//respond to conversion callbacks:
 			future.then(this, conversionCB);
@@ -828,7 +888,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	_sendObjToServer: function (obj) {
 		log("\n\n**************************SyncAssistant:_sendObjToServer*****************************");
 		var future = new Future();
-		
+				
 		future.nest(CalDav.putObject({authToken: this.client.userAuth.authToken, path: obj.uri, etag: obj.etag, cardDav: this.params.cardDav}, obj.data));
 		
 		future.then(this, function putCB() {
@@ -837,18 +897,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (result.etag) { //server already delivered etag => no need to get it again.
 					log("Already got etag in put response: " + result.etag);
 					future.result = { returnValue: true, uri: obj.uri, etag: result.etag, serverUri: obj.uri};
-				} else { 
+				} else {
 					log("Need to get new etag from server.");
 					future.nest(CalDav.downloadEtags({authToken: this.client.userAuth.authToken, path: obj.uri}));
 				}
 			} else {
 				log("put object failed for " + obj.uri);
-				throw new Error("Pub object failed: " + JSON.stringify(future.exception) + " for " + obj.uri);
+				throw new Error("Pub object failed: " + JSON.stringify(future.result) + " for " + obj.uri);
 			}
 		});
 	
 		future.then(this, function eTagCB() {
-			var result = future.result;	 
+			var result = future.result;
 			if (result.returnValue === true && result.etags && result.etags.length >= 1) {
 				log("Got updated etag.");
 				future.result = { returnValue: true, uri: obj.uri, etag: result.etags[0].etag, serverUri: result.etags[0].uri };
