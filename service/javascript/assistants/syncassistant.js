@@ -44,7 +44,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		var postfix, uri, prefix, remoteId, result, i;
 		
 		if (!obj) {
-			obj = {};
+			obj = { local: {}, remote: {} };
 		}
 		
 		if (obj.local.calendarId) {
@@ -83,6 +83,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//generate a random uri.
 			remoteId = "webos-" + Date.now() + postfix; //uses timestamp in miliseconds since 1970 
 		}
+		
 		uri = prefix + remoteId;
 		result = { uri: uri, remoteId: remoteId, add: true };
 		obj.uri = uri;
@@ -249,7 +250,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 */
 	getRemoteChanges: function (state, kindName) {
 		log("\n\n**************************SyncAssistant:getRemoteChanges*****************************");
-		var path, key, i;
+		var path, key, i, future = new Future();
 		
 		//be sure to have an transport object with all necessary fields!
 		if (!this.client.transport) {
@@ -277,37 +278,54 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			debug("Initializing CalDav connector for " + this.client.transport.config.url);
 			path = CalDav.setHostAndPort(this.client.transport.config.url);
 		} else {
-			throw new Error("No config stored. Can't determine URL, no sync possible.");
+			log("No config stored. Can't determine URL, no sync possible.");
+			future.result = {
+				returnValue: false,
+				more: false,
+				entries: []
+			};
 		}
 		
 		if (!this.client.userAuth) {
-			throw new Error("No userAuth information. Something wrong with keystore. Can't authenticate with server.");
+			log("No userAuth information. Something wrong with keystore. Can't authenticate with server.");
+			future.result = {
+				returnValue: false,
+				more: false,
+				entries: []
+			};
 		}
 		
 		this.params = { authToken: this.client.userAuth.authToken, path: path };
 		
+		log("State: " + state + " for kind " + kindName);
+		log("SyncKey: " + JSON.stringify(this.client.transport.syncKey));
 		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
 			if (state === "first") {
 				//reset index:
 				this.client.transport.syncKey[kindName].folderIndex = 0;
 				
 				// if error on previous sync reset ctag.
-				if (this.client.transport.syncKey[kindName].error) {
+				if (this.client.transport.syncKey[kindName].error ||
+						this.client.transport.syncKey[Kinds.objects[kindName].connected_kind].error) {
+					log("Error state in db was true. Last sync must have failed. Resetting ctag to do full sync.");
 					for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
-						this.client.transport.syncKey[kindName].ctag = 0;
+						this.client.transport.syncKey[kindName].folders[i].ctag = 0;
 					}
 				}
+				log("Modified SyncKey: " + JSON.stringify(this.client.transport.syncKey[kindName]));
 				
 				//reset error. If folders had error, transfer error state to content.
 				this.client.transport.syncKey[kindName].error = this.client.transport.syncKey[Kinds.objects[kindName].connected_kind].error;
 			}
-			return this._getRemoteChanges(state, kindName);
-		}
-		if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
-			return this._getRemoteCollectionChanges(state, kindName);
+			future.nest(this._getRemoteChanges(state, kindName));
+		} else if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
+			future.nest(this._getRemoteCollectionChanges(state, kindName));
+		} else {
+			throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
 		}
 		
-		throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
+		return future;
+		
 	},
 	
 	/*
@@ -335,7 +353,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				future.nest(CalDav.getFolders(this.params, home, filter));
 			} else {
 				log("Could not get local folders.");
-				throw new Error("Could not get local etags for " + kindName);
+				future.result = {
+					returnValue: false,
+					more: false,
+					entries: []
+				};
 			}
 		});
 		
@@ -529,11 +551,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					this.currentCollectionId = dbFolder._id;
 					future.result = { returnValue: true };
 				} else {
-					throw new Error("No lokal id for folder " + uri);
+					future.result = { returnValue: false };
+					log("No lokal id for folder " + uri);
 				}
 			} else {
 				log("Could not get collection ids from local database: " + JSON.stringify(future.exception));
-				throw future.exception;
+				future.result = { returnValue: false };
 			}
 		});
 
@@ -561,7 +584,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				future.nest(this._getLocalEtags(kindName));
 			} else {
 				log("Could not download etags. Reason: " + JSON.stringify(result));
-				throw new Error("Could not download etags for " + kindName); //error will be rethrown on each access to "future.result" => can get it in the last .then
+				future.result = { returnValue: false };
 			}
 		});
 	
@@ -577,7 +600,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else {
 				log("Could not get local etags, reason: " + JSON.stringify(future.exception));
 				log("Result: " + JSON.stringify(result));
-				throw new Error("Could not get local etags for " + kindName);
+				future.result = { //trigger next then ;)
+					returnValue: false,
+					localEtags: [],
+					remoteEtags: remoteEtags
+				};
 			}
 		});
 
@@ -896,7 +923,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (result.returnValue === true) {
 				if (result.etag) { //server already delivered etag => no need to get it again.
 					log("Already got etag in put response: " + result.etag);
-					future.result = { returnValue: true, uri: obj.uri, etag: result.etag, serverUri: obj.uri};
+					future.result = { returnValue: true, uri: obj.uri, etags: [{etag: result.etag, uri: obj.uri}]};
 				} else {
 					log("Need to get new etag from server.");
 					future.nest(CalDav.downloadEtags({authToken: this.client.userAuth.authToken, path: obj.uri}));
