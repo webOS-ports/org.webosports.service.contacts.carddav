@@ -5,6 +5,11 @@
 	}
 }, {
 	"library": {
+		"name": "foundations.xml",
+		"version": "1.0"
+	}
+}, {
+	"library": {
 		"name": "mojoservice.transport",
 		"version": "1.0"
 	}

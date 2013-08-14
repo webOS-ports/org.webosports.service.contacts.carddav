@@ -1,60 +1,70 @@
-/*jslint sloppy: true, node: true */
-/*global debug, log, http, url, Future, xml2js */
+/*global debug, log, http, url, Future, xml */
 
 var CalDav = (function () {
 	var httpClient,
-		serverHost,
-		parser = new xml2js.Parser({
-			trim: true, //trims whitespaces from text nodes.
-			normalizeTags: true, //all tags lowercase
-			explicitArray: true //all child nodes are in arrays. Is a bit annoying at times, but more secure if multiple results are received.
-		});
+		serverHost;
 	
 	function getResponses(body) {
-		return body["d:multistatus"]["d:response"];
+		return body.D$multistatus.D$response;
 	}
 
 	function processStatus(stat) {
-		if (stat.length !== 1) {
-			throw {msg: "multiple stati... can't process."};
+		//debug("Processing stat: " + JSON.stringify(stat));
+		if (stat.length >= 0) {
+			if (stat.length !== 1) {
+				throw {msg: "multiple stati... can't process."};
+			} else {
+				return stat[0].$t; //maybe extract number here?
+			}
+		} else {
+			//debug("Got single stat.");
+			return stat.$t;
 		}
-		//log("Processing status: " + JSON.stringify(stat));
-		return stat[0]; //maybe extract number here?
 	}
 
 	function processProp(prop) {
-		if (prop.length !== 1) {
+		//debug("Processing prop: " + JSON.stringify(prop));
+		if (prop.length >= 0 && prop.length !== 1) {
 			throw {msg: "multiple props... can't process."};
 		}
-		//log("Processing prop: " + JSON.stringify(prop));
-		return prop[0];
+		return prop;
 	}
 
 	function processPropstat(ps) {
+		//debug("Processing propstat: " + JSON.stringify(ps));
 		var propstat = {
-			status: processStatus(ps["d:status"]),
-			prop: processProp(ps["d:prop"])
+			status: processStatus(ps.D$status),
+			prop: processProp(ps.D$prop)
 		};
 		return propstat;
 	}
 
 	function processResponse(res) {
+		//debug("Processing response " + JSON.stringify(res));
 		var response = {
-			href: res["d:href"][0],
-			propstats: res["d:propstat"]
+			href: res.D$href.$t,
+			propstats: res.D$propstat
 		}, i;
-		//log("Processing response " + res);
-		for (i = 0; i < response.propstats.length; i += 1) {
-			response.propstats[i] = processPropstat(response.propstats[i]);
+		if (response.propstats.length >= 0) {
+			for (i = 0; i < response.propstats.length; i += 1) {
+				response.propstats[i] = processPropstat(response.propstats[i]);
+			}
+		} else {
+			response.propstats = [processPropstat(response.propstats)];
 		}
 		return response;
 	}
 
 	function parseResponseBody(body) {
 		var ri, responses = getResponses(body) || [], procRes = [];
-		//log("parseResponseBody: " + JSON.stringify(responses));
-		for (ri = 0; ri < responses.length; ri += 1) {
-			procRes.push(processResponse(responses[ri]));
+		if (responses.length >= 0) {
+			for (ri = 0; ri < responses.length; ri += 1) {
+				//debug("Got response array: " + JSON.stringify(responses));
+				procRes.push(processResponse(responses[ri]));
+			}
+		} else { //got only one response
+			//debug("Got single response: " + JSON.stringify(responses));
+			procRes.push(processResponse(responses));
 		}
 		return procRes;
 	}
@@ -67,7 +77,8 @@ var CalDav = (function () {
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
 						if (key.indexOf(searchedKey) >= 0) {
-							return prop[key][0];
+							//debug("Returning " + prop[key].$t + " for " + key);
+							return prop[key].$t;
 						}
 					}
 				}
@@ -75,7 +86,7 @@ var CalDav = (function () {
 		}
 	}
 		
-	function getETags(body) {
+	function getETags (body) {
 		var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag;
 		for (i = 0; i < responses.length; i += 1) {
 			for (j = 0; j < responses[i].propstats.length; j += 1) {
@@ -83,7 +94,7 @@ var CalDav = (function () {
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
 						if (key.indexOf('getetag') >= 0) {
-							etag = prop[key][0];
+							etag = prop[key].$t;
 						}
 					}
 				}
@@ -92,7 +103,7 @@ var CalDav = (function () {
 				}
 			}
 		}
-		//log("Etag directory: " + JSON.stringify(eTags));
+		//debug("Etag directory: " + JSON.stringify(eTags));
 		return eTags;
 	}
 	
@@ -106,24 +117,24 @@ var CalDav = (function () {
 			var now;
 			if (!received) {
 				now = Date.now();
-				log("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
-				if (now - lastSend > 60 * 1000) { //last send before 60 seconds.. is that too fast?
+				log ("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
+				if (now - lastSend > 5*1000) { //last send before 5 seconds.. is that too fast?
 					clearTimeout(timeoutID);
-					if (retry <= 10) {
+					if (retry <= 5) {
 						log("Trying to resend message.");
-						sendRequest(options, data, retry + 1).then(function (f) {
+						sendRequest(options, data, retry + 1).then(function(f) {
 							future.result = f.result; //transfer future result.
 						});
 					} else {
 						log("Already tried 5 times. Seems as if server won't answer? Sync seems broken.");
-						throw new Error("Message timedout, even after retries. Sync failed.");
+						future.result = { returnValue: true, msg: "Message timedout, even after retries. Sync failed." };
 					}
 				} else {
 					timeoutID = setTimeout(checkTimeout, 1000);
 				}
 			} else {
 				clearTimeout(timeoutID);
-				log("Message received, returning.");
+				log ("Message received, returning.");
 			}
 		}
 		
@@ -135,32 +146,32 @@ var CalDav = (function () {
 		timeoutID = setTimeout(checkTimeout, 1000);
 		lastSend = Date.now();
 		req =  httpClient.request(options.method, options.path, options.headers);
-		req.on('response', function (res) {
+		req.on('response', function(res) {
 			log('STATUS: ' + res.statusCode);
-			//log('HEADERS: ' + JSON.stringify(res.headers));
+			log('HEADERS: ' + JSON.stringify(res.headers));
 			res.setEncoding('utf8');
 			res.on('data', function (chunk) {
 				log("got partial data.");
 				lastSend = Date.now();
 				body += chunk;
 			});
-			res.on('end', function () {
+			res.on('end', function() {
 				if (received) {
 					log(options.path + " was already received... exiting without callbacks.");
 				}
 				received = true;
 				clearTimeout(timeoutID);
 				debug("Body: " + body);
-								
+				
 				var result = {
 					returnValue: (res.statusCode < 400),
-					etag: res.headers.Etag,
+					etag: res.headers.etag,
 					returnCode: res.statusCode,
 					body: body
 				};
 				
 				if (res.statusCode < 400 && options.parse) { //only parse if status code was ok.
-					parser.parseString(body, function (err, parsedBody) {
+					/*parser.parseString(body, function(err, parsedBody) {
 						if (err) {
 							log("Error during parsing: " + JSON.stringify(err));
 							log("Parsed Body: " + JSON.stringify(parsedBody));
@@ -168,14 +179,17 @@ var CalDav = (function () {
 						}
 						result.parsedBody = parsedBody;
 						future.result = result;
-					});
+					});*/
+					result.parsedBody = xml.xmlstr2json(body);
+					log("Parsed Body: " + JSON.stringify(result.parsedBody));
+					future.result = result;
 				} else {
 					future.result = result;
 				}
 			});
 		});
 
-		req.on('error', function (e) {
+		req.on('error', function(e) {
 			log('problem with request: ' + e.message);
 			future.result = { returnValue: false };
 		});
@@ -207,7 +221,7 @@ var CalDav = (function () {
 	return {
 		//configures internal httpClient for new host/port
 		//returns pathname, i.e. the not host part of the url.
-		setHostAndPort: function (inUrl) {
+		setHostAndPort: function(inUrl) {
 			var parsedUrl = url.parse(inUrl);
 			
 			if (!parsedUrl.port) {
@@ -223,11 +237,11 @@ var CalDav = (function () {
 		//checks only authorization.
 		//check result.returnValue from feature.
 		//this does not really look at the error message. All codes >= 400 return a false => i.e. auth error. But also returns status code.
-		checkCredentials: function (params) {
+		checkCredentials: function(params) {
 			var options = preProcessOptions(params), future = new Future();
 			options.method = "GET";
 			
-			future.nest(sendRequest(options, ""));
+			future.nest(sendRequest(options, ""));			
 			return future;
 		},
 		
@@ -250,7 +264,7 @@ var CalDav = (function () {
 			
 			future.nest(sendRequest(options, data));
 			
-			future.then(function () {
+			future.then(function() {
 				var result = future.result, ctag;
 				if (result.returnValue) {
 					ctag = getKeyValueFromResponse(result.parsedBody, 'getctag');
@@ -264,7 +278,7 @@ var CalDav = (function () {
 			return future;
 		},
 				
-		downloadEtags: function (params) {
+		downloadEtags: function(params) {
 			var options = preProcessOptions(params), future = new Future(), data;
 			options.method = "REPORT";
 			options.headers.Depth = 1;
@@ -275,18 +289,18 @@ var CalDav = (function () {
 			
 			data = "<c:calendar-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCALENDAR'><c:comp-filter name='VEVENT'></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
 			if (params.cardDav) {
-				data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
+				 data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
 			}
 			
 			future.nest(sendRequest(options, data));
 			
-			future.then(function () {
+			future.then(function() {
 				var result = future.result, etags;
 				if (result.returnValue) {
 					etags = getETags(result.parsedBody);
-					future.result = { returnValue: true, etags: etags };
+					future.result = { returnValue: true, etags: etags } ;
 				} else {
-					future.result = { returnValue: false };
+					future.result = { returnValue: false } ;
 					log("Could not get eTags.");
 				}
 			});
@@ -298,14 +312,14 @@ var CalDav = (function () {
 		 * Downloadds a single object, whose uri is in obj.uri. 
 		 * Future will contain data member which contains the body, i.e. the complete data of the object.
 		 */
-		downloadObject: function (params, obj) {
+		downloadObject: function(params, obj) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "GET";
 			options.path = obj.uri;
 			
 			future.nest(sendRequest(options, ""));
 			
-			future.then(function () {
+			future.then(function() {
 				var result = future.result;
 				future.result = { returnValue: result.returnValue, data: result.body };
 			});
@@ -317,26 +331,26 @@ var CalDav = (function () {
 		 * Sends delete request to the server.
 		 * Future will cotain uri member with old uri for reference.
 		 */
-		deleteObject: function (params, uri, etag) {
-			var future = new Future(), options = preProcessOptions(params);
-			options.method = "DELETE";
-			options.path = uri;
-
-			//prevent overriding remote changes.
+		 deleteObject: function(params, uri, etag) {
+		  var future = new Future(), options = preProcessOptions(params);
+		  options.method = "DELETE";
+		  options.path = uri;
+		  
+		  //prevent overriding remote changes.
 			if (etag) {
 				options.headers["If-Match"] = etag;
 			}
+		  
+		  future.nest(sendRequest(options, ""));
 
-			future.nest(sendRequest(options, ""));
-
-			return future;
-		},
+		  return future;
+		 },
 		
 		/*
 		 * Puts an object to server.
 		 * If server delivers etag in response, will also add etag to future.result.
 		 */
-		putObject: function (params, data) {
+		putObject: function(params, data) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "PUT";
 			options.headers["Content-Type"] = "text/calendar; charset=utf-8";
@@ -359,7 +373,7 @@ var CalDav = (function () {
 		//discovers folders for contacts and calendars.
 		//future.result will contain array folders.
 		//folders contain uri, resource = contact/calendar/task
-		discovery: function (params) {
+		discovery: function(params) {
 			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = {}, folderCB;
 			options.method = "PROPFIND";
 			options.parse = true;
@@ -370,7 +384,7 @@ var CalDav = (function () {
 			future.then(this, function principalDataCB() {
 				var result = future.result, principal;
 				if (result.returnValue === true) {
-					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal')["d:href"][0];
+					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal').D$href.$t;
 					log("Got principal: " + principal);
 					options.path = principal;
 					options.headers.Depth = 0;
@@ -389,7 +403,7 @@ var CalDav = (function () {
 				var result = future.result, home;
 				if (result.returnValue === true) {
 					//look for either calendar- or addressbook-home-set :)
-					home = getKeyValueFromResponse(result.parsedBody, "-home-set")["d:href"][0];
+					home = getKeyValueFromResponse(result.parsedBody, "-home-set").D$href.$t;
 					homes.push(home);
 					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:addressbook-home-set /></d:propfind>";
 					
@@ -406,7 +420,7 @@ var CalDav = (function () {
 				var result = future.result, home;
 				if (result.returnValue === true) {
 					//look for either calendar- or addressbook-home-set :)
-					home = getKeyValueFromResponse(result.parsedBody, "-home-set")["d:href"][0];
+					home = getKeyValueFromResponse(result.parsedBody, "-home-set").D$href.$t;
 					if (home !== homes[0]) {
 						homes.push(home);
 					} else {
@@ -425,7 +439,7 @@ var CalDav = (function () {
 				}
 			});
 			
-			folderCB = function () {
+			folderCB = function() {
 				var result = future.result, i, f, fresult = [], key;
 				if (result.returnValue === true) {
 					//prevent duplicates by URI.
@@ -464,25 +478,25 @@ var CalDav = (function () {
 		//future.result will contain array folders
 		getFolders: function (params, uri, filter) {
 			var future = new Future(), options = preProcessOptions(params), data, folders,
-				getResourceType = function (rt) {
+				getResourceType = function(rt) {
 					var key, unspecCal = false;
 					for (key in rt) {
 						if (rt.hasOwnProperty(key)) {
 							if (key.indexOf('vevent-collection') >= 0) {
 								return "calendar";
-							}
+							} 
 							if (key.indexOf('vcard-collection') >= 0 || key.indexOf('addressbook') >= 0) {
 								return "contact";
 							}
 							if (key.indexOf('vtodo-collection') >= 0) {
 								return "task";
 							}
-							if (key.indexOf('calendar') >= 0) {
+							if(key.indexOf('calendar') >= 0) {
 								//issue: calendar can be todo or calendar.
 								unspecCal = true;
 							}
 						}
-					}
+					}	
 					
 					if (unspecCal) {
 						//if only found "calendar" must decide by supported components:
@@ -491,7 +505,7 @@ var CalDav = (function () {
 					return "ignore";
 				},
 
-				parseSupportedComponents = function (xmlComp) {
+				parseSupportedComponents = function(xmlComp) {
 					var key, comps = [], array, i;
 					for (key in xmlComp) {
 						if (xmlComp.hasOwnProperty(key)) {
@@ -525,7 +539,7 @@ var CalDav = (function () {
 					return "calendar"; //if don't have information, try calendar.. ;)
 				},
 
-				getFolderList = function (body) {
+				getFolderList = function(body) {
 					var responses = parseResponseBody(body), i, j, prop, key, folders = [], folder;
 					for (i = 0; i < responses.length; i += 1) {
 						folder = {
@@ -537,13 +551,13 @@ var CalDav = (function () {
 							for (key in prop) {
 								if (prop.hasOwnProperty(key)) {
 									if (key.indexOf('displayname') >= 0) {
-										folder.name = prop[key][0];
+										folder.name = prop[key].$t;
 									} else if (key.indexOf('resourcetype') >= 0) {
-										folder.resource = getResourceType(prop[key][0]);
+										folder.resource = getResourceType(prop[key].$t);
 									} else if (key.indexOf('supported-calendar-component-set') >= 0) {
-										folder.supportedComponents = parseSupportedComponents(prop[key][0]);
+										folder.supportedComponents = parseSupportedComponents(prop[key].$t);
 									} else if (key.indexOf('getctag') >= 0) {
-										folder.ctag = prop[key][0];
+										folder.ctag = prop[key].$t;
 									}
 								}
 							}
