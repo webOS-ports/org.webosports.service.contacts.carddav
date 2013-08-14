@@ -948,5 +948,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		});
 		
 		return future;
+	},
+	
+	/*
+	 * Will be called after synccommand is finished. Will write local changes to db. i.e. save etags of updated objects,
+	 * so that we do not redownload them imideately.
+	 * Should return an array of objects that need to get written to db.
+	 */
+	postPutRemoteModify: function (batch, kindName) {
+		log("\n\n**************************SyncAssistant:postPutRemoteModify*****************************");
+		var result = [], future = new Future(), i;
+		
+		for (i = 0; i < batch.length; i += 1) {
+			if (batch[i].operation === "save" && batch[i].local.etag && batch[i].local.remoteId) {
+				result.push(batch[i].local);
+			}
+		}
+		
+		future.result = result;
+		return future;
 	}
 });
