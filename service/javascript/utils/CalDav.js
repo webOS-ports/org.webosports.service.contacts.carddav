@@ -1,13 +1,14 @@
+/*jslint sloppy: true, node: true */
 /*global debug, log, http, url, Future, xml2js */
 
 var CalDav = (function () {
 	var httpClient,
 		serverHost,
 		parser = new xml2js.Parser({
-		trim: true, //trims whitespaces from text nodes.
-		normalizeTags: true, //all tags lowercase
-		explicitArray: true //all child nodes are in arrays. Is a bit annoying at times, but more secure if multiple results are received.
-	});
+			trim: true, //trims whitespaces from text nodes.
+			normalizeTags: true, //all tags lowercase
+			explicitArray: true //all child nodes are in arrays. Is a bit annoying at times, but more secure if multiple results are received.
+		});
 	
 	function getResponses(body) {
 		return body["d:multistatus"]["d:response"];
@@ -71,10 +72,10 @@ var CalDav = (function () {
 					}
 				}
 			}
-		}	
+		}
 	}
 		
-	function getETags (body) {
+	function getETags(body) {
 		var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag;
 		for (i = 0; i < responses.length; i += 1) {
 			for (j = 0; j < responses[i].propstats.length; j += 1) {
@@ -105,12 +106,12 @@ var CalDav = (function () {
 			var now;
 			if (!received) {
 				now = Date.now();
-				log ("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
-				if (now - lastSend > 5*1000) { //last send before 5 seconds.. is that too fast?
+				log("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
+				if (now - lastSend > 60 * 1000) { //last send before 60 seconds.. is that too fast?
 					clearTimeout(timeoutID);
-					if (retry <= 5) {
+					if (retry <= 10) {
 						log("Trying to resend message.");
-						sendRequest(options, data, retry + 1).then(function(f) {
+						sendRequest(options, data, retry + 1).then(function (f) {
 							future.result = f.result; //transfer future result.
 						});
 					} else {
@@ -122,7 +123,7 @@ var CalDav = (function () {
 				}
 			} else {
 				clearTimeout(timeoutID);
-				log ("Message received, returning.");
+				log("Message received, returning.");
 			}
 		}
 		
@@ -134,7 +135,7 @@ var CalDav = (function () {
 		timeoutID = setTimeout(checkTimeout, 1000);
 		lastSend = Date.now();
 		req =  httpClient.request(options.method, options.path, options.headers);
-		req.on('response', function(res) {
+		req.on('response', function (res) {
 			log('STATUS: ' + res.statusCode);
 			//log('HEADERS: ' + JSON.stringify(res.headers));
 			res.setEncoding('utf8');
@@ -143,7 +144,7 @@ var CalDav = (function () {
 				lastSend = Date.now();
 				body += chunk;
 			});
-			res.on('end', function() {
+			res.on('end', function () {
 				if (received) {
 					log(options.path + " was already received... exiting without callbacks.");
 				}
@@ -159,7 +160,7 @@ var CalDav = (function () {
 				};
 				
 				if (res.statusCode < 400 && options.parse) { //only parse if status code was ok.
-					parser.parseString(body, function(err, parsedBody) {
+					parser.parseString(body, function (err, parsedBody) {
 						if (err) {
 							log("Error during parsing: " + JSON.stringify(err));
 							log("Parsed Body: " + JSON.stringify(parsedBody));
@@ -174,7 +175,7 @@ var CalDav = (function () {
 			});
 		});
 
-		req.on('error', function(e) {
+		req.on('error', function (e) {
 			log('problem with request: ' + e.message);
 			future.result = { returnValue: false };
 		});
@@ -206,7 +207,7 @@ var CalDav = (function () {
 	return {
 		//configures internal httpClient for new host/port
 		//returns pathname, i.e. the not host part of the url.
-		setHostAndPort: function(inUrl) {
+		setHostAndPort: function (inUrl) {
 			var parsedUrl = url.parse(inUrl);
 			
 			if (!parsedUrl.port) {
@@ -222,11 +223,11 @@ var CalDav = (function () {
 		//checks only authorization.
 		//check result.returnValue from feature.
 		//this does not really look at the error message. All codes >= 400 return a false => i.e. auth error. But also returns status code.
-		checkCredentials: function(params) {
+		checkCredentials: function (params) {
 			var options = preProcessOptions(params), future = new Future();
 			options.method = "GET";
 			
-			future.nest(sendRequest(options, ""));			
+			future.nest(sendRequest(options, ""));
 			return future;
 		},
 		
@@ -249,7 +250,7 @@ var CalDav = (function () {
 			
 			future.nest(sendRequest(options, data));
 			
-			future.then(function() {
+			future.then(function () {
 				var result = future.result, ctag;
 				if (result.returnValue) {
 					ctag = getKeyValueFromResponse(result.parsedBody, 'getctag');
@@ -263,7 +264,7 @@ var CalDav = (function () {
 			return future;
 		},
 				
-		downloadEtags: function(params) {
+		downloadEtags: function (params) {
 			var options = preProcessOptions(params), future = new Future(), data;
 			options.method = "REPORT";
 			options.headers.Depth = 1;
@@ -274,18 +275,18 @@ var CalDav = (function () {
 			
 			data = "<c:calendar-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCALENDAR'><c:comp-filter name='VEVENT'></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
 			if (params.cardDav) {
-				 data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
+				data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
 			}
 			
 			future.nest(sendRequest(options, data));
 			
-			future.then(function() {
+			future.then(function () {
 				var result = future.result, etags;
 				if (result.returnValue) {
 					etags = getETags(result.parsedBody);
-					future.result = { returnValue: true, etags: etags } ;
+					future.result = { returnValue: true, etags: etags };
 				} else {
-					future.result = { returnValue: false } ;
+					future.result = { returnValue: false };
 					log("Could not get eTags.");
 				}
 			});
@@ -297,14 +298,14 @@ var CalDav = (function () {
 		 * Downloadds a single object, whose uri is in obj.uri. 
 		 * Future will contain data member which contains the body, i.e. the complete data of the object.
 		 */
-		downloadObject: function(params, obj) {
+		downloadObject: function (params, obj) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "GET";
 			options.path = obj.uri;
 			
 			future.nest(sendRequest(options, ""));
 			
-			future.then(function() {
+			future.then(function () {
 				var result = future.result;
 				future.result = { returnValue: result.returnValue, data: result.body };
 			});
@@ -316,26 +317,26 @@ var CalDav = (function () {
 		 * Sends delete request to the server.
 		 * Future will cotain uri member with old uri for reference.
 		 */
-		 deleteObject: function(params, uri, etag) {
-		  var future = new Future(), options = preProcessOptions(params);
-		  options.method = "DELETE";
-		  options.path = uri;
-		  
-		  //prevent overriding remote changes.
+		deleteObject: function (params, uri, etag) {
+			var future = new Future(), options = preProcessOptions(params);
+			options.method = "DELETE";
+			options.path = uri;
+
+			//prevent overriding remote changes.
 			if (etag) {
 				options.headers["If-Match"] = etag;
 			}
-		  
-		  future.nest(sendRequest(options, ""));
 
-		  return future;
-		 },
+			future.nest(sendRequest(options, ""));
+
+			return future;
+		},
 		
 		/*
 		 * Puts an object to server.
 		 * If server delivers etag in response, will also add etag to future.result.
 		 */
-		putObject: function(params, data) {
+		putObject: function (params, data) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "PUT";
 			options.headers["Content-Type"] = "text/calendar; charset=utf-8";
@@ -358,7 +359,7 @@ var CalDav = (function () {
 		//discovers folders for contacts and calendars.
 		//future.result will contain array folders.
 		//folders contain uri, resource = contact/calendar/task
-		discovery: function(params) {
+		discovery: function (params) {
 			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = {}, folderCB;
 			options.method = "PROPFIND";
 			options.parse = true;
@@ -424,7 +425,7 @@ var CalDav = (function () {
 				}
 			});
 			
-			folderCB = function() {
+			folderCB = function () {
 				var result = future.result, i, f, fresult = [], key;
 				if (result.returnValue === true) {
 					//prevent duplicates by URI.
@@ -463,25 +464,25 @@ var CalDav = (function () {
 		//future.result will contain array folders
 		getFolders: function (params, uri, filter) {
 			var future = new Future(), options = preProcessOptions(params), data, folders,
-				getResourceType = function(rt) {
+				getResourceType = function (rt) {
 					var key, unspecCal = false;
 					for (key in rt) {
 						if (rt.hasOwnProperty(key)) {
 							if (key.indexOf('vevent-collection') >= 0) {
 								return "calendar";
-							} 
+							}
 							if (key.indexOf('vcard-collection') >= 0 || key.indexOf('addressbook') >= 0) {
 								return "contact";
 							}
 							if (key.indexOf('vtodo-collection') >= 0) {
 								return "task";
 							}
-							if(key.indexOf('calendar') >= 0) {
+							if (key.indexOf('calendar') >= 0) {
 								//issue: calendar can be todo or calendar.
 								unspecCal = true;
 							}
 						}
-					}	
+					}
 					
 					if (unspecCal) {
 						//if only found "calendar" must decide by supported components:
@@ -490,7 +491,7 @@ var CalDav = (function () {
 					return "ignore";
 				},
 
-				parseSupportedComponents = function(xmlComp) {
+				parseSupportedComponents = function (xmlComp) {
 					var key, comps = [], array, i;
 					for (key in xmlComp) {
 						if (xmlComp.hasOwnProperty(key)) {
@@ -524,7 +525,7 @@ var CalDav = (function () {
 					return "calendar"; //if don't have information, try calendar.. ;)
 				},
 
-				getFolderList = function(body) {
+				getFolderList = function (body) {
 					var responses = parseResponseBody(body), i, j, prop, key, folders = [], folder;
 					for (i = 0; i < responses.length; i += 1) {
 						folder = {
