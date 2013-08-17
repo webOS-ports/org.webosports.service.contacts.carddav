@@ -25,6 +25,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	
 	_uriToRemoteId: function (uri) {
 		var i;
+		if (!uri) {
+			return undefined;
+		}
+		
 		for (i = uri.length - 1; i >= 0; i -= 1) {
 			if (uri.charAt(i) === '/') {
 				return uri.substring(i + 1);
@@ -86,8 +90,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		
 		uri = prefix + remoteId;
 		result = { uri: uri, remoteId: remoteId, add: true };
-		obj.uri = uri;
-		obj.remoteId = remoteId;
+		obj.remote.uri = uri;
+		obj.remote.remoteId = remoteId;
 		debug("Result: " + JSON.stringify(result));
 		return result;
 	},
@@ -835,6 +839,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	
 	_processOne: function (index, remoteIds, batch, kindName) {
 		log("Processing change " + (index + 1) + " of " + batch.length);
+				
 		var future = this._putOneRemoteObject(batch[index], kindName).then(this, function oneObjectCallback() {
 			var result = future.result, rid;
 			
@@ -871,6 +876,21 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	_putOneRemoteObject: function (obj, kindName) {
 		log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
 		var future = new Future();
+
+		//copy uri and etag over to remote object:
+		//this is necessary, because we only put the remoteId into the remote objects
+		//we store uri and etag in the local objects, so this is the place to get this information
+		if (!obj.remote.uri && obj.local.uri) {
+			obj.remote.uri = obj.local.uri;
+		}
+		if (!obj.remote.etag && obj.local.etag) {
+			obj.remote.etag = obj.local.etag;
+		}
+		
+		if (!obj.remote.uri) {
+			log("Did not have uri in object to be send to server. How can that happen?");
+			this.getNewRemoteObject(kindName, obj);
+		}
 		
 		function conversionCB(f) {
 			var i;
