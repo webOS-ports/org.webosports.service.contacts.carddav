@@ -170,7 +170,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		
 		//try calendar upsync:
-		this.client.upsyncEnabled = kindName === Kinds.objects.calendarevent.name;
+		//this.client.upsyncEnabled = kindName === Kinds.objects.calendarevent.name;
 		if (name === "local2remote") {
 			if (this.client.upsyncEnabled) {
 				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback. Hm.
