@@ -1,3 +1,4 @@
+/*global PalmCall, Mojo, log, $L, showError */
 /* Simple debug function to print out to console error */
 var debug = function (param) {
     console.error("DEBUG: " + param);
@@ -16,18 +17,18 @@ AccountSetupAssistant.prototype.setup = function () {
     /* this function is for setup tasks that have to happen when the scene is first created */
     /* use Mojo.View.render to render view templates and add them to the scene, if needed */
 
-    if (currentAccount >= 0 && currentAccount < accounts.length) {
-        this.account = accounts[currentAccount];
-    } else {
-        this.account = {};
-    }
+	this.account = { credentials: {}};
     this.account.isModified = true;
+	
+	if (!this.account.credentials) {
+		this.account.credentials = {};
+	}
 
     /* setup widgets here */
     this.controller.setupWidget("txtName", { modelProperty: "name", hintText: $L("Display Name"), textCase: Mojo.Widget.steModeLowerCase }, this.account);
     this.controller.setupWidget("txtURL", { modelProperty: "url", hintText: $L("URL"), textCase: Mojo.Widget.steModeLowerCase }, this.account);
-    this.controller.setupWidget("txtUser", { modelProperty: "username", hintText: $L("Username"), textCase: Mojo.Widget.steModeLowerCase}, this.account);
-    this.controller.setupWidget("txtPass", { modelProperty: "password", hintText: $L("Password"), textCase: Mojo.Widget.steModeLowerCase}, this.account);
+    this.controller.setupWidget("txtUser", { modelProperty: "user", hintText: $L("Username"), textCase: Mojo.Widget.steModeLowerCase}, this.account.credentials);
+    this.controller.setupWidget("txtPass", { modelProperty: "password", hintText: $L("Password"), textCase: Mojo.Widget.steModeLowerCase}, this.account.credentials);
 
     this.btnSaveModel = { buttonClass: 'primary', label: $L("Check Credentials"), disabled: false};
     this.controller.setupWidget("btnSave", {type: Mojo.Widget.activityButton}, this.btnSaveModel);
@@ -60,7 +61,7 @@ AccountSetupAssistant.prototype.disableControls = function () {
 
 AccountSetupAssistant.prototype.checkCredentials = function () {
     this.disableControls();
-    var i;
+    var i, credFuture;
 
     if (!this.account.name) {
         log("Need account.name to add account");
@@ -74,21 +75,21 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
         return;
     }
 
-    if (!this.account.username) {
+    if (!this.account.credentials.user) {
         log("Need account.username to add account");
         this.showLoginError("username", "Please specify a valid account username.");
         return;
     }
 
-    if (!this.account.password) {
+    if (!this.account.credentials.password) {
         log("Need account.password to add account");
         this.showLoginError("Password", "Please specify a valid account password.");
         return;
     }
 
-    var credFuture = PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "checkCredentials", {
-        username: this.account.username,
-        password: this.account.password,
+    credFuture = PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "checkCredentials", {
+        username: this.account.credentials.user,
+        password: this.account.credentials.password,
         url: this.account.url
     });
     credFuture.then(this, function (f) {
@@ -113,11 +114,11 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
             template.loc_name = this.account.name;
             this.accountSettings = {
                 "template": this.params.initialTemplate,
-                "username": this.account.username,
+                "username": this.account.credentials.user,
                 "defaultResult": {
                     "result": {
                         returnValue: true,
-                        "credentials": f.result.credentials,
+                        "credentials": this.account.credentials,
                         "config": this.account
                     }
                 }
