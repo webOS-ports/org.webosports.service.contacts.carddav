@@ -8,6 +8,7 @@
          "name":"org.webosports.service.contacts.carddav.service",
          "description":"CardDAV Contact",
          "globalized":false,
+		 "assistant": "ServiceAssistant",
          "commands":[
             {
                "name":"checkCredentials",
@@ -16,34 +17,39 @@
             },
             {
                "name":"onCapabiltiesChanged",
-               "assistant":"onCapabiltiesChangedAssistant",
+               "assistant":"OnCapabiltiesChanged",
                "public":true
             },
             {
                "name":"onCredentialsChanged",
-               "assistant":"onCredentialsChangedAssistant",
+               "assistant":"OnCredentialsChanged",
                "public":true
             },
             {
                "name":"onCreate",
-               "assistant":"onCreateAssistant",
+			   "assistant": "OnCreate",
                "public":true
             },
             {
                "name":"onEnabled",
-               "assistant":"onEnabledAssistant",
+			   "assistant": "OnEnabled",
                "public":true
             },
             {
                "name":"onDelete",
-               "assistant":"onDeleteAssistant",
+			   "assistant": "OnDelete",
                "public":true
             },
             {
                "name":"sync",
-               "assistant":"syncAssistant",
+			   "assistant": "SyncAssistant",
                "public":true
-            }
+            },
+			{
+				"name": "resources",
+				"assistant": "Resources",
+				"public": false
+			}
          ]
       }
    ]
