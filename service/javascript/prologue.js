@@ -16,6 +16,7 @@ var DB = Foundations.Data.DB;
 var Future = Foundations.Control.Future;
 var ObjectUtils = Foundations.ObjectUtils; //don't know what we need that for..
 var PalmCall = Foundations.Comms.PalmCall;
+var xml = IMPORTS["foundations.xml"];
 
 //now add some node.js imports:
 if (typeof require === "undefined") {
@@ -29,12 +30,12 @@ var http = require('http'); //required for own httpClient. Not using AjaxCall, b
 var url = require('url');   //required to parse urls
 
 //node in webos is VERY picky about require paths. Really point it to the library here.
-var servicePath = fs.realpathSync('.');
-require.paths.push(servicePath + '/node_modules/xml2js/lib');
-require.paths.push(servicePath + '/node_modules/xml2js/node_modules/sax/lib'); //required by xml2js
-var xml2js = require('xml2js');
+//var servicePath = fs.realpathSync('.');
+//require.paths.push(servicePath + '/node_modules/xml2js/lib');
+//require.paths.push(servicePath + '/node_modules/xml2js/node_modules/sax/lib'); //required by xml2js
+//var xml2js = require('xml2js');
 
-console.error("--------->Loaded Libraries OK");
+console.error("--------->Loaded Libraries OK1");
 
 var log = function (msg) {
 	console.error(msg);
