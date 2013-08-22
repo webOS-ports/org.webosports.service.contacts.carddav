@@ -514,7 +514,7 @@ var CalDav = (function () {
 							if (key.indexOf('comp') >= 0) { //found list of components
 								array = xmlComp[key];
 								for (i = 0; i < array.length; i += 1) {
-									comps.push(array[i].$.name);
+									comps.push(array[i].name);
 								}
 								break;
 							}
@@ -555,9 +555,9 @@ var CalDav = (function () {
 									if (key.indexOf('displayname') >= 0) {
 										folder.name = prop[key].$t;
 									} else if (key.indexOf('resourcetype') >= 0) {
-										folder.resource = getResourceType(prop[key].$t);
+										folder.resource = getResourceType(prop[key]);
 									} else if (key.indexOf('supported-calendar-component-set') >= 0) {
-										folder.supportedComponents = parseSupportedComponents(prop[key].$t);
+										folder.supportedComponents = parseSupportedComponents(prop[key]);
 									} else if (key.indexOf('getctag') >= 0) {
 										folder.ctag = prop[key].$t;
 									}
