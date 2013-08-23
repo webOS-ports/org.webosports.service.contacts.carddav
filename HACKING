@@ -1,0 +1,34 @@
+You want to hack on this code and contribute your changes back to us? Then this
+file is for you.
+
+Preamble:
+---------
+This project is part of the webos-ports.org umbrella project. Therefor we follow
+their contribution guidelines stated here:
+http://www.webos-ports.org/wiki/ContributionGuideline
+
+In the following we list the areas where we want to be a bit more specific or
+different from the above guidelines.
+
+Codingstyle:
+------------
+o Tabs for indent
+
+Git Commits:
+------------
+o Prefix the summary line with the area the patch goes into e.g.
+
+service: Change service to be more reliable.
+
+o Use a summary line and also the longer description. Only really small changes
+  like a typo fix in a comment don't need further explanation.
+o The more precise you are the easier it is for us to understand and merge.
+o If you are fixing an issue raised as github issue please refer to this inside
+  the commits description.
+
+Submitting Pull Requests:
+-------------------------
+o Make small pull requests.
+o Target on one problem at a time.
+o Take some time to explain what you did and especially for what reason in your
+  pull request.
