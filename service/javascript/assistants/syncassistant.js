@@ -1000,7 +1000,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				}
 			} else {
 				log("put object failed for " + obj.uri);
-				throw new Error("Pub object failed: " + JSON.stringify(future.result) + " for " + obj.uri);
+				//before I did throw an error here. This prevented the sync from finishing and triggered upsync for this object on 
+				//next occasion... if we only return an error here, probably we loose local changes.
+				//issue is that on error code 412 (i.e. something changed on server on this object) sync will NEVER finish
+				//and always will be triggered.
+				if (result.returnCode === 412) {
+					future.result = {returnValue: false, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(future.result) + " for " + obj.uri };
+				} else {
+					throw new Error("Put object failed: " + JSON.stringify(future.result) + " for " + obj.uri);
+				}
 			}
 		});
 	
