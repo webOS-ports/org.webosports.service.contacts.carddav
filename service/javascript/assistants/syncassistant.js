@@ -822,6 +822,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			debug("remoteId[" + i + "] = " + JSON.stringify(remoteIds[i]));
 			results.push({remoteId: remoteIds[i]});
 		}
+		
+		//add this here to also track errors during upsync => will trigger comparison of all etags on next downsync.
+		if (results.length > 0) {
+			this.client.transport.syncKey[kindName].error = true;
+		}
 
 		future.result = results;
 		return future;
