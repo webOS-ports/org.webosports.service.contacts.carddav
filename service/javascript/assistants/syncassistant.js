@@ -1033,17 +1033,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * so that we do not redownload them imideately.
 	 * Should return an array of objects that need to get written to db.
 	 */
-	postPutRemoteModify: function (batch, kindName) {
+	 //disabled because  sync patch for stable upload breaks produces endless loop if postPutRemoteModify is used.
+	/*postPutRemoteModify: function (batch, kindName) {
 		log("\n\n**************************SyncAssistant:postPutRemoteModify*****************************");
 		var result = [], future = new Future(), i;
 		
 		for (i = 0; i < batch.length; i += 1) {
-			if (batch[i].operation === "save" && batch[i].local.etag && batch[i].local.remoteId) {
+			if (batch[i].operation === "save" && batch[i].local.etag && batch[i].local.remoteId && batch[i].local._id) {
+				debug("Telling webos to save: " + JSON.stringify(batch[i]));
 				result.push(batch[i].local);
+			} else {
+				debug("Not saving " + JSON.stringify(batch[i]));
+				debug("batch[i].operation === 'save'" + (batch[i].operation === 'save'));
+				debug("batch[i].local.etag" + batch[i].local.etag);
+				debug("batch[i].local.remoteId" + batch[i].local.remoteId);
+				debug("batch[i].local._id" + batch[i].local._id);
 			}
 		}
 		
 		future.result = result;
 		return future;
-	}
+	}*/
 });
