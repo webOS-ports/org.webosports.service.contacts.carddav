@@ -79,7 +79,11 @@ var CalDav = (function () {
 					if (prop.hasOwnProperty(key)) {
 						if (key.indexOf(searchedKey) >= 0) {
 							//debug("Returning " + prop[key].$t + " for " + key);
-							return prop[key].$t;
+							if (prop[key].$t) {
+								return prop[key].$t;
+							} else {
+								return prop[key];
+							}
 						}
 					}
 				}
