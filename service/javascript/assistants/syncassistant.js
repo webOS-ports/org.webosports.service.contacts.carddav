@@ -406,7 +406,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			nextIndex = index + 1, //just for convinience
 			folder = folders[index];
 		
-		if (!folder) {
+		if (!folder || !folder.uri) {
 			log("No folder for index " + index + " in " + kindName);
 			future.result = {
 				more: nextIndex < folders.length,
@@ -563,7 +563,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					future.result = { returnValue: true };
 				} else {
 					future.result = { returnValue: false };
-					log("No lokal id for folder " + uri);
+					log("No local id for folder " + uri);
 				}
 			} else {
 				log("Could not get collection ids from local database: " + JSON.stringify(future.exception));
