@@ -29,6 +29,7 @@
 			]
 		},
 		{ "name":"accountIdRevision", "incDel": true, "props": [{"name": "accountId"}, {"name": "_rev"}]},
+		{ "name":"calendarId", "incDel": false, "props": [{"name": "calendarId"}]},
 		{ "name":"revNumber", "incDel": true, "props": [{"name": "_rev"}]}
 	]
 }
