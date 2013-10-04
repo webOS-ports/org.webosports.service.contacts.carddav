@@ -1,9 +1,8 @@
-/*global Class, Sync, Future, log, CalDav, Kinds, unlockCreateAssistant, lockCreateAssistant, debug */
+/*jslint sloppy: true, node: true, nomen: true */
+/*global Class, Sync, Future, log, CalDav, Kinds, unlockCreateAssistant, lockCreateAssistant, debug, DB */
 
-var OnCreate = Class.create(Sync.CreateAccountCommand,
-{
-	run: function(outerFuture)
-	{
+var OnCreate = Class.create(Sync.CreateAccountCommand, {
+	run: function (outerFuture) {
 		var future = new Future(), lockCheck;
 		if (lockCreateAssistant(this.client.clientId)) {
 			future.nest(this.handler.createAccount());
@@ -11,10 +10,10 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 			future.then(this, function createAccountCB() {
 				var result = future.result;
 				log("Account created: " + JSON.stringify(result));
-			
+
 				future.nest(this.handler.getAccountTransportObject(this.client.clientId));
 			});
-		
+
 			future.then(this, function transportCB() {
 				var result = future.result, params, obj = {};
 				debug("Got transport object: " + JSON.stringify(result));
@@ -26,14 +25,13 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 
 				future.nest(DB.merge([obj]));
 			});
-			
+
 			future.then(this, function storeCB() {
 				var result = future.result;
 				debug("Store came back: " + JSON.stringify(result));
 				unlockCreateAssistant(this.client.clientId);
-				outerFuture.result = {};
 			});
-		} else { //other create assistant already running. Prevent multiple account objects. 
+		} else { //other create assistant already running. Prevent multiple account objects.
 			log("Another create assistant is already running. Stopping.");
 			
 			lockCheck = function() {
@@ -44,7 +42,7 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 					setTimeout(lockCheck.bind(this), 1000);
 				}
 			};
-			
+
 			setTimeout(lockCheck.bind(this), 1000);
 		}
 	}

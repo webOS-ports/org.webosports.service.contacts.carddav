@@ -289,7 +289,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				entries: []
 			};
 		}
-		
+				
 		if (!this.client.userAuth) {
 			log("No userAuth information. Something wrong with keystore. Can't authenticate with server.");
 			future.result = {
@@ -488,7 +488,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Updates the stored config for calendar/addressbook folders from collection changes.
 	 */
 	_updateConfig: function (kindName, remoteFolders) {
-		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false;
+		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false,
+			deleteAllCallback = function (future) {
+				debug("Delete all objects returned: " + JSON.stringify(future.result));
+			};
 		folders = this.client.transport.syncKey[subKind].folders;
 		
 		for (i = 0; i < remoteFolders.length; i += 1) {
@@ -514,9 +517,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (!remoteFolder) { //folder not found => need to delete.
 				debug("Need to delete local folder " + JSON.stringify(folder));
 				folders.splice(i, 1);
-				DB.del({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] }, false).then(this, function deleteAllCallback(future) {
-					debug("Delete all objects returned: " + JSON.stringify(future.result));
-				});
+				DB.del({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] }, false).then(this, deleteAllCallback);
 				change = true;
 			}
 		}
@@ -974,7 +975,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			future.then(this, conversionCB);
 		} else if (obj.operation === "delete") {
 			//check collectionID, prevents deletion on server if local collection got deleted:
-			if(this._checkCollectionId(kindName, obj.local.calendarId)) {		
+			if (this._checkCollectionId(kindName, obj.local.calendarId)) {
 				//send delete request to server.
 				future.nest(CalDav.deleteObject(this.params, obj.remote.uri, obj.remote.etag));
 			} else {
