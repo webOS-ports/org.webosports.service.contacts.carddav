@@ -272,13 +272,17 @@ var CalDav = (function () {
 		},
 		
 		//checks only authorization.
+		//But does that with propfind user principal now, instead of GET.
+		//Issue was that one can get the login screen without (and also with wrong) credentials.
 		//check result.returnValue from feature.
 		//this does not really look at the error message. All codes >= 400 return a false => i.e. auth error. But also returns status code.
 		checkCredentials: function (params) {
-			var options = preProcessOptions(params), future = new Future();
-			options.method = "GET";
+			var options = preProcessOptions(params), future = new Future(), data;
 			
-			future.nest(sendRequest(options, ""));
+			options.method = "PROPFIND";
+			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
+			
+			future.nest(sendRequest(options, data));
 			return future;
 		},
 		
