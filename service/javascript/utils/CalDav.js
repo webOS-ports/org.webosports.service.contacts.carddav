@@ -169,6 +169,7 @@ var CalDav = (function () {
 		lastSend = Date.now();
 		req =  httpClient.request(options.method, options.path, options.headers);
 		req.on('response', function (res) {
+			var result, newPath;
 			log('STATUS: ' + res.statusCode);
 			log('HEADERS: ' + JSON.stringify(res.headers));
 			res.setEncoding('utf8');
@@ -185,7 +186,7 @@ var CalDav = (function () {
 				clearTimeout(timeoutID);
 				debug("Body: " + body);
 				
-				var result = {
+				result = {
 					returnValue: (res.statusCode < 400),
 					etag: res.headers.etag,
 					returnCode: res.statusCode,
@@ -193,7 +194,15 @@ var CalDav = (function () {
 					uri: options.path
 				};
 				
-				if (res.statusCode < 400 && options.parse) { //only parse if status code was ok.
+				if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
+					newPath = CalDav.setHostAndPort(res.headers.location);
+					log("Redirected to " + newPath);
+					options.path = newPath;
+					options.headers.host = serverHost;
+					sendRequest(options, data).then(function (f) {
+						future.result = f.result; //transfer future result.
+					});
+				} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 					/*parser.parseString(body, function(err, parsedBody) {
 						if (err) {
 							log("Error during parsing: " + JSON.stringify(err));
@@ -251,10 +260,15 @@ var CalDav = (function () {
 				parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
 			}
 			
-			serverHost = parsedUrl.hostname;
-			httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
+			if (serverHost !== parsedUrl.hostname) {
+				debug("Setting new host: " + parsedUrl.hostname);
+				serverHost = parsedUrl.hostname;
+				httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
+			} else {
+				debug("Hosts the same: " + serverHost + " == " + parsedUrl.hostname);
+			}
 			
-			return parsedUrl.pathname;
+			return parsedUrl.pathname || "/"; //if no path, return / as root path.
 		},
 		
 		//checks only authorization.
