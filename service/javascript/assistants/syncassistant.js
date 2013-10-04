@@ -3,7 +3,7 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint node: true, nomen: true, sloppy: true */
-/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB */
+/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall */
  
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
@@ -339,14 +339,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("\n\n**************************SyncAssistant:_getRemoteCollectionChanges*****************************");
 		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
-			home = this.client.transport.config[subKind].homeFolder,
+			home = this.client.transport.config[subKind] ? this.client.transport.config[subKind].homeFolder : undefined,
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 		
-		debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
+		if (!home) {
+			debug("Need to get home folders first, doing discovery.");
+			future.nest(PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
+		} else {
+			future.result = {returnValue: true}; //don't need to do discovery, tell futures to go on.
+		}
 		
-		this.client.transport.syncKey[kindName].error = true;
-		future.nest(this._getLocalEtags(kindName));
+		future.then(this, function discoveryCB() {
+			debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
+		
+			this.client.transport.syncKey[kindName].error = true;
+			future.nest(this._getLocalEtags(kindName));
+		});
+		
 		future.then(this, function handleLocalFolders() {
 			log("---------------------->handleLocalFolders()");
 			var result = future.result;

@@ -45,6 +45,11 @@
 			   "assistant": "SyncAssistant",
                "public":true
             },
+            {
+               "name":"discovery",
+			   "assistant": "DiscoveryAssistant",
+               "public":true
+            },
 			{
 				"name": "resources",
 				"assistant": "Resources",
