@@ -1045,7 +1045,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Should return an array of objects that need to get written to db.
 	 */
 	 //disabled because  sync patch for stable upload breaks produces endless loop if postPutRemoteModify is used.
-	/*postPutRemoteModify: function (batch, kindName) {
+	//re-enabled, because it is necessary for us to track remote changes. Will fix the patch..
+	postPutRemoteModify: function (batch, kindName) {
 		log("\n\n**************************SyncAssistant:postPutRemoteModify*****************************");
 		var result = [], future = new Future(), i;
 		
@@ -1064,5 +1065,5 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		
 		future.result = result;
 		return future;
-	}*/
+	}
 });
