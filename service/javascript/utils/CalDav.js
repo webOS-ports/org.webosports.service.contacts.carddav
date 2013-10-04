@@ -5,8 +5,22 @@ var CalDav = (function () {
 	var httpClient,
 		serverHost;
 	
+	function getValue(obj, field) {
+		var f, f2 = field.toLowerCase();
+		for (f in obj) {
+			if (obj.hasOwnProperty(f)) {
+				if (f.toLowerCase() === f2) {
+					return obj[f];
+				}
+			}
+		}
+	}
+	
 	function getResponses(body) {
-		return body.D$multistatus.D$response;
+		var multistatus = getValue(body, "d$multistatus");
+		if (multistatus) {
+			return getValue(multistatus, "d$response");
+		}
 	}
 
 	function processStatus(stat) {
@@ -15,11 +29,11 @@ var CalDav = (function () {
 			if (stat.length !== 1) {
 				throw {msg: "multiple stati... can't process."};
 			} else {
-				return stat[0].$t; //maybe extract number here?
+				return getValue(stat[0], "$t"); //maybe extract number here?
 			}
 		} else {
 			//debug("Got single stat.");
-			return stat.$t;
+			return getValue(stat, "$t");
 		}
 	}
 
@@ -34,8 +48,8 @@ var CalDav = (function () {
 	function processPropstat(ps) {
 		//debug("Processing propstat: " + JSON.stringify(ps));
 		var propstat = {
-			status: processStatus(ps.D$status),
-			prop: processProp(ps.D$prop)
+			status: processStatus(getValue(ps, "d$status")),
+			prop: processProp(getValue(ps, "d$prop"))
 		};
 		return propstat;
 	}
@@ -43,10 +57,12 @@ var CalDav = (function () {
 	function processResponse(res) {
 		//debug("Processing response " + JSON.stringify(res));
 		var response = {
-			href: res.D$href.$t,
-			propstats: res.D$propstat
+			href: getValue(getValue(res, "d$href"), "$t"),
+			propstats: getValue(res, "d$propstat")
 		}, i;
-		if (response.propstats.length >= 0) {
+		if (!response.propstats) {
+			response.propstats = [];
+		} else if (response.propstats.length >= 0) {
 			for (i = 0; i < response.propstats.length; i += 1) {
 				response.propstats[i] = processPropstat(response.propstats[i]);
 			}
@@ -70,8 +86,8 @@ var CalDav = (function () {
 		return procRes;
 	}
 	
-	function getKeyValueFromResponse(body, searchedKey) {
-		var responses = parseResponseBody(body), i, j, prop, key;
+	function getKeyValueFromResponse(body, searchedKey, notResolveText) {
+		var responses = parseResponseBody(body), i, j, prop, key, text;
 		for (i = 0; i < responses.length; i += 1) {
 			for (j = 0; j < responses[i].propstats.length; j += 1) {
 				prop = responses[i].propstats[j].prop;
@@ -79,10 +95,11 @@ var CalDav = (function () {
 					if (prop.hasOwnProperty(key)) {
 						if (key.indexOf(searchedKey) >= 0) {
 							//debug("Returning " + prop[key].$t + " for " + key);
-							if (prop[key].$t) {
-								return prop[key].$t;
-							} else {
+							text = getValue(prop[key], "$t");
+							if (notResolveText || !text) {
 								return prop[key];
+							} else {
+								return text;
 							}
 						}
 					}
@@ -99,7 +116,7 @@ var CalDav = (function () {
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
 						if (key.indexOf('getetag') >= 0) {
-							etag = prop[key].$t;
+							etag = getValue(prop[key], "$t");
 						}
 					}
 				}
@@ -390,7 +407,7 @@ var CalDav = (function () {
 			future.then(this, function principalDataCB() {
 				var result = future.result, principal;
 				if (result.returnValue === true) {
-					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal').D$href.$t;
+					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', false);
 					log("Got principal: " + principal);
 					options.path = principal;
 					options.headers.Depth = 0;
@@ -409,7 +426,7 @@ var CalDav = (function () {
 				var result = future.result, home;
 				if (result.returnValue === true) {
 					//look for either calendar- or addressbook-home-set :)
-					home = getKeyValueFromResponse(result.parsedBody, "-home-set").D$href.$t;
+					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set"), "d$href"), "$t");
 					homes.push(home);
 					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:addressbook-home-set /></d:propfind>";
 					
@@ -557,13 +574,13 @@ var CalDav = (function () {
 							for (key in prop) {
 								if (prop.hasOwnProperty(key)) {
 									if (key.indexOf('displayname') >= 0) {
-										folder.name = prop[key].$t;
+										folder.name = getValue(prop[key], "$t");
 									} else if (key.indexOf('resourcetype') >= 0) {
 										folder.resource = getResourceType(prop[key]);
 									} else if (key.indexOf('supported-calendar-component-set') >= 0) {
 										folder.supportedComponents = parseSupportedComponents(prop[key]);
 									} else if (key.indexOf('getctag') >= 0) {
-										folder.ctag = prop[key].$t;
+										folder.ctag = getValue(prop[key], "$t");
 									}
 								}
 							}
