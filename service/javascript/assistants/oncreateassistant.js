@@ -30,14 +30,15 @@ var OnCreate = Class.create(Sync.CreateAccountCommand, {
 				var result = future.result;
 				debug("Store came back: " + JSON.stringify(result));
 				unlockCreateAssistant(this.client.clientId);
+				outerFuture.result = {returnValue: true};
 			});
 		} else { //other create assistant already running. Prevent multiple account objects.
 			log("Another create assistant is already running. Stopping.");
-			
-			lockCheck = function() {
+
+			lockCheck = function () {
 				if (lockCreateAssistant(this.client.clientId)) {
 					unlockCreateAssistant(this.client.clientId);
-					outerFuture.result = {};
+					outerFuture.result = {returnValue: true};
 				} else {
 					setTimeout(lockCheck.bind(this), 1000);
 				}
@@ -45,5 +46,6 @@ var OnCreate = Class.create(Sync.CreateAccountCommand, {
 
 			setTimeout(lockCheck.bind(this), 1000);
 		}
+		return outerFuture;
 	}
 });
