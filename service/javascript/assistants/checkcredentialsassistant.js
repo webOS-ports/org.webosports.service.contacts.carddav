@@ -22,11 +22,12 @@ checkCredentialsAssistant.prototype.run = function (future) {
             // Pass back credentials and config (username/password/url); config is passed to onCreate where
             // we will save username/password/url in encrypted storage
             debug("Password accepted");
-            future.result = {returnValue: true, "credentials": {"common": {"password": args.password, "username": args.username, "url": args.url}},
-                                                "config": {"password": args.password, "username": args.username, "url": args.url}};
+            future.result = {success: true, "credentials": {"common": {"password": args.password, "username": args.username, "url": args.url}},
+                                            "config": {"password": args.password, "username": args.username, "url": args.url}
+							};
         } else {
             debug("Password rejected");
-            future.result = {"errorCode": result.returnCode, "returnValue": false};
+            future.result = {success: false};
         }
     });
 };
