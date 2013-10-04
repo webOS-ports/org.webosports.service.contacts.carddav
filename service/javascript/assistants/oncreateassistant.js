@@ -16,7 +16,7 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 			});
 		
 			future.then(this, function transportCB() {
-				var result = future.result, params;
+				var result = future.result, params, obj = {};
 				debug("Got transport object: " + JSON.stringify(result));
 				debug("Storing: " + JSON.stringify(this.client.config));
 				result.config = this.client.config;
@@ -70,7 +70,11 @@ var OnCreate = Class.create(Sync.CreateAccountCommand,
 					log("Could not discover addressbook and calendar folders: " + JSON.stringify(result));
 				}
 
-				future.nest(this.handler.putAccountTransportObject(this.client.transport));
+				obj.config = this.client.config;
+				obj._id = result._id;
+				obj._kind = result._kind;
+
+				future.nest(DB.merge([obj]));
 			});
 			
 			future.then(this, function storeCB() {
