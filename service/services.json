@@ -16,11 +16,6 @@
                "public":true
             },
             {
-               "name":"onCapabiltiesChanged",
-               "assistant":"OnCapabiltiesChanged",
-               "public":true
-            },
-            {
                "name":"onCredentialsChanged",
                "assistant":"OnCredentialsChanged",
                "public":true
