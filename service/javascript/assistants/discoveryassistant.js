@@ -1,30 +1,18 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, log, Kinds, debug, DB, CalDav */
+/*global Future, log, Kinds, debug, DB, CalDav, getTransportObjByAccountId */
 
 var DiscoveryAssistant = function () {};
 
 DiscoveryAssistant.prototype.run = function (outerFuture) {
-	var future = new Future(), args = this.controller.args,
-		dbObj, query = {"from": "org.webosports.service.contacts.carddav.account:1"};
-	
-	if (args.id) {
-		future.nest(DB.get([args.id]));
-	} else {
-		future.nest(DB.find(query, false, false));
-	}
+	var future = new Future(), args = this.controller.args;
+
+	//can only process the account we got credentials for => get right transport object
+	future.nest(getTransportObjByAccountId(args));
 	
 	future.then(this, function gotDBObject() {
-		var result = future.result, i, obj;
+		var result = future.result;
 		if (result.returnValue) {
-			debug("Got " + result.results.length + " account objects from database.");
-			
-			for (i = 0; i < result.results.length; i += 1) {
-				obj = result.results[i];
-				if (obj.accountId === args.accountId) { //can only process the account we got credentials for.
-					future.nest(this.processAccount(args, obj));
-					break;
-				}
-			}
+			future.nest(this.processAccount(args, result.account));
 		} else {
 			log("Could not get DB object: " + JSON.stringify(result));
 			log(JSON.stringify(future.error));

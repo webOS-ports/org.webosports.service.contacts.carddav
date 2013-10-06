@@ -64,4 +64,31 @@ var unlockCreateAssistant = function (accountId) {
 	debug("Unlocking account " + accountId);
 	delete createLocks[accountId];
 	debug("Locks now are: " + JSON.stringify(createLocks));
+var getTransportObjByAccountId = function (args) {
+	var query = {"from": "org.webosports.service.contacts.carddav.account:1"}, future = new Future();
+
+	if (args.id) {
+		future.nest(DB.get([args.id]));
+	} else {
+		future.nest(DB.find(query, false, false));
+	}
+
+	future.then(this, function gotDBObject() {
+		var result = future.result, i, obj;
+		if (result.returnValue) {
+			for (i = 0; i < result.results.length; i += 1) {
+				obj = result.results[i];
+				if (obj.accountId === args.accountId) {
+					future.result = {returnValue: true, account: obj};
+					break;
+				}
+			}
+		} else {
+			log("Could not get DB object: " + JSON.stringify(result));
+			log(JSON.stringify(future.error));
+			future.result = {returnValue: false, success: false};
+		}
+	});
+	
+	return future;
 };
