@@ -60,10 +60,6 @@ var lockCreateAssistant = function (accountId) {
 	}
 };
 
-var unlockCreateAssistant = function (accountId) {
-	debug("Unlocking account " + accountId);
-	delete createLocks[accountId];
-	debug("Locks now are: " + JSON.stringify(createLocks));
 var getTransportObjByAccountId = function (args) {
 	var query = {"from": "org.webosports.service.contacts.carddav.account:1"}, future = new Future();
 

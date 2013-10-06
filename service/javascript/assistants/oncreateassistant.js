@@ -29,22 +29,11 @@ var OnCreate = Class.create(Sync.CreateAccountCommand, {
 			future.then(this, function storeCB() {
 				var result = future.result;
 				debug("Store came back: " + JSON.stringify(result));
-				unlockCreateAssistant(this.client.clientId);
 				outerFuture.result = {returnValue: true};
 			});
 		} else { //other create assistant already running. Prevent multiple account objects.
 			log("Another create assistant is already running. Stopping.");
-
-			lockCheck = function () {
-				if (lockCreateAssistant(this.client.clientId)) {
-					unlockCreateAssistant(this.client.clientId);
-					outerFuture.result = {returnValue: true};
-				} else {
-					setTimeout(lockCheck.bind(this), 1000);
-				}
-			};
-
-			setTimeout(lockCheck.bind(this), 1000);
+			outerFuture.result = {returnValue: true};
 		}
 		return outerFuture;
 	}
