@@ -115,3 +115,4 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 //var OnCreate = Sync.CreateAccountCommand; //=> now in own assistant. Does discovery.
 var OnDelete = Sync.DeleteAccountCommand;
 var OnEnabled = Sync.EnabledAccountCommand;
+var OnCredentialsChanged = Sync.CredentialsChangedCommand;
