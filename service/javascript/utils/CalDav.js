@@ -4,7 +4,7 @@
 var CalDav = (function () {
 	var httpClient,
 		serverHost;
-	
+
 	function getValue(obj, field) {
 		var f, f2 = field.toLowerCase();
 		for (f in obj) {
@@ -15,11 +15,11 @@ var CalDav = (function () {
 			}
 		}
 	}
-	
+
 	function getResponses(body) {
 		var multistatus = getValue(body, "d$multistatus");
 		if (multistatus) {
-			return getValue(multistatus, "d$response");
+			return getValue(multistatus, "d$response") || [];
 		}
 	}
 
@@ -39,8 +39,12 @@ var CalDav = (function () {
 
 	function processProp(prop) {
 		//debug("Processing prop: " + JSON.stringify(prop));
-		if (prop.length >= 0 && prop.length !== 1) {
-			throw {msg: "multiple props... can't process."};
+		if (prop && prop.length >= 0) {
+			if (prop.length !== 1) {
+				throw {msg: "multiple props... can't process."};
+			} else {
+				return prop[0];
+			}
 		}
 		return prop;
 	}
@@ -85,12 +89,12 @@ var CalDav = (function () {
 		}
 		return procRes;
 	}
-	
+
 	function getKeyValueFromResponse(body, searchedKey, notResolveText) {
 		var responses = parseResponseBody(body), i, j, prop, key, text;
 		for (i = 0; i < responses.length; i += 1) {
 			for (j = 0; j < responses[i].propstats.length; j += 1) {
-				prop = responses[i].propstats[j].prop;
+				prop = responses[i].propstats[j].prop || {};
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
 						if (key.indexOf(searchedKey) >= 0) {
@@ -107,7 +111,7 @@ var CalDav = (function () {
 			}
 		}
 	}
-		
+
 	function getETags(body) {
 		var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag;
 		for (i = 0; i < responses.length; i += 1) {
@@ -128,13 +132,13 @@ var CalDav = (function () {
 		//debug("Etag directory: " + JSON.stringify(eTags));
 		return eTags;
 	}
-	
+
 	function sendRequest(options, data, retry) {
 		var body = "", future = new Future(), req, received = false, lastSend, timeoutID;
 		if (retry === undefined) {
 			retry = 0;
 		}
-		
+
 		function checkTimeout() {
 			var now;
 			if (!received) {
@@ -159,7 +163,7 @@ var CalDav = (function () {
 				log("Message received, returning.");
 			}
 		}
-		
+
 		if (data.length > 0) {
 			options.headers["Content-Length"] = data.length;
 		}
@@ -174,7 +178,6 @@ var CalDav = (function () {
 			log('HEADERS: ' + JSON.stringify(res.headers));
 			res.setEncoding('utf8');
 			res.on('data', function (chunk) {
-				log("got partial data.");
 				lastSend = Date.now();
 				body += chunk;
 			});
@@ -184,8 +187,8 @@ var CalDav = (function () {
 				}
 				received = true;
 				clearTimeout(timeoutID);
-				debug("Body: " + body);
-				
+				//debug("Body: " + body);
+
 				result = {
 					returnValue: (res.statusCode < 400),
 					etag: res.headers.etag,
@@ -193,25 +196,17 @@ var CalDav = (function () {
 					body: body,
 					uri: options.path
 				};
-				
+
 				if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
 					newPath = CalDav.setHostAndPort(res.headers.location);
 					log("Redirected to " + newPath);
 					options.path = newPath;
 					options.headers.host = serverHost;
+					options.url = res.headers.location;
 					sendRequest(options, data).then(function (f) {
 						future.result = f.result; //transfer future result.
 					});
 				} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
-					/*parser.parseString(body, function(err, parsedBody) {
-						if (err) {
-							log("Error during parsing: " + JSON.stringify(err));
-							log("Parsed Body: " + JSON.stringify(parsedBody));
-							throw new Error("Error during parsing: " + JSON.stringify(err));
-						}
-						result.parsedBody = parsedBody;
-						future.result = result;
-					});*/
 					result.parsedBody = xml.xmlstr2json(body);
 					log("Parsed Body: " + JSON.stringify(result.parsedBody));
 					future.result = result;
@@ -229,10 +224,10 @@ var CalDav = (function () {
 		// write data to request body
 		req.write(data);
 		req.end();
-		
+
 		return future;
 	}
-	
+
 	function preProcessOptions(params) {
 		var options = {
 			path: params.path,
@@ -249,28 +244,50 @@ var CalDav = (function () {
 		return options;
 	}
 
+	function generateMoreTestPaths(folder, tryFolders) {
+		var newFolder, i;
+		if (folder.path.indexOf("caldav") >= 0) {
+			newFolder = {url: folder.url ? folder.url.replace("caldav", "carddav") : undefined,
+							 path: folder.path.replace("caldav", "carddav"), host: folder.host};
+		}
+		if (folder.path.indexOf("carddav") >= 0) {
+			newFolder = {url: folder.url ? folder.url.replace("carddav", "caldav") : undefined,
+							 path: folder.path.replace("carddav", "caldav"), host: folder.host};
+		}
+		
+		//check for duplicates:
+		if (newFolder) {
+			for (i = 0; i < tryFolders.length; i += 1) {
+				if (newFolder && newFolder.url === tryFolders[i].url) {
+					return;
+				}
+				if (newFolder.path === tryFolders[i].path && newFolder.host === tryFolders[i].host) {
+					return;
+				}
+			}
+			tryFolders.push(newFolder);
+		}
+	}
+
 	//define public interface
 	return {
 		//configures internal httpClient for new host/port
 		//returns pathname, i.e. the not host part of the url.
 		setHostAndPort: function (inUrl) {
 			var parsedUrl = url.parse(inUrl);
-			
+
 			if (!parsedUrl.port) {
 				parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
 			}
-			
-			if (serverHost !== parsedUrl.hostname) {
-				debug("Setting new host: " + parsedUrl.hostname);
+
+			if (parsedUrl.hostname && serverHost !== parsedUrl.hostname) {
 				serverHost = parsedUrl.hostname;
 				httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
-			} else {
-				debug("Hosts the same: " + serverHost + " == " + parsedUrl.hostname);
 			}
-			
+
 			return parsedUrl.pathname || "/"; //if no path, return / as root path.
 		},
-		
+
 		//checks only authorization.
 		//But does that with propfind user principal now, instead of GET.
 		//Issue was that one can get the login screen without (and also with wrong) credentials.
@@ -278,23 +295,23 @@ var CalDav = (function () {
 		//this does not really look at the error message. All codes >= 400 return a false => i.e. auth error. But also returns status code.
 		checkCredentials: function (params) {
 			var options = preProcessOptions(params), future = new Future(), data;
-			
+
 			options.method = "PROPFIND";
 			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
-			
+
 			future.nest(sendRequest(options, data));
 			return future;
 		},
-		
+
 		//determines if a sync is necessary for datastore given by url.
 		//needs: { username, password, url, ctag }
-		//returns future, which will eventually get result which contains ctag and 
+		//returns future, which will eventually get result which contains ctag and
 		checkForChanges: function (params) {
 			var options = preProcessOptions(params), future = new Future(), data;
 			options.method = "PROPFIND";
 			options.headers.Depth = 0;
 			options.parse = true;
-			
+
 			//seems to be identical for caldav and carddav. RFC of carddav does not talk about this.
 			data = "<d:propfind xmlns:d=\"DAV:\" xmlns:cs=\"http://calendarserver.org/ns/\">";
 			data += "<d:prop>";
@@ -302,9 +319,9 @@ var CalDav = (function () {
 			data += "<cs:getctag />";
 			data += "</d:prop>";
 			data += "</d:propfind>";
-			
+
 			future.nest(sendRequest(options, data));
-			
+
 			future.then(function () {
 				var result = future.result, ctag;
 				if (result.returnValue) {
@@ -315,26 +332,26 @@ var CalDav = (function () {
 				log("New ctag: " + ctag + ", old ctag: " + params.ctag);
 				future.result = { success: result.returnValue, needsUpdate: ctag !== params.ctag, ctag: ctag };
 			});
-			
+
 			return future;
 		},
-				
+
 		downloadEtags: function (params) {
 			var options = preProcessOptions(params), future = new Future(), data;
 			options.method = "REPORT";
 			options.headers.Depth = 1;
 			options.parse = true;
-			
+
 			//maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
 			//be sure to not delete local objects that are beyond that timerange! ;)
-			
+
 			data = "<c:calendar-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCALENDAR'><c:comp-filter name='VEVENT'></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
 			if (params.cardDav) {
 				data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
 			}
-			
+
 			future.nest(sendRequest(options, data));
-			
+
 			future.then(function () {
 				var result = future.result, etags;
 				if (result.returnValue) {
@@ -345,29 +362,29 @@ var CalDav = (function () {
 					log("Could not get eTags.");
 				}
 			});
-						
+
 			return future;
 		},
-		
+
 		/*
-		 * Downloadds a single object, whose uri is in obj.uri. 
+		 * Downloadds a single object, whose uri is in obj.uri.
 		 * Future will contain data member which contains the body, i.e. the complete data of the object.
 		 */
 		downloadObject: function (params, obj) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "GET";
 			options.path = obj.uri;
-			
+
 			future.nest(sendRequest(options, ""));
-			
+
 			future.then(function () {
 				var result = future.result;
 				future.result = { returnValue: result.returnValue, data: result.body };
 			});
-			
+
 			return future;
 		},
-		
+
 		/*
 		 * Sends delete request to the server.
 		 * Future will cotain uri member with old uri for reference.
@@ -376,17 +393,17 @@ var CalDav = (function () {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "DELETE";
 			options.path = uri;
-		  
+
 			//prevent overriding remote changes.
 			if (etag) {
 				options.headers["If-Match"] = etag;
 			}
-		  
+
 			future.nest(sendRequest(options, ""));
 
 			return future;
 		},
-		
+
 		/*
 		 * Puts an object to server.
 		 * If server delivers etag in response, will also add etag to future.result.
@@ -398,123 +415,179 @@ var CalDav = (function () {
 			if (params.cardDav) {
 				options.headers["Content-Type"] = "text/vcard; charset=utf-8";
 			}
-			
+
 			//prevent overriding remote changes.
 			if (params.etag) {
 				options.headers["If-Match"] = params.etag;
 			} else {
 				options.headers["If-None-Match"] = "*";
 			}
-			
+
 			future.nest(sendRequest(options, data));
-						
+
 			return future;
 		},
-		
+
 		//discovers folders for contacts and calendars.
 		//future.result will contain array folders.
 		//folders contain uri, resource = contact/calendar/task
 		discovery: function (params) {
-			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = {}, folderCB;
-			options.method = "PROPFIND";
-			options.parse = true;
-			
-			//first get user principal:
-			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
-			future.nest(sendRequest(options, data));
-			future.then(this, function principalDataCB() {
-				var result = future.result, principal;
+			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = { subFolders: {} }, folderCB,
+				tryFolders = [], principals = [];
+
+			function setNextUrl(folder) {
+				if (folder.url) {
+					options.path = CalDav.setHostAndPort(folder.url);
+				} else {
+					options.path = folder.path;
+					options.headers.host = folder.host;
+				}
+			}
+
+			function principalCB(index) {
+				var result = future.result, principal, folder, i;
 				if (result.returnValue === true) {
-					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', false);
-					log("Got principal: " + principal);
-					options.path = principal;
-					options.headers.Depth = 0;
-					
-					//first try to find calendar homes:
-					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:calendar-home-set /></d:propfind>";
-					future.nest(sendRequest(options, data));
+					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
+					if (principal) {
+						principal = getValue(getValue(principal, "d$href"), "$t");
+						log("Got principal: " + principal);
+						if (principal) {
+							folder = {url: options.url, host: options.headers.host, path: principal};
+							principals.push(folder); //try to find homes in principal folder, later.
+							generateMoreTestPaths(folder, principals);
+						}
+					}
 				} else {
 					//error, stop, return failure.
 					log("Error in getPrincipal: " + JSON.stringify(result));
-					future.result = result;
+					//future.result = result;	
 				}
-			});
-			
-			future.then(this, function calendarHomeCB() {
+
+				if (index < tryFolders.length) {
+					setNextUrl(tryFolders[index]);
+					future.nest(sendRequest(options, data));
+					future.then(principalCB.bind(this, index + 1));
+				} else {
+					if (principals.length === 0) {
+						log("Could not get any principal at all.");
+					}
+	
+					//prepare home folder search:
+					options.headers.Depth = 0;
+					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><c:calendar-home-set/></d:prop></d:propfind>";
+					
+					//reorder array, so that principal folders are tried first:
+					tryFolders = principals.concat(tryFolders);
+					
+					setNextUrl(tryFolders[0]);
+					future.nest(sendRequest(options, data));
+				}
+			}
+
+			function getHomeCB(addressbook, index) {
 				var result = future.result, home;
 				if (result.returnValue === true) {
 					//look for either calendar- or addressbook-home-set :)
-					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set"), "d$href"), "$t");
-					homes.push(home);
-					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:addressbook-home-set /></d:propfind>";
-					
-					folders.calendarHome = home;
-					future.nest(sendRequest(options, data));
+					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "d$href"), "$t");
+					if (!home) {
+						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
+					} else {
+						log("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
+					}
 				} else {
 					//error, stop, return failure.
-					log("Error in getCalenderHome: " + JSON.stringify(result));
-					future.result = result;
+					log("Error in getHomeCB: " + JSON.stringify(result));
+					//future.result = result;
 				}
-			});
-			
-			future.then(this, function addressbookHomeCB() {
-				var result = future.result, home;
-				if (result.returnValue === true) {
-					//look for either calendar- or addressbook-home-set :)
-					home = getKeyValueFromResponse(result.parsedBody, "-home-set").D$href.$t;
-					if (home !== homes[0]) {
-						homes.push(home);
+				
+				if (!home) {
+					if (index < tryFolders.length) {
+						log("Trying to ask for " + (addressbook ? "addressbook" : "calendar") + "-home-set on next url: " + JSON.stringify(tryFolders[index]) + " index: " + index);
+						setNextUrl(tryFolders[index]);
+						future.nest(sendRequest(options, data));
+						future.then(getHomeCB.bind(this, addressbook, index + 1));
+						return;
 					} else {
-						log("Homes identical, ignore second one.");
+						log("Tried all folders. Will try to get " + (addressbook ? "addressbook" : "calendar") + " folders from original url.");
+						home = CalDav.setHostAndPort(params.originalUrl);
 					}
-					folders.addressbookHome = home;
+				}
+				
+				if (homes.length > 0 && homes[0] === home) {
+					log("Homes identical, ignore second one.");
+				} else {
+					homes.push(home);
+				}
 
+				if (!addressbook) {
+					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
+					folders.calendarHome = home;
+					setNextUrl(tryFolders[0]);
+					future.nest(sendRequest(options, data));
+					future.then(getHomeCB.bind(this, true, 1)); //calendar done, start with addressbook
+				} else {
+					folders.addressbookHome = home;
 					//start folder search and consume first folder.
 					log("Getting folders from " + homes[0]);
+					params.cardDav = false;
 					future.nest(this.getFolders(params, homes.shift()));
-					future.then(this, folderCB.bind(this));
-				} else {
-					//error, stop, return failure.
-					log("Error in getCalenderHome: " + JSON.stringify(result));
-					future.result = result;
+					future.then(this, folderCB);
 				}
-			});
-			
+			}
+
+			//some folders to probe for:
+			tryFolders.push({url: params.originalUrl, path: options.path, host: options.headers.host}); //push original URL to test-for-home-folders.
+			generateMoreTestPaths(tryFolders[0], tryFolders);
+			tryFolders.push({path: "/.well-known/caldav", host: serverHost});
+			tryFolders.push({path: "/.well-known/carddav", host: serverHost});
+			maxFolderPrincipal = tryFolders.length; //principals will be added to search home folders in, don't  search them for pincipals again.
+
+			//first get user principal:
+			options.method = "PROPFIND";
+			options.parse = true;
+			setNextUrl(tryFolders[0]);
+			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
+			future.nest(sendRequest(options, data));
+			future.then(principalCB.bind(this, 1));
+
+			future.then(getHomeCB.bind(this, false, 1));
+
 			folderCB = function () {
 				var result = future.result, i, f, fresult = [], key;
 				if (result.returnValue === true) {
 					//prevent duplicates by URI.
 					for (i = 0; i < result.folders.length; i += 1) {
 						f = result.folders[i];
-						folders[f.uri] = f;
-					}
-				
-					if (homes.length > 0) { //if we still have unsearched home-foders, search them:
-						log("Getting folders from " + homes[0]);
-						future.nest(this.getFolders(params, homes.shift()));
-						future.then(this, folderCB);
-					} else {
-						future.result = {
-							returnValue: true,
-							folders: fresult,
-							calendarHome: folders.calendarHome,
-							contactHome: folders.addressbookHome
-						};
-						for (key in folders) {
-							if (folders.hasOwnProperty(key)) {
-								fresult.push(folders[key]);
-							}
-						}
+						folders.subFolders[f.uri] = f;
 					}
 				} else {
 					log("Error during folder-search: " + JSON.stringify(result));
-					future.result = result;
+					//future.result = result;
+				}
+				
+				if (homes.length > 0) { //if we still have unsearched home-foders, search them:
+					log("Getting folders from " + homes[0]);
+					params.cardDav = true; //bad hack.
+					future.nest(this.getFolders(params, homes.shift()));
+					future.then(this, folderCB);
+				} else {
+					for (key in folders.subFolders) {
+						if (folders.subFolders.hasOwnProperty(key)) {
+							fresult.push(folders.subFolders[key]);
+						}
+					}
+					future.result = {
+						returnValue: true,
+						folders: fresult,
+						calendarHome: folders.calendarHome,
+						contactHome: folders.addressbookHome
+					};
 				}
 			};
-			
+
 			return future;
 		},
-		
+
 		//get's folders below uri. Can filter for addressbook, calendar or tasks.
 		//future.result will contain array folders
 		getFolders: function (params, uri, filter) {
@@ -538,7 +611,7 @@ var CalDav = (function () {
 							}
 						}
 					}
-					
+
 					if (unspecCal) {
 						//if only found "calendar" must decide by supported components:
 						return "calendar_tasks";
@@ -617,17 +690,17 @@ var CalDav = (function () {
 					}
 					return folders;
 				};
-			
+
 			options.headers.Depth = 1;
 			options.path = uri;
 			options.parse = true;
-			
+
 			data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
 			if (params.cardDav) {
 				data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
 			}
 			future.nest(sendRequest(options, data));
-			
+
 			future.then(this, function foldersCB() {
 				var result = future.result;
 				if (result.returnValue === true) {
@@ -638,10 +711,10 @@ var CalDav = (function () {
 					};
 				} else {
 					log("Error during getFolders: " + JSON.stringify(result));
-					future.resul = result;
+					future.resul = {returnValue: false, success: result.returnValue, retunCode: result.returnCode};
 				}
 			});
-			
+
 			return future;
 		}
 	};
