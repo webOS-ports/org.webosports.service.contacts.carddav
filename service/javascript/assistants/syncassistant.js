@@ -255,12 +255,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getRemoteChanges: function (state, kindName) {
 		log("\n\n**************************SyncAssistant:getRemoteChanges*****************************");
 		var path, key, i, future = new Future();
-		
+				
 		//be sure to have an transport object with all necessary fields!
 		if (!this.client.transport) {
 			this.client.transport = {};
 		}
-		
+			
 		//prevent crashes during assignments.
 		if (!this.client.transport.syncKey) {
 			this.client.transport.syncKey = {};
@@ -288,6 +288,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				more: false,
 				entries: []
 			};
+			return future;
 		}
 				
 		if (!this.client.userAuth) {
@@ -297,6 +298,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				more: false,
 				entries: []
 			};
+			return future;
 		}
 		
 		this.params = { authToken: this.client.userAuth.authToken, path: path };
