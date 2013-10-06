@@ -96,7 +96,6 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
     credFuture.then(this, function (f) {
         if (f.result.success) {
             debug("Check credentials came back successful");
-            debug("Result: " + JSON.stringify(f.result));
 
             this.accountSettings = {};
             var template = this.params.initialTemplate;
