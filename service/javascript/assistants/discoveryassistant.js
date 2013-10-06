@@ -19,44 +19,45 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 			future.result = {returnValue: false, success: false};
 		}
 	});
-	
+
 	future.then(this, function discoveryFinished() {
+		var result = future.result || {returnValue: false};
 		log("Discovery finished.");
-		outerFuture.result = future.result;
+		outerFuture.result = result;
 	});
 	return outerFuture;
 };
 
 DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 	var future = new Future(), params;
-	
+
 	if (obj) {
 		debug("Got transport object: " + JSON.stringify(obj));
-		
+
 		if (args[obj._id]) {
 			obj.config = {
 				name: args[obj._id].name,
 				url: args[obj._id].url
 			};
 		}
-		
+
 		if (!obj.config || !obj.config.url) {
 			log("No url for " + obj._id + " found in db or agruments. Can't process this account.");
 			future.reslut = {returnValue: false, success: false, msg: "No url for account in config."};
 			return future;
 		}
-		
+
 		params = {
 			path: CalDav.setHostAndPort(obj.config.url),
 			authToken: this.client.userAuth.authToken,
 			originalUrl: obj.config.url
 		};
-		
+
 		future.nest(CalDav.discovery(params));
-		
+
 		future.then(this, function discoverCB() {
-			var result = future.result, i, f, config = obj.config, syncKey = {};
-			
+			var result = future.result, i, f, config = obj.config, syncKey = obj.syncKey || {};
+
 			if (result.returnValue === true) {
 				config[Kinds.objects.calendarevent.name] = {
 					homeFolder: result.calendarHome
@@ -64,7 +65,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 				config[Kinds.objects.contact.name] = {
 					homeFolder: result.contactHome
 				};
-				
+
 				for (i in Kinds.objects) {
 					if (Kinds.objects.hasOwnProperty(i)) {
 						syncKey[Kinds.objects[i].name] = {
@@ -75,7 +76,6 @@ DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 
 				for (i = 0; i < result.folders.length; i += 1) {
 					f = result.folders[i];
-					debug("folder: " + JSON.stringify(f));
 					switch (f.resource) {
 					case "calendar":
 						syncKey[Kinds.objects.calendarevent.name].folders.push({uri: f.uri, name: f.name, remoteId: f.uri});
@@ -91,9 +91,11 @@ DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 						break;
 					}
 				}
+
+				obj.syncKey = syncKey;
 			} else {
 				log("Could not discover addressbook and calendar folders: " + JSON.stringify(result));
-				
+
 				log("Setting home folders to original URL and hoping for the best.");
 				config[Kinds.objects.calendarevent.name] = {
 					homeFolder: config.url
@@ -102,17 +104,17 @@ DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 					homeFolder: config.url
 				};
 			}
-			
+
 			future.nest(DB.merge([obj]));
 		});
-		
+
 		future.then(this, function storeCB() {
 			var result = future.result;
 			debug("Store came back: " + JSON.stringify(result));
 			future.result = {returnValue: result.returnValue, success: result.returnValue};
 		});
 	}
-	
+
 	return future;
 };
 
