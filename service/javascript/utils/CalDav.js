@@ -5,11 +5,15 @@ var CalDav = (function () {
 	var httpClient,
 		serverHost;
 
+	function endsWith(str, suffix) {
+		return str.indexOf(suffix, str.length - suffix.length) !== -1;
+	}
+	
 	function getValue(obj, field) {
 		var f, f2 = field.toLowerCase();
 		for (f in obj) {
 			if (obj.hasOwnProperty(f)) {
-				if (f.toLowerCase() === f2) {
+				if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
 					return obj[f];
 				}
 			}
@@ -17,9 +21,9 @@ var CalDav = (function () {
 	}
 
 	function getResponses(body) {
-		var multistatus = getValue(body, "d$multistatus");
+		var multistatus = getValue(body, "$multistatus");
 		if (multistatus) {
-			return getValue(multistatus, "d$response") || [];
+			return getValue(multistatus, "$response") || [];
 		}
 	}
 
@@ -52,8 +56,8 @@ var CalDav = (function () {
 	function processPropstat(ps) {
 		//debug("Processing propstat: " + JSON.stringify(ps));
 		var propstat = {
-			status: processStatus(getValue(ps, "d$status")),
-			prop: processProp(getValue(ps, "d$prop"))
+			status: processStatus(getValue(ps, "$status")),
+			prop: processProp(getValue(ps, "$prop"))
 		};
 		return propstat;
 	}
@@ -61,8 +65,8 @@ var CalDav = (function () {
 	function processResponse(res) {
 		//debug("Processing response " + JSON.stringify(res));
 		var response = {
-			href: getValue(getValue(res, "d$href"), "$t"),
-			propstats: getValue(res, "d$propstat")
+			href: getValue(getValue(res, "$href"), "$t"),
+			propstats: getValue(res, "$propstat")
 		}, i;
 		if (!response.propstats) {
 			response.propstats = [];
@@ -97,7 +101,7 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop || {};
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						if (key.indexOf(searchedKey) >= 0) {
+						if (key.toLowerCase().indexOf(searchedKey) >= 0) {
 							//debug("Returning " + prop[key].$t + " for " + key);
 							text = getValue(prop[key], "$t");
 							if (notResolveText || !text) {
@@ -119,7 +123,7 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop;
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						if (key.indexOf('getetag') >= 0) {
+						if (key.toLowerCase().indexOf('getetag') >= 0) {
 							etag = getValue(prop[key], "$t");
 						}
 					}
@@ -202,7 +206,6 @@ var CalDav = (function () {
 					log("Redirected to " + newPath);
 					options.path = newPath;
 					options.headers.host = serverHost;
-					options.url = res.headers.location;
 					sendRequest(options, data).then(function (f) {
 						future.result = f.result; //transfer future result.
 					});
@@ -245,27 +248,28 @@ var CalDav = (function () {
 	}
 
 	function generateMoreTestPaths(folder, tryFolders) {
-		var newFolder, i;
-		if (folder.path.indexOf("caldav") >= 0) {
-			newFolder = {url: folder.url ? folder.url.replace("caldav", "carddav") : undefined,
-							 path: folder.path.replace("caldav", "carddav"), host: folder.host};
+		var newFolders = [], i, j;
+		if (folder.path.toLowerCase().indexOf("caldav") >= 0) {
+			newFolders.push({path: folder.path.toLowerCase().replace("caldav", "carddav"), host: folder.host});
 		}
-		if (folder.path.indexOf("carddav") >= 0) {
-			newFolder = {url: folder.url ? folder.url.replace("carddav", "caldav") : undefined,
-							 path: folder.path.replace("carddav", "caldav"), host: folder.host};
+		if (folder.host.toLowerCase().indexOf("caldav") >= 0) {
+			newFolders.push({path: folder.path, host: folder.host.toLowerCase().replace("caldav", "carddav")});
+		}
+		if (folder.path.toLowerCase().indexOf("carddav") >= 0) {
+			newFolders.push({path: folder.path.toLowerCase().replace("carddav", "caldav"), host: folder.host});
+		}
+		if (folder.host.toLowerCase().indexOf("carddav") >= 0) {
+			newFolders.push({path: folder.path, host: folder.host.toLowerCase().replace("carddav", "caldav")});
 		}
 		
 		//check for duplicates:
-		if (newFolder) {
+		for (j = 0; j < newFolders.lenght; j += 1) {
 			for (i = 0; i < tryFolders.length; i += 1) {
-				if (newFolder && newFolder.url === tryFolders[i].url) {
-					return;
-				}
-				if (newFolder.path === tryFolders[i].path && newFolder.host === tryFolders[i].host) {
+				if (newFolders[j].path === tryFolders[i].path && newFolders[j].host === tryFolders[i].host) {
 					return;
 				}
 			}
-			tryFolders.push(newFolder);
+			tryFolders.push(newFolders[j]);
 		}
 	}
 
@@ -449,10 +453,10 @@ var CalDav = (function () {
 				if (result.returnValue === true) {
 					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
 					if (principal) {
-						principal = getValue(getValue(principal, "d$href"), "$t");
+						principal = getValue(getValue(principal, "$href"), "$t");
 						log("Got principal: " + principal);
 						if (principal) {
-							folder = {url: options.url, host: options.headers.host, path: principal};
+							folder = {host: options.headers.host, path: principal};
 							principals.push(folder); //try to find homes in principal folder, later.
 							generateMoreTestPaths(folder, principals);
 						}
@@ -488,7 +492,7 @@ var CalDav = (function () {
 				var result = future.result, home;
 				if (result.returnValue === true) {
 					//look for either calendar- or addressbook-home-set :)
-					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "d$href"), "$t");
+					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "$href"), "$t");
 					if (!home) {
 						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
 					} else {
@@ -540,7 +544,6 @@ var CalDav = (function () {
 			generateMoreTestPaths(tryFolders[0], tryFolders);
 			tryFolders.push({path: "/.well-known/caldav", host: serverHost});
 			tryFolders.push({path: "/.well-known/carddav", host: serverHost});
-			maxFolderPrincipal = tryFolders.length; //principals will be added to search home folders in, don't  search them for pincipals again.
 
 			//first get user principal:
 			options.method = "PROPFIND";
@@ -596,16 +599,16 @@ var CalDav = (function () {
 					var key, unspecCal = false;
 					for (key in rt) {
 						if (rt.hasOwnProperty(key)) {
-							if (key.indexOf('vevent-collection') >= 0) {
+							if (key.toLowerCase().indexOf('vevent-collection') >= 0) {
 								return "calendar";
 							}
-							if (key.indexOf('vcard-collection') >= 0 || key.indexOf('addressbook') >= 0) {
+							if (key.toLowerCase().indexOf('vcard-collection') >= 0 || key.toLowerCase().indexOf('addressbook') >= 0) {
 								return "contact";
 							}
-							if (key.indexOf('vtodo-collection') >= 0) {
+							if (key.toLowerCase().indexOf('vtodo-collection') >= 0) {
 								return "task";
 							}
-							if (key.indexOf('calendar') >= 0) {
+							if (key.toLowerCase().indexOf('calendar') >= 0) {
 								//issue: calendar can be todo or calendar.
 								unspecCal = true;
 							}
@@ -623,10 +626,14 @@ var CalDav = (function () {
 					var key, comps = [], array, i;
 					for (key in xmlComp) {
 						if (xmlComp.hasOwnProperty(key)) {
-							if (key.indexOf('comp') >= 0) { //found list of components
+							if (key.toLowerCase().indexOf('comp') >= 0) { //found list of components
 								array = xmlComp[key];
-								for (i = 0; i < array.length; i += 1) {
-									comps.push(array[i].name);
+								if (typeof array === 'array') {
+									for (i = 0; i < array.length; i += 1) {
+										comps.push(array[i].name);
+									}
+								} else if (array.name) {
+									comps.push(array.name);
 								}
 								break;
 							}
@@ -664,13 +671,13 @@ var CalDav = (function () {
 							prop = responses[i].propstats[j].prop;
 							for (key in prop) {
 								if (prop.hasOwnProperty(key)) {
-									if (key.indexOf('displayname') >= 0) {
+									if (key.toLowerCase().indexOf('displayname') >= 0) {
 										folder.name = getValue(prop[key], "$t");
-									} else if (key.indexOf('resourcetype') >= 0) {
+									} else if (key.toLowerCase().indexOf('resourcetype') >= 0) {
 										folder.resource = getResourceType(prop[key]);
-									} else if (key.indexOf('supported-calendar-component-set') >= 0) {
+									} else if (key.toLowerCase().indexOf('supported-calendar-component-set') >= 0) {
 										folder.supportedComponents = parseSupportedComponents(prop[key]);
-									} else if (key.indexOf('getctag') >= 0) {
+									} else if (key.toLowerCase().indexOf('getctag') >= 0) {
 										folder.ctag = getValue(prop[key], "$t");
 									}
 								}
