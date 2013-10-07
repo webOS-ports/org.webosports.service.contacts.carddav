@@ -353,8 +353,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		
 		future.then(this, function discoveryCB() {
+			var result = future.result;
+			if (result.success === true) {
+				this.client.transport.config = result.config;
+				if (result.config[subKind]) {
+					home = result.config[subKind].homeFolder;
+				}
+			}
+			
+			if (!home) {
+				log("Discovery was not successful. No calendar / addressbook home. Trying to use URL for that.");
+				home = this.client.transport.config.url;
+			}
+			
 			debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
-		
 			this.client.transport.syncKey[kindName].error = true;
 			future.nest(this._getLocalEtags(kindName));
 		});
