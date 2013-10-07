@@ -111,7 +111,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 		future.then(this, function storeCB() {
 			var result = future.result;
 			debug("Store came back: " + JSON.stringify(result));
-			future.result = {returnValue: result.returnValue, success: result.returnValue};
+			future.result = {returnValue: result.returnValue, success: result.returnValue, config: obj.config, syncKey: obj.syncKey};
 		});
 	}
 
