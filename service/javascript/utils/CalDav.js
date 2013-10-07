@@ -628,12 +628,12 @@ var CalDav = (function () {
 						if (xmlComp.hasOwnProperty(key)) {
 							if (key.toLowerCase().indexOf('comp') >= 0) { //found list of components
 								array = xmlComp[key];
-								if (typeof array === 'array') {
+								if (array.name) {
+									comps.push(array.name);
+								} else {
 									for (i = 0; i < array.length; i += 1) {
 										comps.push(array[i].name);
 									}
-								} else if (array.name) {
-									comps.push(array.name);
 								}
 								break;
 							}
