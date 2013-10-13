@@ -46,6 +46,11 @@
                "public":true
             },
 			{
+               "name":"triggerSlowSync",
+			   "assistant": "TriggerSlowSyncAssistant",
+               "public":true
+            },
+			{
 				"name": "resources",
 				"assistant": "Resources",
 				"public": false
