@@ -1165,7 +1165,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		var result = [], future = new Future(), i;
 		
 		for (i = 0; i < batch.length; i += 1) {
-			if (batch[i].operation === "save" && batch[i].local.etag && batch[i].local.remoteId && batch[i].local._id) {
+			if (batch[i].operation === "save" && batch[i].local.remoteId && batch[i].local._id) {
+				if (!batch[i].local.etag) {
+					batch[i].local.etag = "0";
+				}
+				batch[i].local._kind = Kinds.objects[kindName].id; //just to be sure it gets to the right DB.
 				debug("Telling webos to save: " + JSON.stringify(batch[i]));
 				result.push(batch[i].local);
 			}
