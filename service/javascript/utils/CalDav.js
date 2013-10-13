@@ -3,7 +3,8 @@
 
 var CalDav = (function () {
 	var httpClient,
-		serverHost;
+		serverHost,
+		protocol = "https:";
 
 	function endsWith(str, suffix) {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
@@ -284,18 +285,23 @@ var CalDav = (function () {
 		//configures internal httpClient for new host/port
 		//returns pathname, i.e. the not host part of the url.
 		setHostAndPort: function (inUrl) {
-			var parsedUrl = url.parse(inUrl);
+			if (inUrl) {
+				var parsedUrl = url.parse(inUrl);
 
-			if (!parsedUrl.port) {
-				parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
+				if (!parsedUrl.port) {
+					parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
+				}
+
+				if (parsedUrl.hostname && (serverHost !== parsedUrl.hostname ||
+										   protocol !== parsedUrl.protocol)) {
+					serverHost = parsedUrl.hostname;
+					protocol = parsedUrl.protocol;
+					httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
+				}
+
+				return parsedUrl.pathname || "/"; //if no path, return / as root path.
 			}
-
-			if (parsedUrl.hostname && serverHost !== parsedUrl.hostname) {
-				serverHost = parsedUrl.hostname;
-				httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
-			}
-
-			return parsedUrl.pathname || "/"; //if no path, return / as root path.
+			return "/";
 		},
 
 		//checks only authorization.
