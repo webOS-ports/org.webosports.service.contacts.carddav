@@ -191,8 +191,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				}
 				
 				if (from.collectionId) {
-					//this will also set "calendarId" of contacts to their collection. Don't really care here.
 					debug("Had collectionId: " + from.collectionId);
+					//calendarId is used by webOS. There is no such thing for contacts, yet.
+					//so we call it calendarId for them, too, right now, to prevent code duplication.
 					to.calendarId = from.collectionId;
 				}
 				
@@ -213,8 +214,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		//this.client.upsyncEnabled = kindName === Kinds.objects.calendarevent.name;
 		if (name === "local2remote") {
 			if (this.client.upsyncEnabled) {
-				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback. Hm.
-					//empty method. Work will be done later.
+				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback => no real conversion here.
+					log("\n\n**************************SyncAssistant:_local2remote*****************************");
 					debug("Transforming " + JSON.stringify(from));
 					if (!to.add) {
 						if (from.etag) {
@@ -243,10 +244,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 			
 			//upsync disabled:
-			return undefined;	//TODO: make upsync more robust. For now disabled. Issues
-								//- might kill server data => have a backup ;)
-								//- if upsync crashes, local changes never make it to server (webos acts quite stupid here, actually)
-								//- also if upsync has connection issues, this will be an issue. Will the google-sync patches help here?
+			return undefined;
 		}
 		
 		//we don't do any other syncs
@@ -621,10 +619,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function findCB() {
 			var result = future.result, dbFolder;
 			if (result.returnValue === true) {
-				debug("Results: " + JSON.stringify(result));
 				dbFolder = result.results[0];
 				if (dbFolder) {
-					debug("Setting collectionId to " + dbFolder._id);
+					debug("Setting collectionId to " + dbFolder._id + " ( " + dbFolder.uri + " )");
 					this.client.transport.syncKey[kindName].folders[folderIndex].collectionId = dbFolder._id;
 					this.currentCollectionId = dbFolder._id;
 					future.result = { returnValue: true };
@@ -951,11 +948,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Every object in batch has an "operation" member, which is 
 	 * either "save" or "delete" and "remote" and "local" members,
 	 * which already did got into the local2remote transform.
-	 * So it should be fine to leave local2remote empty and to 
+	 * So it should be fine to leave local2remote nearly empty and do 
 	 * conversion here, where we can wait for callbacks. :)
 	 *
 	 * The future should have an results array which contains
-	 * the new/changed remote ids.
+	 * the remoteIds of new/changed objects.
 	 *
 	 * We also need to store new/changed etags.
 	 */
@@ -1064,7 +1061,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				this._findURIofRemoteObject(kindName, obj);
 			}
 			
-			
 			future.nest(this._sendObjToServer(obj.remote));
 		}
 		
@@ -1172,12 +1168,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (batch[i].operation === "save" && batch[i].local.etag && batch[i].local.remoteId && batch[i].local._id) {
 				debug("Telling webos to save: " + JSON.stringify(batch[i]));
 				result.push(batch[i].local);
-			} else {
-				debug("Not saving " + JSON.stringify(batch[i]));
-				debug("batch[i].operation === 'save'" + (batch[i].operation === 'save'));
-				debug("batch[i].local.etag" + batch[i].local.etag);
-				debug("batch[i].local.remoteId" + batch[i].local.remoteId);
-				debug("batch[i].local._id" + batch[i].local._id);
 			}
 		}
 		
