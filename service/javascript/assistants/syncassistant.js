@@ -449,7 +449,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 				//if collection changed, we also need to sync from different folders.
 				//update the config here.
-				this._updateConfig(kindName, rFolders);
+				this._updateCollectionsConfig(kindName, rFolders);
 				this.client.transport.syncKey[kindName].error = false; //if we reached here, then there were no errors.
 			} else {
 				log("Could not get remote collection. Skipping down sync.");
@@ -548,7 +548,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
 	 * Updates the stored config for calendar/addressbook folders from collection changes.
 	 */
-	_updateConfig: function (kindName, remoteFolders) {
+	_updateCollectionsConfig: function (kindName, remoteFolders) {
 		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false,
 			deleteAllCallback = function (future) {
 				debug("Delete all objects returned: " + JSON.stringify(future.result));
@@ -566,7 +566,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else { //found remote folder
 				if (folder.name !== remoteFolder.name) {
 					folder.name = remoteFolder.name;
-					change = true;
 				}
 			}
 		}
