@@ -1124,10 +1124,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (result.returnValue === true) {
 				if (result.etag) { //server already delivered etag => no need to get it again.
 					log("Already got etag in put response: " + result.etag);
-					future.result = { returnValue: true, uri: obj.uri, etags: [{etag: result.etag, uri: obj.uri}]};
+					future.result = { returnValue: true, uri: result.uri, etags: [{etag: result.etag, uri: result.uri}]};
 				} else {
 					log("Need to get new etag from server.");
-					future.nest(CalDav.downloadEtags({authToken: this.client.userAuth.authToken, path: obj.uri}));
+					future.nest(CalDav.downloadEtags({authToken: this.client.userAuth.authToken, path: result.uri}));
 				}
 			} else {
 				log("put object failed for " + obj.uri);
@@ -1147,7 +1147,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			var result = future.result;
 			if (result.returnValue === true && result.etags && result.etags.length >= 1) {
 				log("Got updated etag.");
-				future.result = { returnValue: true, uri: obj.uri, etag: result.etags[0].etag, serverUri: result.etags[0].uri };
+				future.result = { returnValue: true, uri: result.uri, etag: result.etags[0].etag };
 			} else {
 				if (!future.exception) { //was no follow up error => log.
 					log("Get etag failed for " + obj.uri);
