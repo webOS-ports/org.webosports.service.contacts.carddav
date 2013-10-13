@@ -405,10 +405,9 @@ var CalDav = (function () {
 		 * Sends delete request to the server.
 		 * Future will cotain uri member with old uri for reference.
 		 */
-		deleteObject: function (params, uri, etag) {
+		deleteObject: function (params, etag) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "DELETE";
-			options.path = uri;
 
 			//prevent overriding remote changes.
 			if (etag) {

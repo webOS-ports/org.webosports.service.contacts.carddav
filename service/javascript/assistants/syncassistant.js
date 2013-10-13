@@ -1006,7 +1006,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//check collectionID, prevents deletion on server if local collection got deleted:
 			if (this._checkCollectionId(kindName, obj.local.calendarId)) {
 				//send delete request to server.
-				future.nest(CalDav.deleteObject(this.params, obj.remote.uri, obj.remote.etag));
+				this.params.path = obj.remote.uri;
+				future.nest(CalDav.deleteObject(this.params, obj.remote.etag));
+				future.then(this, function deleteCB() {
+					var result = future.result;
+					if (result.returnValue === true) {
+						//everything fine, continue.
+						future.result = result;
+					} else {
+						log("Could not delete object: " + JSON.stringify(obj));
+						throw new Error("Delete object failed: " + JSON.stringify(future.result) + " for " + obj.remote.uri);
+					}
+				});
 			} else {
 				//send dummy result.
 				debug(obj.remote.uri + " not in local collection anymore. Do not delete on server.");
