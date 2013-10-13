@@ -168,9 +168,8 @@ var CalDav = (function () {
 			}
 		}
 
-		if (data.length > 0) {
-			options.headers["Content-Length"] = data.length;
-		}
+		options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
+
 		debug("Sending request " + data + " to server.");
 		debug("Options: " + JSON.stringify(options));
 		timeoutID = setTimeout(checkTimeout, 1000);
