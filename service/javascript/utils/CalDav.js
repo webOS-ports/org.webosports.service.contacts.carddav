@@ -696,10 +696,12 @@ var CalDav = (function () {
 							if (folder.resource === "calendar_tasks") {
 								folder.resource = decideByComponents(folder.supportedComponents);
 							}
-							//delete supportedComponents;
-							if (!filter || folder.resource === filter) {
-								folders.push(folder);
-							}
+						}
+						
+						if (!filter || folder.resource === filter) {
+							folder.uri = protocol + "//" + serverHost + folder.uri;
+							folder.remoteId = folder.uri;
+							folders.push(folder);
 						}
 					}
 					debug("Got folders: ");
@@ -715,7 +717,7 @@ var CalDav = (function () {
 
 			data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
 			if (params.cardDav) {
-				data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
+				data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /></d:prop></d:propfind>";
 			}
 			future.nest(sendRequest(options, data));
 
