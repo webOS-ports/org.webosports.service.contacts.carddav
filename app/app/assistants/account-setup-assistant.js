@@ -1,3 +1,4 @@
+/*jslint sloppy: true, browser: true, devel: true */
 /*global PalmCall, Mojo, log, $L, showError */
 /* Simple debug function to print out to console error */
 var debug = function (param) {
@@ -93,9 +94,8 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
         url: this.account.url
     });
     credFuture.then(this, function (f) {
-        if (f.result.returnValue) {
+        if (f.result.success) {
             debug("Check credentials came back successful");
-            debug("Result: " + JSON.stringify(f.result));
 
             this.accountSettings = {};
             var template = this.params.initialTemplate;

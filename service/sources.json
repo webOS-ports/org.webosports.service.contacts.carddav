@@ -50,6 +50,8 @@
 }, {
 	"source": "javascript/assistants/checkcredentialsassistant.js"
 }, {
+	"source": "javascript/assistants/discoveryassistant.js"
+}, {
 	"source": "javascript/assistants/oncreateassistant.js"
 }, {
 	"source": "javascript/assistants/syncassistant.js"

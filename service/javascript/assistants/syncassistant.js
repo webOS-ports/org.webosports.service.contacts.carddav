@@ -3,7 +3,7 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint node: true, nomen: true, sloppy: true */
-/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB */
+/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall */
  
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
@@ -255,12 +255,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getRemoteChanges: function (state, kindName) {
 		log("\n\n**************************SyncAssistant:getRemoteChanges*****************************");
 		var path, key, i, future = new Future();
-		
+				
 		//be sure to have an transport object with all necessary fields!
 		if (!this.client.transport) {
 			this.client.transport = {};
 		}
-		
+			
 		//prevent crashes during assignments.
 		if (!this.client.transport.syncKey) {
 			this.client.transport.syncKey = {};
@@ -288,8 +288,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				more: false,
 				entries: []
 			};
+			return future;
 		}
-		
+				
 		if (!this.client.userAuth) {
 			log("No userAuth information. Something wrong with keystore. Can't authenticate with server.");
 			future.result = {
@@ -297,6 +298,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				more: false,
 				entries: []
 			};
+			return future;
 		}
 		
 		this.params = { authToken: this.client.userAuth.authToken, path: path };
@@ -339,14 +341,36 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("\n\n**************************SyncAssistant:_getRemoteCollectionChanges*****************************");
 		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
-			home = this.client.transport.config[subKind].homeFolder,
+			home = this.client.transport.config[subKind] ? this.client.transport.config[subKind].homeFolder : undefined,
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 		
-		debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
+		if (!home) {
+			debug("Need to get home folders first, doing discovery.");
+			future.nest(PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
+		} else {
+			future.result = {returnValue: true}; //don't need to do discovery, tell futures to go on.
+		}
 		
-		this.client.transport.syncKey[kindName].error = true;
-		future.nest(this._getLocalEtags(kindName));
+		future.then(this, function discoveryCB() {
+			var result = future.result;
+			if (result.success === true) {
+				this.client.transport.config = result.config;
+				if (result.config[subKind]) {
+					home = result.config[subKind].homeFolder;
+				}
+			}
+			
+			if (!home) {
+				log("Discovery was not successful. No calendar / addressbook home. Trying to use URL for that.");
+				home = this.client.transport.config.url;
+			}
+			
+			debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
+			this.client.transport.syncKey[kindName].error = true;
+			future.nest(this._getLocalEtags(kindName));
+		});
+		
 		future.then(this, function handleLocalFolders() {
 			log("---------------------->handleLocalFolders()");
 			var result = future.result;
@@ -478,7 +502,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Updates the stored config for calendar/addressbook folders from collection changes.
 	 */
 	_updateConfig: function (kindName, remoteFolders) {
-		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false;
+		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false,
+			deleteAllCallback = function (future) {
+				debug("Delete all objects returned: " + JSON.stringify(future.result));
+			};
 		folders = this.client.transport.syncKey[subKind].folders;
 		
 		for (i = 0; i < remoteFolders.length; i += 1) {
@@ -504,9 +531,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (!remoteFolder) { //folder not found => need to delete.
 				debug("Need to delete local folder " + JSON.stringify(folder));
 				folders.splice(i, 1);
-				DB.del({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] }, false).then(this, function deleteAllCallback(future) {
-					debug("Delete all objects returned: " + JSON.stringify(future.result));
-				});
+				DB.del({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] }, false).then(this, deleteAllCallback);
 				change = true;
 			}
 		}
@@ -964,7 +989,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			future.then(this, conversionCB);
 		} else if (obj.operation === "delete") {
 			//check collectionID, prevents deletion on server if local collection got deleted:
-			if(this._checkCollectionId(kindName, obj.local.calendarId)) {		
+			if (this._checkCollectionId(kindName, obj.local.calendarId)) {
 				//send delete request to server.
 				future.nest(CalDav.deleteObject(this.params, obj.remote.uri, obj.remote.etag));
 			} else {
@@ -1034,7 +1059,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Should return an array of objects that need to get written to db.
 	 */
 	 //disabled because  sync patch for stable upload breaks produces endless loop if postPutRemoteModify is used.
-	/*postPutRemoteModify: function (batch, kindName) {
+	//re-enabled, because it is necessary for us to track remote changes. Will fix the patch..
+	postPutRemoteModify: function (batch, kindName) {
 		log("\n\n**************************SyncAssistant:postPutRemoteModify*****************************");
 		var result = [], future = new Future(), i;
 		
@@ -1053,5 +1079,5 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		
 		future.result = result;
 		return future;
-	}*/
+	}
 });

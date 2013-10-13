@@ -16,11 +16,6 @@
                "public":true
             },
             {
-               "name":"onCapabiltiesChanged",
-               "assistant":"OnCapabiltiesChanged",
-               "public":true
-            },
-            {
                "name":"onCredentialsChanged",
                "assistant":"OnCredentialsChanged",
                "public":true
@@ -43,6 +38,11 @@
             {
                "name":"sync",
 			   "assistant": "SyncAssistant",
+               "public":true
+            },
+            {
+               "name":"discovery",
+			   "assistant": "DiscoveryAssistant",
                "public":true
             },
 			{

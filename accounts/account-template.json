@@ -7,7 +7,6 @@
                 "com.palm.app.contacts"],
     "writePermissions": ["org.webosports.service.contacts.carddav.service", "com.palm.app.accounts", "com.palm.app.contacts"],
     "validator" : {"address": "palm://org.webosports.service.contacts.carddav.service/checkCredentials", "customUI":{"appId":"org.webosports.service.contacts.carddav.app","name":"accountSetup"}},
-    "onCapabiltiesChanged" : "palm://org.webosports.service.contacts.carddav.service/onCapabiltiesChanged",
     "onCredentialsChanged" : "palm://org.webosports.service.contacts.carddav.service/onCredentialsChanged",
     "loc_usernameLabel": "Username",
     "icon": {"loc_32x32": "images/webos-ports32.png"},

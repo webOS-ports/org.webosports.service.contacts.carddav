@@ -1,3 +1,5 @@
+/*jslint node: true, sloppy: true */
+/*global IMPORTS */
 console.error("Starting to load libraries");
 
 //... Load the Foundations library and create
@@ -7,7 +9,7 @@ var Sync = IMPORTS["mojoservice.transport.sync"];
 var Foundations = IMPORTS.foundations;
 var Contacts = IMPORTS.contacts;
 var Calendar = IMPORTS.calendar;
-var Globalization = IMPORTS.globalization.Globalization; 
+var Globalization = IMPORTS.globalization.Globalization;
 
 var Assert = Foundations.Assert;
 var AjaxCall = Foundations.Comms.AjaxCall;
@@ -20,7 +22,7 @@ var xml = IMPORTS["foundations.xml"];
 
 //now add some node.js imports:
 if (typeof require === "undefined") {
-   require = IMPORTS.require;
+	require = IMPORTS.require;
 }
 var querystring = require('querystring');
 var fs = require('fs'); //required for own node modules and current vCard converter.
@@ -47,7 +49,7 @@ var debug = function (msg) {
 };
 
 var createLocks = {};
-var lockCreateAssistant = function(accountId) {
+var lockCreateAssistant = function (accountId) {
 	debug("Locking account " + accountId + " for creation.");
 	if (createLocks[accountId]) {
 		debug("Already locked: " + JSON.stringify(createLocks));
@@ -58,8 +60,31 @@ var lockCreateAssistant = function(accountId) {
 	}
 };
 
-var unlockCreateAssistant = function(accountId) {
-	debug("Unlocking account " + accountId);
-	delete createLocks[accountId];
-	debug("Locks now are: " + JSON.stringify(createLocks));
+var getTransportObjByAccountId = function (args) {
+	var query = {"from": "org.webosports.service.contacts.carddav.account:1"}, future = new Future();
+
+	if (args.id) {
+		future.nest(DB.get([args.id]));
+	} else {
+		future.nest(DB.find(query, false, false));
+	}
+
+	future.then(this, function gotDBObject() {
+		var result = future.result, i, obj;
+		if (result.returnValue) {
+			for (i = 0; i < result.results.length; i += 1) {
+				obj = result.results[i];
+				if (obj.accountId === args.accountId) {
+					future.result = {returnValue: true, account: obj};
+					break;
+				}
+			}
+		} else {
+			log("Could not get DB object: " + JSON.stringify(result));
+			log(JSON.stringify(future.error));
+			future.result = {returnValue: false, success: false};
+		}
+	});
+	
+	return future;
 };
