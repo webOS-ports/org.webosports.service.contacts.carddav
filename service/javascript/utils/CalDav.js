@@ -247,7 +247,7 @@ var CalDav = (function () {
 	}
 
 	function generateMoreTestPaths(folder, tryFolders) {
-		var newFolders = [], i, j;
+		var newFolders = [], i, j, duplicate;
 		if (folder.path.toLowerCase().indexOf("caldav") >= 0) {
 			newFolders.push({path: folder.path.toLowerCase().replace("caldav", "carddav"), host: folder.host});
 		}
@@ -262,13 +262,20 @@ var CalDav = (function () {
 		}
 		
 		//check for duplicates:
-		for (j = 0; j < newFolders.lenght; j += 1) {
+		for (j = 0; j < newFolders.length; j += 1) {
+			debug("j: " + j);
+			duplicate = false;
 			for (i = 0; i < tryFolders.length; i += 1) {
-				if (newFolders[j].path === tryFolders[i].path && newFolders[j].host === tryFolders[i].host) {
-					return;
+				debug("i: " + i);
+				if (newFolders[j].path.toLowerCase() === tryFolders[i].path.toLowerCase() &&
+						newFolders[j].host.toLowerCase() === tryFolders[i].host.toLowerCase()) {
+					duplicate = true;
+					break;
 				}
 			}
-			tryFolders.push(newFolders[j]);
+			if (!duplicate) {
+				tryFolders.push(newFolders[j]);
+			}
 		}
 	}
 
