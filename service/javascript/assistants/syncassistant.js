@@ -54,40 +54,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	
 	/*
 	 * This is needed during upsync. This will become the input for the local2remote transformer
-	 * on the remote side... I think we just return an empty object with a new uri here. 
-	 * Also this object can augment a local/remote object pair with an uri. I'm not sure why that
-	 * can happen. Maybe transformer produced that sometimes.
+	 * on the remote side. We create a new remoteId here and fill the remote object with that.
 	 */
-	getNewRemoteObject: function (kindName, obj) {
-		log("\n\n**************************SyncAssistant: getNewRemoteObject*****************************");
-		var postfix, uri, prefix, remoteId, result, i;
-		
-		if (!obj) {
-			obj = { local: {}, remote: {} };
-		}
-		
-		if (obj.local.calendarId) {
-			for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
-				if (this.client.transport.syncKey[kindName].folders[i].collectionId === obj.local.calendarId) {
-					prefix = this.client.transport.syncKey[kindName].folders[i].uri;
-					break;
-				}
-			}
-		}
-		
-		if (!prefix) {
-			prefix = this.client.transport.syncKey[kindName].folders[0].uri; //if non collection yet, use first folder.
-		}
-		
-		if (prefix.charAt(prefix.length - 1) !== '/') {
-			prefix += "/";
-		}
-		
-		if (obj.remote.remoteId) {
-			remoteId = obj.remote.remoteId;
-		} else if (obj.local.remoteId) {
-			remoteId = obj.local.remoteId;
-		}
+	getNewRemoteObject: function (kindName) {
+		log("\n\n**************************SyncAssistant: getNewRemoteObject *****************************");
+		var postfix, remoteId, result;
 		
 		if (kindName === Kinds.objects.calendarevent.name) {
 			postfix = ".ics";
@@ -97,18 +68,72 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//can we create calendars on server? I don't think we'll try very soon.
 			throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
 		}
-
-		if (!remoteId) {
-			//generate a random uri.
-			remoteId = "webos-" + Date.now() + postfix; //uses timestamp in miliseconds since 1970 
+		
+		remoteId = "webos-" + Date.now() + postfix; //uses timestamp in miliseconds since 1970 
+		result = { remoteId: remoteId, add: true };
+		return result;
+	},
+	
+	/*
+	 * This method is used to find the correct URI from a local/remote object pair.
+	 */
+	_findURIofRemoteObject: function (kindName, obj) {
+		log("\n\n**************************SyncAssistant: _findURIofRemoteObject *****************************");
+		var uri, prefix, remoteId, i;
+		
+		if (!obj) {
+			obj = { local: {}, remote: {} };
 		}
 		
-		uri = prefix + remoteId;
-		result = { uri: uri, remoteId: remoteId, add: true };
+		uri = obj.local.uri;
+		if (!obj.local.uri) {
+		
+			//get the URL of a addressbook or calendar.
+			if (obj.local.calendarId) {
+				for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
+					if (this.client.transport.syncKey[kindName].folders[i].collectionId === obj.local.calendarId) {
+						prefix = this.client.transport.syncKey[kindName].folders[i].uri;
+						break;
+					}
+				}
+			}
+		
+			if (!prefix) {
+				//if no collection, use first folder. This should not happen. But it happened due to bug with calendar-deletion.
+				debug("Had no folder for collectionId " + obj.local.calendarId);
+				prefix = this.client.transport.syncKey[kindName].folders[0].uri;
+				obj.local.calendarId = this.client.transport.syncKey[kindName].folders[0].collectionId;
+			}
+
+			if (prefix.charAt(prefix.length - 1) !== '/') {
+				prefix += "/";
+			}
+
+			//if we already have a remoteId somewhere, keep it.
+			if (obj.remote.remoteId) {
+				remoteId = obj.remote.remoteId;
+			} else if (obj.local.remoteId) {
+				remoteId = obj.local.remoteId;
+			}
+
+			if (!remoteId) {
+				//generate a "random" uri.
+				remoteId = this.getNewRemoteObject();
+			}
+			
+			uri = prefix + remoteId;
+		} else {
+			remoteId = obj.local.remoteId;
+			if (!remoteId) {
+				remoteId = this._uriToRemoteId(uri);
+			}
+		}
+		
 		obj.remote.uri = uri;
 		obj.remote.remoteId = remoteId;
-		debug("Result: " + JSON.stringify(result));
-		return result;
+		obj.local.remoteId = remoteId;
+		obj.local.uri = uri;
+		obj.local.uId = remoteId;
 	},
 
 	/*
@@ -960,6 +985,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
 		var future = new Future();
 
+		//check if URI is present. If not, get URI.
+		if (!obj.remote.uri) { //this always happens for new objects and deleted objects.
+			if (!obj.remote.add && obj.operation === "save") {
+				debug("===================== NO URI FOR CHANGED OBJECT!!");
+			}
+			this._findURIofRemoteObject(kindName, obj);
+		}
+		
 		//copy uri and etag over to remote object:
 		//this is necessary, because we only put the remoteId into the remote objects
 		//we store uri and etag in the local objects, so this is the place to get this information
@@ -969,10 +1002,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (!obj.remote.etag && obj.local.etag) {
 			obj.remote.etag = obj.local.etag;
 		}
-		
-		if (!obj.remote.uri) {
-			log("Did not have uri in object to be send to server. How can that happen?");
-			this.getNewRemoteObject(kindName, obj);
+		if (!obj.local.remoteId && obj.remote.remoteId) {
+			obj.local.remoteId = obj.remote.remoteId;
 		}
 		
 		function conversionCB(f) {
@@ -983,7 +1014,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			
 			if (!obj.remote.uri) {
 				log("Did not have uri in converted object. How can that happen?");
-				this.getNewRemoteObject(kindName, obj);
+				this._findURIofRemoteObject(kindName, obj);
 			}
 			
 			
