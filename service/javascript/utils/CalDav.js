@@ -553,8 +553,8 @@ var CalDav = (function () {
 			//some folders to probe for:
 			tryFolders.push({url: params.originalUrl, path: options.path, host: options.headers.host}); //push original URL to test-for-home-folders.
 			generateMoreTestPaths(tryFolders[0], tryFolders);
-			tryFolders.push({path: "/.well-known/caldav", host: serverHost});
-			tryFolders.push({path: "/.well-known/carddav", host: serverHost});
+			generateMoreTestPaths({path: "/.well-known/caldav", host: serverHost}, tryFolders);
+			generateMoreTestPaths({path: "/.well-known/carddav", host: serverHost}, tryFolders);
 
 			//first get user principal:
 			options.method = "PROPFIND";
