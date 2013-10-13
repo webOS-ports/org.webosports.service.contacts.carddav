@@ -36,6 +36,21 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		return uri; //fallback
 	},
+
+	/*
+	 * Sets error = true for kindName. Makes sure that object is saved in database.
+	 */
+	_saveErrorState: function (kindName) {
+		this.client.transport.syncKey[kindName].error = true; //trigger "slow" sync.
+		this.handler.putAccountTransportObject(this.client.transport).then(function putCB(f) {
+			var result = f.result;
+			if (!result.length) {
+				log("Could not store config object: " + JSON.stringify(result));
+				log("Could not store config object: " + JSON.stringify(f.error));
+			}
+		});
+	},
+
 	
 	/*
 	 * This is needed during upsync. This will become the input for the local2remote transformer
@@ -366,8 +381,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				home = this.client.transport.config.url;
 			}
 			
+			this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+			
 			debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
-			this.client.transport.syncKey[kindName].error = true;
 			future.nest(this._getLocalEtags(kindName));
 		});
 		
@@ -452,8 +468,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			this.params.cardDav = true;
 		}
 		
+		this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+		
 		debug("Starting sync for " + folder.name + ".");
-		this.client.transport.syncKey[kindName].error = true;
 		future.nest(this._initCollectionId(kindName));
 		future.then(this, function () {
 			this.params.ctag = this.client.transport.syncKey[kindName].folders[index].ctag || 0;
@@ -538,10 +555,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			
 		//now save config:
 		if (change) {
-			this.client.transport.syncKey[subKind].error = true; //trigger "slow" sync.
-			this.handler.putAccountTransportObject(this.client.transport).then(function putCB(f) {
-				debug("Put config returned: " + JSON.stringify(f.result));
-			});
+			this._saveErrorState(subKind); //trigger slow sync for subKind because of collection changes.
+			delete this.collectionIds; //reset this for orphaned checks.
 		}
 	},
 	
@@ -850,7 +865,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		
 		//add this here to also track errors during upsync => will trigger comparison of all etags on next downsync.
 		if (results.length > 0) {
-			this.client.transport.syncKey[kindName].error = true;
+			this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 		}
 
 		future.result = results;
