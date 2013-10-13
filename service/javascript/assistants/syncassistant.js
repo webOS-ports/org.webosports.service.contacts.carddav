@@ -736,10 +736,51 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	},
 
 	/*
+	 * Method to test for orphaned objects, i.e. objects not in an existing collection anymore.
+	 * Hopefully this will be unnecessary sometime in the future, but currently I 
+	 * observe objects not getting deleted if calendar/contactset get's removed.
+	 * This happens only sometimes. Maybe failure somewhere during sync is involved.
+	 */
+	_isOrphanedEntry: function (l) {
+		var i, j, key, folders;
+		
+		if (!this.collectionIds) {
+			this.collectionIds = [];
+			for (key in Kinds.objects) {
+				if (Kinds.objects.hasOwnProperty(key)) {
+					folders = this.client.transport.syncKey[key].folders;
+					for (j = 0; j < folders.length; j += 1) {
+						this.collectionIds.push(folders[j].collectionId);
+					}
+				}
+			}
+		}
+		
+		if (l.calendarId) {
+			l.doDelete = true;
+			for (i = 0; i < this.collectionIds.length; i += 1) {
+				if (l.calendarId === this.collectionIds[i]) {
+					debug(l.remoteId + " was not found on server, but is in another collection locally. Do not delete.");
+					l.doDelete = false;
+					break;
+				}
+			}
+					
+			if (l.doDelete) {
+				debug(l.remoteId + " seems to be orphaned entry left from collection change. Do delete.");
+				return true;
+			} else {
+				return false;
+			}
+		}
+		return false;
+	},
+	
+	/*
 	 * just parses the local & remote etag lists and determines which objects to add/update or delete.
 	 */
 	_parseEtags: function (remoteEtags, localEtags, key) {
-		var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0};
+		var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0, orphaned: 0};
 		log("Got local etags: " + localEtags.length);
 		log("Got remote etags: " + remoteEtags.length);
 		
@@ -758,36 +799,40 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		for (i = 0; i < localEtags.length; i += 1) {
 			l = localEtags[i];
 			if (l[key]) {
-				//log("Finding match for " + JSON.stringify(l));
-				found = false;
-				r = this._findMatch(l.remoteId, remoteEtags);
-			
-				if (r) {
-					//log("Found match: " + JSON.stringify(r));
-					found = true;
-					r.found = true;
-					if (l[key] !== r[key]) { //have change on server => need update.
-						//log("Pushing: " + JSON.stringify(l));
-						entries.push(r);
-						stats.update += 1;
-					} else {
-						//log("No change.");
-						stats.noChange += 1;
+				
+				//filter orphaned entries in different collections.
+				if (!this._isOrphanedEntry(l)) {
+					//log("Finding match for " + JSON.stringify(l));
+					found = false;
+					r = this._findMatch(l.remoteId, remoteEtags);
+				
+					if (r) {
+						//log("Found match: " + JSON.stringify(r));
+						found = true;
+						r.found = true;
+						if (l[key] !== r[key]) { //have change on server => need update.
+							//log("Pushing: " + JSON.stringify(l));
+							entries.push(r);
+							stats.update += 1;
+						} else {
+							//log("No change.");
+							stats.noChange += 1;
+						}
 					}
-				}
-
-				//not found => deleted on server.
-				if (!found) {
-					//log("Not found => must have been deleted.");
-					
-					//only delete if object is in same collection.
-					if (!l.calendarId || l.calendarId === this.currentCollectionId) {
-						l.doDelete = true;
-						stats.del += 1;
-						entries.push(l);
-					} else {
-						debug(l.remoteId + " was not found on server, but is in another collection locally. Do not delete.");
+	
+					//not found => deleted on server.
+					if (!found) {
+						//log("Not found => must have been deleted.");
+						
+						//only delete if object is in same collection.
+						if (!l.calendarId || l.calendarId === this.currentCollectionId) {
+							l.doDelete = true;
+							stats.del += 1;
+							entries.push(l);
+						}
 					}
+				} else {
+					stats.orphaned += 1;
 				}
 			}
 		}
