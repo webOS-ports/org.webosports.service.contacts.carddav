@@ -731,7 +731,7 @@ var CalDav = (function () {
 					};
 				} else {
 					log("Error during getFolders: " + JSON.stringify(result));
-					future.resul = {returnValue: false, success: result.returnValue, retunCode: result.returnCode};
+					future.result = result;
 				}
 			});
 
