@@ -233,7 +233,7 @@ var CalDav = (function () {
 
 	function preProcessOptions(params) {
 		var options = {
-			path: params.path,
+			path: CalDav.setHostAndPort(params.path) || params.path,
 			method: "PROPFIND",
 			headers: {
 				//Depth: 0, //used for DAV reports.
