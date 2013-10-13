@@ -229,6 +229,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						if (from.remoteId) {
 							to.remoteId = from.remoteId;
 						}
+						if (from.uId) {
+							to.uId = from.uId;
+						} else {
+							to.uId = from.remoteId;
+						}
 					}
 					
 					debug("Result: " + JSON.stringify(to));
