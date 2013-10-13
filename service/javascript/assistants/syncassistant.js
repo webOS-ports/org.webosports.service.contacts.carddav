@@ -323,10 +323,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 		
-		if (this.client.transport && this.client.transport.config) {
-			debug("Initializing CalDav connector for " + this.client.transport.config.url);
-			path = CalDav.setHostAndPort(this.client.transport.config.url);
-		} else {
+		if (!this.client.transport || !this.client.transport.config) {
 			log("No config stored. Can't determine URL, no sync possible.");
 			future.result = {
 				returnValue: false,
@@ -424,7 +421,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				localFolders = result.results;
 				
 				//now get remote folders
-				future.nest(CalDav.getFolders(this.params, home, filter));
+				this.params.path = home;
+				future.nest(CalDav.getFolders(this.params, filter));
 			} else {
 				log("Could not get local folders.");
 				future.result = {

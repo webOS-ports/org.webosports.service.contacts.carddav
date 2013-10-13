@@ -198,7 +198,7 @@ var CalDav = (function () {
 					etag: res.headers.etag,
 					returnCode: res.statusCode,
 					body: body,
-					uri: options.path
+					uri: protocol + "//" + serverHost + options.path
 				};
 
 				if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
@@ -507,6 +507,7 @@ var CalDav = (function () {
 					if (!home) {
 						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
 					} else {
+						home = protocol + "//" + options.headers.host + home;
 						log("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
 					}
 				} else {
@@ -524,7 +525,7 @@ var CalDav = (function () {
 						return;
 					} else {
 						log("Tried all folders. Will try to get " + (addressbook ? "addressbook" : "calendar") + " folders from original url.");
-						home = CalDav.setHostAndPort(params.originalUrl);
+						home = params.originalUrl;
 					}
 				}
 				
@@ -545,7 +546,8 @@ var CalDav = (function () {
 					//start folder search and consume first folder.
 					log("Getting folders from " + homes[0]);
 					params.cardDav = false;
-					future.nest(this.getFolders(params, homes.shift()));
+					params.path = homes.shift();
+					future.nest(this.getFolders(params));
 					future.then(this, folderCB);
 				}
 			}
@@ -582,7 +584,8 @@ var CalDav = (function () {
 				if (homes.length > 0) { //if we still have unsearched home-foders, search them:
 					log("Getting folders from " + homes[0]);
 					params.cardDav = true; //bad hack.
-					future.nest(this.getFolders(params, homes.shift()));
+					params.path = homes.shift();
+					future.nest(this.getFolders(params));
 					future.then(this, folderCB);
 				} else {
 					for (key in folders.subFolders) {
@@ -604,7 +607,7 @@ var CalDav = (function () {
 
 		//get's folders below uri. Can filter for addressbook, calendar or tasks.
 		//future.result will contain array folders
-		getFolders: function (params, uri, filter) {
+		getFolders: function (params, filter) {
 			var future = new Future(), options = preProcessOptions(params), data, folders,
 				getResourceType = function (rt) {
 					var key, unspecCal = false;
@@ -712,7 +715,6 @@ var CalDav = (function () {
 				};
 
 			options.headers.Depth = 1;
-			options.path = uri;
 			options.parse = true;
 
 			data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
