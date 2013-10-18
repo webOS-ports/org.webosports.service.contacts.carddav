@@ -1,5 +1,6 @@
 {
     "id": "org.webosports.service.contacts.carddav.account:1",
+	"sync": true,
     "indexes": [{
         "name": "accountId",
         "props": [{
