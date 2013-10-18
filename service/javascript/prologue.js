@@ -1,5 +1,5 @@
-/*jslint node: true, sloppy: true */
-/*global IMPORTS */
+/*jslint sloppy: true */
+/*global IMPORTS, console, require:true */
 console.error("Starting to load libraries");
 
 //... Load the Foundations library and create
