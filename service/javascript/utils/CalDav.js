@@ -297,6 +297,9 @@ var CalDav = (function () {
 					serverHost = parsedUrl.hostname;
 					protocol = parsedUrl.protocol;
 					httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
+					httpClient.on("error", function (e) {
+						log("Error while creating httpClient: " + JSON.stringify(e));
+					});
 				}
 
 				return parsedUrl.pathname || "/"; //if no path, return / as root path.
