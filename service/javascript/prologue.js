@@ -48,6 +48,11 @@ var log_icalDebug = function (msg) {
 	//console.error(msg);	
 };
 
+var log_calDavDebug = function (msg) {
+	//uncomment to get caldav debug, contains all http traffic, also
+	//console.error(msg);	
+};
+
 /* Simple debug function to print out to console error */
 var debug = function (msg) {
 	console.error(msg);
