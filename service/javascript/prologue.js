@@ -43,6 +43,11 @@ var log = function (msg) {
 	console.error(msg);
 };
 
+var log_icalDebug = function (msg) {
+	//uncomment to get ical debug:
+	//console.error(msg);	
+};
+
 /* Simple debug function to print out to console error */
 var debug = function (msg) {
 	console.error(msg);
