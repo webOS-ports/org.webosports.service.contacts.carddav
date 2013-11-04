@@ -573,7 +573,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (!remoteFolder) { //folder not found => need to delete.
 				debug("Need to delete local folder " + JSON.stringify(folder));
 				folders.splice(i, 1);
-				DB.del({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] }, false).then(this, deleteAllCallback);
+				DB.merge({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] },
+						 {"_del": true, preventSync: true});
 				change = true;
 			}
 		}
