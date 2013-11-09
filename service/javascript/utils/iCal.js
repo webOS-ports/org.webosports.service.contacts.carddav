@@ -992,7 +992,8 @@ var iCal = (function () {
 
 	function removeHacks(event, serverId) {
 		if (event.allDay) {
-			event.dtend += 86399000;
+			//43200000 = 12 hours => 0 o'clock, -1 second, because we start from 12:00:01.
+			event.dtend += 43199000;
 		}
 
 		return event;
