@@ -574,7 +574,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				debug("Need to delete local folder " + JSON.stringify(folder));
 				folders.splice(i, 1);
 				DB.merge({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] },
-						 {"_del": true, preventSync: true});
+						 {"_del": true, preventSync: true}).then(this, deleteAllCallback);
 				change = true;
 			}
 		}
