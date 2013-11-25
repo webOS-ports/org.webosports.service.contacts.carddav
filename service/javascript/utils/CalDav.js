@@ -1,9 +1,10 @@
 /*jslint sloppy: true, node: true */
-/*global debug, log, http, url, Future, xml */
+/*global debug, log, http, url, Future, xml, log_calDavDebug */
 
 var CalDav = (function () {
 	var httpClient,
-		serverHost;
+		serverHost,
+		protocol = "https:";
 
 	function endsWith(str, suffix) {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
@@ -28,7 +29,7 @@ var CalDav = (function () {
 	}
 
 	function processStatus(stat) {
-		//debug("Processing stat: " + JSON.stringify(stat));
+		//log_calDavDebug("Processing stat: " + JSON.stringify(stat));
 		if (stat.length >= 0) {
 			if (stat.length !== 1) {
 				throw {msg: "multiple stati... can't process."};
@@ -36,13 +37,13 @@ var CalDav = (function () {
 				return getValue(stat[0], "$t"); //maybe extract number here?
 			}
 		} else {
-			//debug("Got single stat.");
+			//log_calDavDebug("Got single stat.");
 			return getValue(stat, "$t");
 		}
 	}
 
 	function processProp(prop) {
-		//debug("Processing prop: " + JSON.stringify(prop));
+		//log_calDavDebug("Processing prop: " + JSON.stringify(prop));
 		if (prop && prop.length >= 0) {
 			if (prop.length !== 1) {
 				throw {msg: "multiple props... can't process."};
@@ -54,7 +55,7 @@ var CalDav = (function () {
 	}
 
 	function processPropstat(ps) {
-		//debug("Processing propstat: " + JSON.stringify(ps));
+		//log_calDavDebug("Processing propstat: " + JSON.stringify(ps));
 		var propstat = {
 			status: processStatus(getValue(ps, "$status")),
 			prop: processProp(getValue(ps, "$prop"))
@@ -63,7 +64,7 @@ var CalDav = (function () {
 	}
 
 	function processResponse(res) {
-		//debug("Processing response " + JSON.stringify(res));
+		//log_calDavDebug("Processing response " + JSON.stringify(res));
 		var response = {
 			href: getValue(getValue(res, "$href"), "$t"),
 			propstats: getValue(res, "$propstat")
@@ -84,11 +85,11 @@ var CalDav = (function () {
 		var ri, responses = getResponses(body) || [], procRes = [];
 		if (responses.length >= 0) {
 			for (ri = 0; ri < responses.length; ri += 1) {
-				//debug("Got response array: " + JSON.stringify(responses));
+				//log_calDavDebug("Got response array: " + JSON.stringify(responses));
 				procRes.push(processResponse(responses[ri]));
 			}
 		} else { //got only one response
-			//debug("Got single response: " + JSON.stringify(responses));
+			//log_calDavDebug("Got single response: " + JSON.stringify(responses));
 			procRes.push(processResponse(responses));
 		}
 		return procRes;
@@ -102,7 +103,7 @@ var CalDav = (function () {
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
 						if (key.toLowerCase().indexOf(searchedKey) >= 0) {
-							//debug("Returning " + prop[key].$t + " for " + key);
+							//log_calDavDebug("Returning " + prop[key].$t + " for " + key);
 							text = getValue(prop[key], "$t");
 							if (notResolveText || !text) {
 								return prop[key];
@@ -133,7 +134,7 @@ var CalDav = (function () {
 				}
 			}
 		}
-		//debug("Etag directory: " + JSON.stringify(eTags));
+		//log_calDavDebug("Etag directory: " + JSON.stringify(eTags));
 		return eTags;
 	}
 
@@ -147,16 +148,16 @@ var CalDav = (function () {
 			var now;
 			if (!received) {
 				now = Date.now();
-				log("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
+				debug("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
 				if (now - lastSend > 60 * 1000) { //last send before 5 seconds.. is that too fast?
 					clearTimeout(timeoutID);
 					if (retry <= 5) {
-						log("Trying to resend message.");
+						log_calDavDebug("Trying to resend message.");
 						sendRequest(options, data, retry + 1).then(function (f) {
 							future.result = f.result; //transfer future result.
 						});
 					} else {
-						log("Already tried 5 times. Seems as if server won't answer? Sync seems broken.");
+						log_calDavDebug("Already tried 5 times. Seems as if server won't answer? Sync seems broken.");
 						future.result = { returnValue: true, msg: "Message timedout, even after retries. Sync failed." };
 					}
 				} else {
@@ -164,22 +165,22 @@ var CalDav = (function () {
 				}
 			} else {
 				clearTimeout(timeoutID);
-				log("Message received, returning.");
+				log_calDavDebug("Message received, returning.");
 			}
 		}
 
-		if (data.length > 0) {
-			options.headers["Content-Length"] = data.length;
-		}
-		debug("Sending request " + data + " to server.");
-		debug("Options: " + JSON.stringify(options));
+		options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
+
+		log_calDavDebug("Sending request " + data + " to server.");
+		log_calDavDebug("Options: " + JSON.stringify(options));
+		debug("Sending request to " + options.path);
 		timeoutID = setTimeout(checkTimeout, 1000);
 		lastSend = Date.now();
 		req =  httpClient.request(options.method, options.path, options.headers);
 		req.on('response', function (res) {
 			var result, newPath;
-			log('STATUS: ' + res.statusCode);
-			log('HEADERS: ' + JSON.stringify(res.headers));
+			log_calDavDebug('STATUS: ' + res.statusCode);
+			log_calDavDebug('HEADERS: ' + JSON.stringify(res.headers));
 			res.setEncoding('utf8');
 			res.on('data', function (chunk) {
 				lastSend = Date.now();
@@ -187,23 +188,25 @@ var CalDav = (function () {
 			});
 			res.on('end', function () {
 				if (received) {
-					log(options.path + " was already received... exiting without callbacks.");
+					log_calDavDebug(options.path + " was already received... exiting without callbacks.");
 				}
 				received = true;
+				debug("Answer received.");
 				clearTimeout(timeoutID);
-				//debug("Body: " + body);
+				log_calDavDebug("Body: " + body);
 
 				result = {
 					returnValue: (res.statusCode < 400),
 					etag: res.headers.etag,
 					returnCode: res.statusCode,
 					body: body,
-					uri: options.path
+					uri: protocol + "//" + serverHost + options.path
 				};
 
 				if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
+					log_calDavDebug("Location: " + res.headers.location);
 					newPath = CalDav.setHostAndPort(res.headers.location);
-					log("Redirected to " + newPath);
+					log_calDavDebug("Redirected to " + newPath);
 					options.path = newPath;
 					options.headers.host = serverHost;
 					sendRequest(options, data).then(function (f) {
@@ -211,7 +214,7 @@ var CalDav = (function () {
 					});
 				} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 					result.parsedBody = xml.xmlstr2json(body);
-					log("Parsed Body: " + JSON.stringify(result.parsedBody));
+					log_calDavDebug("Parsed Body: " + JSON.stringify(result.parsedBody));
 					future.result = result;
 				} else {
 					future.result = result;
@@ -221,7 +224,7 @@ var CalDav = (function () {
 
 		req.on('error', function (e) {
 			log('problem with request: ' + e.message);
-			future.result = { returnValue: false };
+			future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
 		});
 
 		// write data to request body
@@ -233,7 +236,7 @@ var CalDav = (function () {
 
 	function preProcessOptions(params) {
 		var options = {
-			path: params.path,
+			path: CalDav.setHostAndPort(params.path) || params.path,
 			method: "PROPFIND",
 			headers: {
 				//Depth: 0, //used for DAV reports.
@@ -248,7 +251,7 @@ var CalDav = (function () {
 	}
 
 	function generateMoreTestPaths(folder, tryFolders) {
-		var newFolders = [], i, j;
+		var newFolders = [], i, j, duplicate;
 		if (folder.path.toLowerCase().indexOf("caldav") >= 0) {
 			newFolders.push({path: folder.path.toLowerCase().replace("caldav", "carddav"), host: folder.host});
 		}
@@ -263,13 +266,18 @@ var CalDav = (function () {
 		}
 		
 		//check for duplicates:
-		for (j = 0; j < newFolders.lenght; j += 1) {
+		for (j = 0; j < newFolders.length; j += 1) {
+			duplicate = false;
 			for (i = 0; i < tryFolders.length; i += 1) {
-				if (newFolders[j].path === tryFolders[i].path && newFolders[j].host === tryFolders[i].host) {
-					return;
+				if (newFolders[j].path.toLowerCase() === tryFolders[i].path.toLowerCase() &&
+						newFolders[j].host.toLowerCase() === tryFolders[i].host.toLowerCase()) {
+					duplicate = true;
+					break;
 				}
 			}
-			tryFolders.push(newFolders[j]);
+			if (!duplicate) {
+				tryFolders.push(newFolders[j]);
+			}
 		}
 	}
 
@@ -278,18 +286,26 @@ var CalDav = (function () {
 		//configures internal httpClient for new host/port
 		//returns pathname, i.e. the not host part of the url.
 		setHostAndPort: function (inUrl) {
-			var parsedUrl = url.parse(inUrl);
+			if (inUrl) {
+				var parsedUrl = url.parse(inUrl);
 
-			if (!parsedUrl.port) {
-				parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
+				if (!parsedUrl.port) {
+					parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
+				}
+
+				if (parsedUrl.hostname && (serverHost !== parsedUrl.hostname ||
+										   protocol !== parsedUrl.protocol)) {
+					serverHost = parsedUrl.hostname;
+					protocol = parsedUrl.protocol;
+					httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
+					httpClient.on("error", function (e) {
+						log("Error while creating httpClient: " + JSON.stringify(e));
+					});
+				}
+
+				return parsedUrl.pathname || "/"; //if no path, return / as root path.
 			}
-
-			if (parsedUrl.hostname && serverHost !== parsedUrl.hostname) {
-				serverHost = parsedUrl.hostname;
-				httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
-			}
-
-			return parsedUrl.pathname || "/"; //if no path, return / as root path.
+			return "/";
 		},
 
 		//checks only authorization.
@@ -333,7 +349,7 @@ var CalDav = (function () {
 				} else {
 					log("Could not receive ctag.");
 				}
-				log("New ctag: " + ctag + ", old ctag: " + params.ctag);
+				log_calDavDebug("New ctag: " + ctag + ", old ctag: " + params.ctag);
 				future.result = { success: result.returnValue, needsUpdate: ctag !== params.ctag, ctag: ctag };
 			});
 
@@ -393,10 +409,9 @@ var CalDav = (function () {
 		 * Sends delete request to the server.
 		 * Future will cotain uri member with old uri for reference.
 		 */
-		deleteObject: function (params, uri, etag) {
+		deleteObject: function (params, etag) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "DELETE";
-			options.path = uri;
 
 			//prevent overriding remote changes.
 			if (etag) {
@@ -454,7 +469,7 @@ var CalDav = (function () {
 					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
 					if (principal) {
 						principal = getValue(getValue(principal, "$href"), "$t");
-						log("Got principal: " + principal);
+						log_calDavDebug("Got principal: " + principal);
 						if (principal) {
 							folder = {host: options.headers.host, path: principal};
 							principals.push(folder); //try to find homes in principal folder, later.
@@ -496,7 +511,8 @@ var CalDav = (function () {
 					if (!home) {
 						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
 					} else {
-						log("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
+						home = protocol + "//" + options.headers.host + home;
+						log_calDavDebug("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
 					}
 				} else {
 					//error, stop, return failure.
@@ -506,19 +522,19 @@ var CalDav = (function () {
 				
 				if (!home) {
 					if (index < tryFolders.length) {
-						log("Trying to ask for " + (addressbook ? "addressbook" : "calendar") + "-home-set on next url: " + JSON.stringify(tryFolders[index]) + " index: " + index);
+						log_calDavDebug("Trying to ask for " + (addressbook ? "addressbook" : "calendar") + "-home-set on next url: " + JSON.stringify(tryFolders[index]) + " index: " + index);
 						setNextUrl(tryFolders[index]);
 						future.nest(sendRequest(options, data));
 						future.then(getHomeCB.bind(this, addressbook, index + 1));
 						return;
 					} else {
-						log("Tried all folders. Will try to get " + (addressbook ? "addressbook" : "calendar") + " folders from original url.");
-						home = CalDav.setHostAndPort(params.originalUrl);
+						log_calDavDebug("Tried all folders. Will try to get " + (addressbook ? "addressbook" : "calendar") + " folders from original url.");
+						home = params.originalUrl;
 					}
 				}
 				
 				if (homes.length > 0 && homes[0] === home) {
-					log("Homes identical, ignore second one.");
+					log_calDavDebug("Homes identical, ignore second one.");
 				} else {
 					homes.push(home);
 				}
@@ -532,9 +548,10 @@ var CalDav = (function () {
 				} else {
 					folders.addressbookHome = home;
 					//start folder search and consume first folder.
-					log("Getting folders from " + homes[0]);
+					log_calDavDebug("Getting folders from " + homes[0]);
 					params.cardDav = false;
-					future.nest(this.getFolders(params, homes.shift()));
+					params.path = homes.shift();
+					future.nest(this.getFolders(params));
 					future.then(this, folderCB);
 				}
 			}
@@ -542,8 +559,8 @@ var CalDav = (function () {
 			//some folders to probe for:
 			tryFolders.push({url: params.originalUrl, path: options.path, host: options.headers.host}); //push original URL to test-for-home-folders.
 			generateMoreTestPaths(tryFolders[0], tryFolders);
-			tryFolders.push({path: "/.well-known/caldav", host: serverHost});
-			tryFolders.push({path: "/.well-known/carddav", host: serverHost});
+			generateMoreTestPaths({path: "/.well-known/caldav", host: serverHost}, tryFolders);
+			generateMoreTestPaths({path: "/.well-known/carddav", host: serverHost}, tryFolders);
 
 			//first get user principal:
 			options.method = "PROPFIND";
@@ -569,9 +586,10 @@ var CalDav = (function () {
 				}
 				
 				if (homes.length > 0) { //if we still have unsearched home-foders, search them:
-					log("Getting folders from " + homes[0]);
+					log_calDavDebug("Getting folders from " + homes[0]);
 					params.cardDav = true; //bad hack.
-					future.nest(this.getFolders(params, homes.shift()));
+					params.path = homes.shift();
+					future.nest(this.getFolders(params));
 					future.then(this, folderCB);
 				} else {
 					for (key in folders.subFolders) {
@@ -593,7 +611,7 @@ var CalDav = (function () {
 
 		//get's folders below uri. Can filter for addressbook, calendar or tasks.
 		//future.result will contain array folders
-		getFolders: function (params, uri, filter) {
+		getFolders: function (params, filter) {
 			var future = new Future(), options = preProcessOptions(params), data, folders,
 				getResourceType = function (rt) {
 					var key, unspecCal = false;
@@ -685,26 +703,27 @@ var CalDav = (function () {
 							if (folder.resource === "calendar_tasks") {
 								folder.resource = decideByComponents(folder.supportedComponents);
 							}
-							//delete supportedComponents;
-							if (!filter || folder.resource === filter) {
-								folders.push(folder);
-							}
+						}
+						
+						if (!filter || folder.resource === filter) {
+							folder.uri = protocol + "//" + serverHost + folder.uri;
+							folder.remoteId = folder.uri;
+							folders.push(folder);
 						}
 					}
-					debug("Got folders: ");
+					log_calDavDebug("Got folders: ");
 					for (i = 0; i < folders.length; i += 1) {
-						debug(JSON.stringify(folders[i]));
+						log_calDavDebug(JSON.stringify(folders[i]));
 					}
 					return folders;
 				};
 
 			options.headers.Depth = 1;
-			options.path = uri;
 			options.parse = true;
 
 			data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
 			if (params.cardDav) {
-				data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
+				data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /></d:prop></d:propfind>";
 			}
 			future.nest(sendRequest(options, data));
 
@@ -718,7 +737,7 @@ var CalDav = (function () {
 					};
 				} else {
 					log("Error during getFolders: " + JSON.stringify(result));
-					future.resul = {returnValue: false, success: result.returnValue, retunCode: result.returnCode};
+					future.result = result;
 				}
 			});
 

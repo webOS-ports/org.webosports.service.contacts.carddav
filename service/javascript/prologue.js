@@ -1,5 +1,5 @@
-/*jslint node: true, sloppy: true */
-/*global IMPORTS */
+/*jslint sloppy: true */
+/*global IMPORTS, console, require:true */
 console.error("Starting to load libraries");
 
 //... Load the Foundations library and create
@@ -41,6 +41,16 @@ console.error("--------->Loaded Libraries OK1");
 
 var log = function (msg) {
 	console.error(msg);
+};
+
+var log_icalDebug = function (msg) {
+	//uncomment to get ical debug:
+	//console.error(msg);	
+};
+
+var log_calDavDebug = function (msg) {
+	//uncomment to get caldav debug, contains all http traffic, also
+	//console.error(msg);	
 };
 
 /* Simple debug function to print out to console error */
