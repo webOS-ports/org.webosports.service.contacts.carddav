@@ -209,14 +209,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				return from.obj; //transformer.transformAndMerge(to, from);
 			};
 		}
-		
-		//try calendar upsync:
-		//this.client.upsyncEnabled = kindName === Kinds.objects.calendarevent.name;
+
 		if (name === "local2remote") {
-			if (this.client.upsyncEnabled) {
+			if (Kinds.objects[kindName].allowUpsync) { //configure upsync via kinds.js
 				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback => no real conversion here.
 					log("\n\n**************************SyncAssistant:_local2remote*****************************");
 					debug("Transforming " + JSON.stringify(from));
+					debug("To: " + JSON.stringify(to));
 					if (!to.add) {
 						if (from.etag) {
 							to.etag = from.etag;

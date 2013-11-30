@@ -10,30 +10,35 @@ var Kinds = {
 			name: "calendar",
 			identifier: "org.webosports.service.contacts.carddav.calendar",
 			id: "org.webosports.service.contacts.carddav.calendar:1",
-			connected_kind: "calendarevent"
+			connected_kind: "calendarevent",
+			allowUpsync: false
 		},
         calendarevent: {
             name: "calendarevent",
             identifier: "org.webosports.service.contacts.carddav.calendarevent",
             id: "org.webosports.service.contacts.carddav.calendarevent:1",
-			connected_kind: "calendar"
+			connected_kind: "calendar",
+			allowUpsync: false
         },
 		contactset: {
 			name: "contactset",
 			identifier: "org.webosports.service.contacts.carddav.contactset",
 			id: "org.webosports.service.contacts.carddav.contactset:1",
-			connected_kind: "contact"
+			connected_kind: "contact",
+			allowUpsync: false
 		},
         contact: {
             name: "contact",
             identifier: "org.webosports.service.contacts.carddav.contact",
             id: "org.webosports.service.contacts.carddav.contact:1",
-			connected_kind: "contactset"
+			connected_kind: "contactset",
+			allowUpsync: false
         },
 		task: {
 			name: "task",
 			identifier: "org.webosports.service.contacts.carddav.task",
-			id: "org.webosports.service.contacts.carddav.task:1"
+			id: "org.webosports.service.contacts.carddav.task:1",
+			allowUpsync: false
 		}
     },
     account: {
