@@ -1,12 +1,13 @@
 [
-{
-	"type": "db.kind",
-	"object": "org.webosports.service.contacts.carddav.calendar:1",
-	"caller": "org.webosports.service.contacts.carddav.service",
-	"operations": {
-		"read": "allow",
-		"create": "allow",
-		"delete": "allow",
-		"update": "allow"
+	{
+		"type": "db.kind",
+		"object": "org.webosports.service.contacts.carddav.calendar:1",
+		"caller": "org.webosports.service.contacts.carddav.service",
+		"operations": {
+			"read": "allow",
+			"create": "allow",
+			"delete": "allow",
+			"update": "allow"
+		}
 	}
-}]
+]
