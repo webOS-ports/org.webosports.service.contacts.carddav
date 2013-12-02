@@ -17,9 +17,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
 			log("\n\n**************************START SERVICEASSISTANT*****************************");
 			//for testing only - will expose credentials to log file if left open
-			//debug("\n------------------->accountId:"+JSON.stringify(accountid));
-			//debug("\n------------------->launchConfig"+JSON.stringify(launchConfig));
-			//debug("\n------------------->launchArgs"+JSON.stringify(launchArgs));
+			//debug("\n------------------->accountId:" + JSON.stringify(accountid));
+			//debug("\n------------------->launchConfig" + JSON.stringify(launchConfig));
+			//debug("\n------------------->launchArgs" + JSON.stringify(launchArgs));
 			log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
 
 			//this seems necessary for super class constructor during checkCredentials calls.
@@ -29,9 +29,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			if (launchArgs.config) {
 				this.config = {
 					name: launchArgs.config.name,
-					url:  launchArgs.config.url
+					url:  launchArgs.config.url,
+					username: launchArgs.config.username
 				};
 			}
+
+			//TODO: Add new kind account.config => sync: true!
+			//if no config object in transport object =>
+			// search for config in account.config kind, first by accountID, then by username
+			// if found something, augment transport object with config.
+			// in the other way round: on creation, store config in account.config db with account_id and username.
+			// also store/update config in discovery assistant.
 
 			var future = new Future();
 
