@@ -8,7 +8,7 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 
 	//can only process the account we got credentials for => get right transport object
 	future.nest(getTransportObjByAccountId(args));
-	
+
 	future.then(this, function gotDBObject() {
 		var result = future.result;
 		if (result.returnValue) {
@@ -117,6 +117,3 @@ DiscoveryAssistant.prototype.processAccount = function (args, obj) {
 
 	return future;
 };
-
-
-

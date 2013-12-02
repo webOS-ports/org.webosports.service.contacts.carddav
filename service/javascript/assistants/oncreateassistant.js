@@ -6,7 +6,7 @@ var OnCreate = Class.create(Sync.CreateAccountCommand, {
 		var future = new Future(), lockCheck;
 		if (lockCreateAssistant(this.client.clientId)) {
 			future.nest(this.handler.createAccount());
-		
+
 			future.then(this, function createAccountCB() {
 				var result = future.result;
 				log("Account created: " + JSON.stringify(result));

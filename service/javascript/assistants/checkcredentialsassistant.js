@@ -5,12 +5,12 @@
 var checkCredentialsAssistant = function () {};
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
-    var args = this.controller.args, base64Auth, future = new Future();
-    debug("Account args =" + JSON.stringify(args));
+	var args = this.controller.args, base64Auth, future = new Future();
+	debug("Account args =" + JSON.stringify(args));
 
-    // Base64 encode username and password
-    base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
-	
+	// Base64 encode username and password
+	base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
+
 	if (!args.url) {
 		debug("No URL supplied. Maybe we got called to change credentials?");
 		future.nest(getTransportObjByAccountId(args)); //needs to have accountId
@@ -52,6 +52,6 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			}
 		});
 	});
-	
+
 	return outerfuture;
 };

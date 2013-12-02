@@ -1,61 +1,61 @@
 {
-   "id":"org.webosports.service.contacts.carddav.service",
-   "description":"CardDAV Contact Service",
-   "engine":"node",
-   "activityTimeout":30,
-   "services":[
-      {
-         "name":"org.webosports.service.contacts.carddav.service",
-         "description":"CardDAV Contact",
-         "globalized":false,
-		 "assistant": "ServiceAssistant",
-         "commands":[
-            {
-               "name":"checkCredentials",
-               "assistant":"checkCredentialsAssistant",
-               "public":true
-            },
-            {
-               "name":"onCredentialsChanged",
-               "assistant":"OnCredentialsChanged",
-               "public":true
-            },
-            {
-               "name":"onCreate",
-			   "assistant": "OnCreate",
-               "public":true
-            },
-            {
-               "name":"onEnabled",
-			   "assistant": "OnEnabled",
-               "public":true
-            },
-            {
-               "name":"onDelete",
-			   "assistant": "OnDelete",
-               "public":true
-            },
-            {
-               "name":"sync",
-			   "assistant": "SyncAssistant",
-               "public":true
-            },
-            {
-               "name":"discovery",
-			   "assistant": "DiscoveryAssistant",
-               "public":true
-            },
-			{
-               "name":"triggerSlowSync",
-			   "assistant": "TriggerSlowSyncAssistant",
-               "public":true
-            },
-			{
-				"name": "resources",
-				"assistant": "Resources",
-				"public": false
-			}
-         ]
-      }
-   ]
+	"id": "org.webosports.service.contacts.carddav.service",
+	"description": "CardDAV Contact Service",
+	"engine": "node",
+	"activityTimeout": 30,
+	"services": [
+		{
+			"name": "org.webosports.service.contacts.carddav.service",
+			"description": "CardDAV Contact",
+			"globalized": false,
+			"assistant": "ServiceAssistant",
+			"commands": [
+				{
+					"name": "checkCredentials",
+					"assistant": "checkCredentialsAssistant",
+					"public": true
+				},
+				{
+					"name": "onCredentialsChanged",
+					"assistant": "OnCredentialsChanged",
+					"public": true
+				},
+				{
+					"name": "onCreate",
+					"assistant": "OnCreate",
+					"public": true
+				},
+				{
+					"name": "onEnabled",
+					"assistant": "OnEnabled",
+					"public": true
+				},
+				{
+					"name": "onDelete",
+					"assistant": "OnDelete",
+					"public": true
+				},
+				{
+					"name": "sync",
+					"assistant": "SyncAssistant",
+					"public": true
+				},
+				{
+					"name": "discovery",
+					"assistant": "DiscoveryAssistant",
+					"public": true
+				},
+				{
+					"name": "triggerSlowSync",
+					"assistant": "TriggerSlowSyncAssistant",
+					"public": true
+				},
+				{
+					"name": "resources",
+					"assistant": "Resources",
+					"public": false
+				}
+			]
+		}
+	]
 }

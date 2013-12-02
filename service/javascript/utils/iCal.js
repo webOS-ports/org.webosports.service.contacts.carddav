@@ -4,16 +4,16 @@
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.
-// It can only parse VCALENDAR objects with exactly one VEVENT in them. 
+// It can only parse VCALENDAR objects with exactly one VEVENT in them.
 // It ignores most of the parameter values, if they are not really necessary and won't set them.
 // Currently its hardly tied to the needs of the SyncML implementation and an egroupware server.
 // Many things might not be really tested.
 // ParentId of exceptions to reccurring events is not really set. I try to set it for all events I have an id for.
-// If and event has no id set and has exceptions, then an recurringId is set. If the event is an execption it has the parentLocalId set to the same 
-// id. That means, that the processing entity should fill the parentId in for this event. 
+// If and event has no id set and has exceptions, then an recurringId is set. If the event is an execption it has the parentLocalId set to the same
+// id. That means, that the processing entity should fill the parentId in for this event.
 
 //Known issues:
-//Timezones... :( 
+//Timezones... :(
 //Easiest thing is: Server and Client are in same TS and server sends events in "right" tz. Or server nows tz of client and sends in the right tz.
 //Ok is: Server sends dates as UTC (currently NOT working! :() To fix: Change to "date.UTC" in icaltowebos (and something similar in other function!)
 //Quite impossible: Server sends dates in other TS than device is in... Don't know how to handle that, yet. :(
@@ -22,14 +22,14 @@ var iCal = (function () {
 //	var e = { //structure of webOs events:
 //			alarm					: [ { //=VALARM
 //				action			 : "", //one or more of "audio", "display", "email"
-//				alarmTrigger : { //only first one supported (from webpage.. don't really understand what that means. 
+//				alarmTrigger : { //only first one supported (from webpage.. don't really understand what that means.
 //												 //Is this meant to be an array? or only for first alarm supported? or is only datetime supported?
-//					value:		 "", // "19981208T000000Z | (+/-) PT15M"	
+//					value:		 "", // "19981208T000000Z | (+/-) PT15M"
 //					valueType: "DURATION"		// DATETIME | DURATION - should match the value. :) => in RFC this is DATE-TIME..?
 //					},
 //				attach			 : "", //string => url / binary? => don't use. :) => not in RFC?
 //				description	: "", //text of e-mail body or text description. Does webOs actually support this? I didn't see something like that, yet. => not in RFC?
-//				duration		 : "", //time between repeats => makes repeat required. 
+//				duration		 : "", //time between repeats => makes repeat required.
 //				repeat			 : 0,	//number of times to repeat. => makes duration required.
 //				summary			: "", //subject for e-mail. => not in RFC?
 //				trigger			: ""} ], //original trigger string vom iCal. => will be only stored. Hm.
@@ -37,7 +37,7 @@ var iCal = (function () {
 //			attach				 : [""], //attachment as uri.
 //			attendees			: [{
 //				calendarUserType		: "", //comma seperated list of "INDIVIDUAL", "GROUP", "RESOURCE", "ROOM", "UNKNOWN", "other"
-//				commonName					: "", //name of attendee.	
+//				commonName					: "", //name of attendee.
 //				delegatedFrom			 : "",
 //				delegatedTo				 : "",
 //				dir								 : "", //LDAP or webadress - not checked.
@@ -45,13 +45,13 @@ var iCal = (function () {
 //				language						: "", //not validated.
 //				organizer					 : false,
 //				member							: string,
-//				participationStatus : "", //Comma-separated list of "NEEDS-ACTION", "ACCEPTED", "DECLINED", "TENTATIVE", "DELEGATED", "other". 
+//				participationStatus : "", //Comma-separated list of "NEEDS-ACTION", "ACCEPTED", "DECLINED", "TENTATIVE", "DELEGATED", "other".
 //				role								: "", //Comma-separated list of "CHAIR", "REQ-PARTICIPANT", "OPT-PARTICIPANT", "NON-PARTICIPANT", "other".
 //				rsvp								: boolean,
 //				sentBy							: string }],
 //			calendarId		 : "",
 //			categories		 : "",
-//			classification : "", //RFC field. "PUBLIC" "PRIVATE" | "CONFIDENTIAL". 
+//			classification : "", //RFC field. "PUBLIC" "PRIVATE" | "CONFIDENTIAL".
 //			comment				: "",
 //			contact				: "",
 //			created				: 0,	//created time.
@@ -59,7 +59,7 @@ var iCal = (function () {
 //			dtstart				: 0,	//start time
 //			dtstamp				: "", //object created.
 //			exdates				: [""],
-//			geo						: "", //lat/long coordinates listed as "float;float". 
+//			geo						: "", //lat/long coordinates listed as "float;float".
 //			lastModified	 : 0,	//lastModified
 //			location			 : "", //event location.
 //			note					 : "", //text content.
@@ -74,10 +74,10 @@ var iCal = (function () {
 //			rrule					: { },
 //			sequence			 : 0,	//kind of "version" of the event.
 //			subject				: "", //event subject
-//			transp				 : "", //"OPAQUE" | "TRANSPARENT". Opaque if this event displays as busy on a calendar, transparent if it displays as free. 
+//			transp				 : "", //"OPAQUE" | "TRANSPARENT". Opaque if this event displays as busy on a calendar, transparent if it displays as free.
 //			tzId					 : "",
 //			url						: ""
-//	}, 
+//	},
 	"use strict";
 	var dayToNum = { "SU": 0, "MO": 1, "TU": 2, "WE": 3, "TH": 4, "FR": 5, "SA": 6 },
 		numToDay = { "0": "SU", "1": "MO", "2": "TU", "3": "WE", "4": "TH", "5": "FR", "6": "SA"},
@@ -86,10 +86,10 @@ var iCal = (function () {
 		//DATE: yyyymmdd, time: hhmmss, if both are present they are divided by a T. A Z at the end is optional.
 		//if only a Date is given (=> allDay), no letters are present and just 8 numbers should be given.
 		//Usually the Z at the end of DATE-TIME should say that it's UTC. But I'm quite sure that most programs do this wrong... :(
-		//there is a timezone property that could be set. 
+		//there is a timezone property that could be set.
 		//it could also be a comma seperated list of dates / date times. But we don't support that, yet.. ;)
 		recurringEvents = [], //this is used to try to get parentIds. This will only work, if the recurring event is processed in the same session as the exception..
-		//used to try timeZone correction... 
+		//used to try timeZone correction...
 		localTzId = "UTC",
 		TZManager = Calendar.TimezoneManager(),
 		shiftAllDay = true,
@@ -195,8 +195,8 @@ var iCal = (function () {
 	}
 
 	//this is strange. This should correctly parse RFC things... even, from RFC, there should also only be numbers in BYDAY, not days.
-	//days are only specified for wkst. But the samples from palm, which say that BYSETPOS is not defined (but it's used in their own 
-	//samples to explain the rrule object ????) use days for BYDAY... 
+	//days are only specified for wkst. But the samples from palm, which say that BYSETPOS is not defined (but it's used in their own
+	//samples to explain the rrule object ????) use days for BYDAY...
 	function parseRULEofRRULE(key, value) {
 		var days, day, i, rule = { ruleType: key, ruleValue: []};
 		days = value.split(",");
@@ -343,7 +343,7 @@ var iCal = (function () {
 			if (part.charAt(0) === "#") {
 				//end of rule, rest is count (which is not supported by webos for some strange reason).
 				rrule.count = part.substring(1);
-			} else if (DATETIME.test(part)) { //found until. 
+			} else if (DATETIME.test(part)) { //found until.
 				rrule.until = part; //will be transformed to Timestamp when everything else is finished.
 			} else if (needRules) { //this is not count or until, might be a day or a number.
 				day = dayToNum[part];
@@ -758,13 +758,13 @@ var iCal = (function () {
 				}
 				event.attach.push(lObj.value);
 				break;
-			case "EXDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array 
+			case "EXDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
 				event.exdates = parseDATEARRAY(lObj.value); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
 				break;
-			case "RDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array 
+			case "RDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
 				event.rdates = parseDATEARRAY(lObj.value); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
 				break;
-			case "BEGIN": //ignore begins other than ALARM. 
+			case "BEGIN": //ignore begins other than ALARM.
 				if (lObj.value === "VALARM") {
 					event.alarm.push({}); //add new alarm object.
 					event.alarmMode = true;
@@ -821,7 +821,7 @@ var iCal = (function () {
 
 	function tryToFillParentId(event) {
 		var i, j, revent, ts,	thisTS;
-		//try to fill "parent id" and parentdtstamp for exceptions to recurring dates. 
+		//try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
 		if (event.exdates && event.exdates.length > 0) {
 			//log_icalDebug("Event has exdates: " + JSON.stringify(event.exdates) + " remembering it as recurring.");
 			event.recurringId = recurringEvents.length; //save index for recurring event to add ids later.
@@ -901,8 +901,8 @@ var iCal = (function () {
 
 		/*if (event.tzId && event.tzId !== "UTC") {
 			log_icalDebug("ERROR: Event was not specified in UTC. Can't currently handle anything else than UTC! Expect problems!!!! :(");
-			if(event.allDay) {	//only mangling with time, if event is allday event. 
-				event.tzId = UTC; 
+			if(event.allDay) {	//only mangling with time, if event is allday event.
+				event.tzId = UTC;
 			}
 		}*/
 
@@ -924,7 +924,7 @@ var iCal = (function () {
 		}
 
 		//webOs does not support DATE-TIME as alarm trigger. Try to calculate a relative alarm from that...
-		//issue: this does not work, if server and device are in different timezones. Then the offset from 
+		//issue: this does not work, if server and device are in different timezones. Then the offset from
 		//server to GMT still exists... hm.
 		for (i = 0; event.alarm && i < event.alarm.length; i += 1) {
 			if (event.alarm[i].alarmTrigger.valueType === "DATETIME" || event.alarm[i].alarmTrigger.valueType === "DATE-TIME") {
@@ -1263,9 +1263,9 @@ var iCal = (function () {
 						}
 					}
 				}
-	
+
 				event = tryToFillParentId(event);
-	
+
 				if (!event.dtstamp) {
 					event.loadTimezones -= 1;
 				}
@@ -1290,7 +1290,7 @@ var iCal = (function () {
 				outerFuture.result = {returnValue: false, result: event};
 				log(e);
 			}
-			
+
 			return outerFuture;
 		},
 
@@ -1301,7 +1301,7 @@ var iCal = (function () {
 				if (serverData.serverType === "text/x-vcalendar") {
 					event = prepareXVCalendar(event);
 				}
-	
+
 				if (event.tzId && event.tzId !== localTzId && event.tzId !== "UTC") {
 					years.push(new Date(event.dtstart).getFullYear());
 					years.push(new Date(event.dtend).getFullYear());
@@ -1337,10 +1337,10 @@ var iCal = (function () {
 				log("Error in generateICal: ");
 				log(JSON.stringify(e));
 			}
-			
+
 			return outerFuture;
 		},
-		
+
 		initialize: function () {
 			var future = new Future();
 
