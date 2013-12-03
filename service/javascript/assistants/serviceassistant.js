@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.service.contacts.carddav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global log, debug, Class, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64 */
+/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64 */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",
@@ -28,38 +28,46 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
 			if (launchArgs.config) {
 				this.config = {
-					name: launchArgs.config.name,
-					url:  launchArgs.config.url,
-					username: launchArgs.config.username
+					name:      launchArgs.config.name,
+					url:       launchArgs.config.url,
+					username:  launchArgs.config.username,
+					accountId: this.accountId
 				};
 			}
 
-			//TODO: Add new kind account.config => sync: true!
-			//if no config object in transport object =>
-			// search for config in account.config kind, first by accountID, then by username
-			// if found something, augment transport object with config.
-			// in the other way round: on creation, store config in account.config db with account_id and username.
-			// also store/update config in discovery assistant.
-
 			var future = new Future();
 
+			//get config object from db:
+			if (this.accountId) {
+				if (!this.config) {
+					this.config = {};
+				}
+				this.config.accountId = this.accountId;
+
+				//search recursively, first by accountId, then account name then username.
+				searchAccountConfig(this.config);
+			} else {
+				log("No accountId, continue execution without config lookup.");
+				future.result = { returnValue: false };
+			}
+
 			//initialize iCal stuff.
-			future.nest(iCal.initialize());
+			future.then(function () {
+				future.nest(iCal.initialize());
+			});
 
 			future.then(function () {
 				var result = future.result;
-				debug("iCal init came back.");
-				if (result.iCal) {
-					debug("iCal init ok.");
+				if (!result.iCal) {
+					debug("iCal init not ok.");
 				}
 				future.nest(vCard.initialize());
 			});
 
 			future.then(function () {
 				var result = future.result;
-				debug("vCard init came back.");
-				if (result.vCard) {
-					debug("vCard init ok.");
+				if (!result.vCard) {
+					debug("vCard init not ok.");
 				}
 				future.result = { returnValue: true };
 			});
@@ -71,6 +79,10 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: launchArgs.url};
 					future.result = {}; //do continue future execution
 				} else {
+					if (!this.accountId) {
+						throw "Need accountId for operation " + launchConfig.name;
+					}
+
 					future.nest(KeyStore.checkKey(this.accountId));
 					future.then(this, function () {
 						debug("------------->Checked Key" + JSON.stringify(future.result));

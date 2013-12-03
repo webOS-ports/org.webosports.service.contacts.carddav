@@ -9,22 +9,15 @@ var DiscoveryAssistant = function () {};
 DiscoveryAssistant.prototype.run = function (outerFuture) {
 	var future = new Future(), args = this.controller.args;
 
-	//can only process the account we got credentials for => get right transport object
-	future.nest(searchAccountConfig(args));
-
-	future.then(this, function gotDBObject() {
-		var result = future.result || future.exception;
-		if (result.returnValue) {
-			future.nest(this.processAccount(args, result.config));
-		} else {
-			log("Could not get DB object: " + JSON.stringify(result));
-			log(JSON.stringify(future.error));
-			future.nest(this.processAccount(args, {
-				_kind: "org.webosports.service.contacts.carddav.account.config:1",
-				accountId: args.accountId
-			}));
-		}
-	});
+	if (this.config) {
+		future.nest(this.processAccount(args, this.config));
+	} else {
+		log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
+		future.nest(this.processAccount(args, {
+			_kind: "org.webosports.service.contacts.carddav.account.config:1",
+			accountId: args.accountId
+		}));
+	}
 
 	future.then(this, function discoveryFinished() {
 		var result = future.result || {returnValue: false};
@@ -40,6 +33,9 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 	if (config) {
 		debug("Got config object: " + JSON.stringify(config));
 
+		if (args.accountId) {
+			config.accountId = args.accountId;
+		}
 		if (args.username) {
 			config.username = args.username;
 		}
