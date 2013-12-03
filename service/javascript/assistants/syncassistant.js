@@ -319,7 +319,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 
-		if (!this.client.transport || !this.client.transport.config) {
+		if (!this.client.config) {
 			log("No config stored. Can't determine URL, no sync possible.");
 			future.result = {
 				returnValue: false,
@@ -379,7 +379,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("\n\n**************************SyncAssistant:_getRemoteCollectionChanges*****************************");
 		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
-			home = this.client.transport.config[subKind] ? this.client.transport.config[subKind].homeFolder : undefined,
+			home = this.client.config[subKind] ? this.client.config[subKind].homeFolder : undefined,
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 
@@ -393,7 +393,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function discoveryCB() {
 			var result = future.result;
 			if (result.success === true) {
-				this.client.transport.config = result.config;
+				this.client.config = result.config;
 				if (result.config[subKind]) {
 					home = result.config[subKind].homeFolder;
 				}
@@ -401,7 +401,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 			if (!home) {
 				log("Discovery was not successful. No calendar / addressbook home. Trying to use URL for that.");
-				home = this.client.transport.config.url;
+				home = this.client.config.url;
 			}
 
 			this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
@@ -543,10 +543,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Updates the stored config for calendar/addressbook folders from collection changes.
 	 */
 	_updateCollectionsConfig: function (kindName, remoteFolders) {
-		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false,
+		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder,
+			remoteFolder, change = false,
 			deleteAllCallback = function (future) {
 				debug("Delete all objects returned: " + JSON.stringify(future.result));
 			};
+
 		folders = this.client.transport.syncKey[subKind].folders;
 
 		for (i = 0; i < remoteFolders.length; i += 1) {
@@ -873,7 +875,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						} else if (kindName === Kinds.objects.contact.name) {
 							//TODO: rework iCal and vCard and equalize their outer api, so that the calls are the same... :(
 							debug("Starting vCard conversion");
-							future.nest(vCard.parseVCard({account: { name: this.client.transport.config.name,
+							future.nest(vCard.parseVCard({account: { name: this.client.config.name,
 																		kind: Kinds.objects[kindName].id, account: this.client.clientId },
 																		vCard: result.data}));
 						} else {
@@ -1067,7 +1069,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (kindName === Kinds.objects.calendarevent.name) {
 				future.nest(iCal.generateICal(obj.local, {}));
 			} else if (kindName === Kinds.objects.contact.name) {
-				future.nest(vCard.generateVCard({accountName: this.client.transport.config.name,
+				future.nest(vCard.generateVCard({accountName: this.client.config.name,
 												contact: obj.local, kind: Kinds.objects[kindName].id}));
 			} else {
 				throw new Error("Kind '" + kindName + "' not supported in _putOneRemoteObject.");
