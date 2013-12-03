@@ -91,7 +91,8 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 	credFuture = PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "checkCredentials", {
 		username: this.account.credentials.user,
 		password: this.account.credentials.password,
-		url: this.account.url
+		url: this.account.url,
+		name: this.account.name
 	});
 	credFuture.then(this, function (f) {
 		if (f.result.success) {

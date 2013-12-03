@@ -86,7 +86,8 @@ enyo.kind({
 		this.$.checkCredentials.call({
 			username: this.account.credentials.user,
 			password: this.account.credentials.password,
-			url: this.account.url
+			url: this.account.url,
+			name: this.account.name
 		});
 	},
 	credentialsOK: function (inSender, inResponse) {
