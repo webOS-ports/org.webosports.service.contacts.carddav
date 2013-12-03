@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Class, Sync, Future, log, CalDav, Kinds, unlockCreateAssistant, lockCreateAssistant, debug, DB */
+/*global Class, Sync, Future, log, Kinds, lockCreateAssistant, debug, DB */
 
 var OnCreate = Class.create(Sync.CreateAccountCommand, {
 	run: function (outerFuture) {
@@ -8,27 +8,18 @@ var OnCreate = Class.create(Sync.CreateAccountCommand, {
 			future.nest(this.handler.createAccount());
 
 			future.then(this, function createAccountCB() {
-				var result = future.result;
+				var result = future.result, config = this.client.config;
 				log("Account created: " + JSON.stringify(result));
 
-				future.nest(this.handler.getAccountTransportObject(this.client.clientId));
+				config.accountId = this.client.clientId; //be sure to store right accountId.
+				config._kind = "org.webosports.service.contacts.carddav.account.config:1";
+
+				future.nest(DB.put([config]));
 			});
 
-			future.then(this, function transportCB() {
-				var result = future.result, params, obj = {};
-				debug("Got transport object: " + JSON.stringify(result));
-				debug("Storing: " + JSON.stringify(this.client.config));
-
-				obj.config = this.client.config;
-				obj._id = result._id;
-				obj._kind = result._kind;
-
-				future.nest(DB.merge([obj]));
-			});
-
-			future.then(this, function storeCB() {
+			future.then(this, function dbCB() {
 				var result = future.result;
-				debug("Store came back: " + JSON.stringify(result));
+				debug("Stored config object: " + JSON.stringify(result));
 				outerFuture.result = {returnValue: true};
 			});
 		} else { //other create assistant already running. Prevent multiple account objects.
