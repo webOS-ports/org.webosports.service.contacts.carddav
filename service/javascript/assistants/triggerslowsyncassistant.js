@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, log, Kinds, debug, DB, CalDav, getTransportObjByAccountId */
+/*global Future, log, Kinds, debug, DB, CalDav */
 
 var TriggerSlowSyncAssistant = function () {};
 
