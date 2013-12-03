@@ -48,6 +48,9 @@
 		"source": "javascript/kinds.js"
 	},
 	{
+		"source": "javascript/utils/accountConfigUtils.js"
+	},
+	{
 		"source": "javascript/utils/encodingStuff.js"
 	},
 	{
