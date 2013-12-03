@@ -116,11 +116,12 @@ enyo.kind({
 
 			template.loc_name = this.account.name;
 			this.accountSettings = {
-				"template": this.params.template,
-				"username": this.account.credentials.user,
-				"credentials": this.account.credentials,
-				"config": this.account,
-				"returnValue": true
+				template: this.params.template,
+				username: this.account.credentials.user,
+				credentials: this.account.credentials,
+				config: this.account,
+				alias: this.account.name,
+				returnValue: true
 			};
 			//Pop back to Account Creation Dialog
 			// Set val as a parameter to be passed back to our source application

@@ -114,13 +114,14 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 
 			template.loc_name = this.account.name;
 			this.accountSettings = {
-				"template": this.params.initialTemplate,
-				"username": this.account.credentials.user,
-				"defaultResult": {
-					"result": {
+				template: this.params.initialTemplate,
+				username: this.account.credentials.user,
+				alias: this.account.name,
+				defaultResult: {
+					result: {
 						returnValue: true,
-						"credentials": this.account.credentials,
-						"config": this.account
+						credentials: this.account.credentials,
+						config: this.account
 					}
 				}
 			};
