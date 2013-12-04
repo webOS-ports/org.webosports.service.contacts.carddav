@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, log, Kinds, debug, DB, CalDav, searchAccountConfig, getTransportObjByAccountId */
+/*global Future, log, Kinds, debug, DB, CalDav */
 
 var DiscoveryAssistant = function () {};
 
@@ -9,8 +9,8 @@ var DiscoveryAssistant = function () {};
 DiscoveryAssistant.prototype.run = function (outerFuture) {
 	var future = new Future(), args = this.controller.args;
 
-	if (this.config) {
-		future.nest(this.processAccount(args, this.config));
+	if (this.client && this.client.config) {
+		future.nest(this.processAccount(args, this.client.config));
 	} else {
 		log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
 		future.nest(this.processAccount(args, {
@@ -46,10 +46,10 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 			config.url = args.url;
 		}
 
-		if (config.url) {
+		if (!config.url) {
 			log("No url for " + JSON.stringify(config) + " found in db or agruments. Can't process this account.");
-			future.reslut = {returnValue: false, success: false, msg: "No url for account in config."};
-			return future;
+			outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
+			return outerFuture;
 		}
 
 		params = {
@@ -57,6 +57,8 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 			authToken: this.client.userAuth.authToken,
 			originalUrl: config.url
 		};
+
+		future.nest(CalDav.discovery(params));
 
 		future.then(this, function discoverCB() {
 			var result = future.result, i, f;
