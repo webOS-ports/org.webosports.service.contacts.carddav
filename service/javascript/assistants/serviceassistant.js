@@ -27,12 +27,18 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
 			if (launchArgs.config) {
-				this.config = {
-					name:      launchArgs.config.name,
-					url:       launchArgs.config.url,
-					username:  launchArgs.config.username,
-					accountId: this.accountId
-				};
+				if (!this.config) {
+					this.config = {};
+				}
+
+				this.config.name =      launchArgs.config.name || this.config.name;
+				this.config.url  =      launchArgs.config.url  || this.config.url;
+				this.config.username =  launchArgs.config.username || this.config.username;
+				this.config.accountId = this.accountId || this.config.accountId;
+
+				if (launchArgs.config.credentials) {
+					this.config.usnerame =  launchArgs.config.credentials.user || this.config.username;
+				}
 			}
 
 			var future = new Future();
@@ -45,18 +51,22 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				this.config.accountId = this.accountId;
 
 				//search recursively, first by accountId, then account name then username.
-				searchAccountConfig(this.config);
+				future.nest(searchAccountConfig(this.config));
 			} else {
 				log("No accountId, continue execution without config lookup.");
 				future.result = { returnValue: false };
 			}
 
 			//initialize iCal stuff.
-			future.then(function () {
+			future.then(this, function () {
+				var result = future.result;
+				if (result.returnValue === true) {
+					this.config = result.config;
+				}
 				future.nest(iCal.initialize());
 			});
 
-			future.then(function () {
+			future.then(this, function () {
 				var result = future.result;
 				if (!result.iCal) {
 					debug("iCal init not ok.");
@@ -64,7 +74,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				future.nest(vCard.initialize());
 			});
 
-			future.then(function () {
+			future.then(this, function () {
 				var result = future.result;
 				if (!result.vCard) {
 					debug("vCard init not ok.");
@@ -113,7 +123,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			//preconfiguration of the service is complete...launch the sync engine
 			future.then(this, function () {
-				debug("Calling super function from future.then");
 				this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
 				return true;
 			});
@@ -132,7 +141,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 });
 
 //these endpoints are delegated to the sync framework to handle - use the serviceassistant code above to intercept
-//var OnCreate = Sync.CreateAccountCommand; //=> now in own assistant. Does discovery.
-var OnDelete = Sync.DeleteAccountCommand;
+//var OnCreate = Sync.CreateAccountCommand; //=> now in own assistant, creates account.config object.
+//var OnDelete = Sync.DeleteAccountCommand; //=> now in own assistant, deletes account.config object.
 var OnEnabled = Sync.EnabledAccountCommand;
 var OnCredentialsChanged = Sync.CredentialsChangedCommand;
