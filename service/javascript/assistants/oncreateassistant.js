@@ -2,10 +2,11 @@
 /*global Class, Sync, Future, log, Kinds, lockCreateAssistant, debug, DB */
 
 var OnCreate = Class.create(Sync.CreateAccountCommand, {
-	run: function (outerFuture) {
+	run: function run(outerFuture) {
 		var future = new Future(), lockCheck;
 		if (lockCreateAssistant(this.client.clientId)) {
-			future.nest(this.handler.createAccount());
+
+			this.$super(run)(future);
 
 			future.then(this, function createAccountCB() {
 				var result = future.result, config = this.client.config;
