@@ -1,8 +1,8 @@
 [
 	{
 		"type": "db.kind",
-		"object": "org.webosports.service.contacts.carddav.contactset:1",
-		"caller": "org.webosports.service.contacts.carddav.service",
+		"object": "org.webosports.cdav.contactset:1",
+		"caller": "org.webosports.cdav.*",
 		"operations": {
 			"read": "allow",
 			"create": "allow",

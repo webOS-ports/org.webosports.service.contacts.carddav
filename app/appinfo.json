@@ -1,10 +1,10 @@
 {
-	"id": "org.webosports.service.contacts.carddav.app",
+	"id": "org.webosports.cdav.app",
 	"version": "0.1.0",
 	"vendor": "WebOS Ports - Stefan Schmidt",
 	"type": "web",
 	"main": "index.html",
-	"title": "CardDAV sync app",
+	"title": "C+DAV sync app",
 	"icon": "images/webos-ports.png",
 	"uiRevision":2,
 	"noWindow": true

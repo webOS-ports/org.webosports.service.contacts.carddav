@@ -13,7 +13,7 @@ var OnCreate = Class.create(Sync.CreateAccountCommand, {
 				log("Account created: " + JSON.stringify(result));
 
 				config.accountId = this.client.clientId; //be sure to store right accountId.
-				config._kind = "org.webosports.service.contacts.carddav.account.config:1";
+				config._kind = Kinds.accountConfig.id;
 
 				future.nest(DB.put([config]));
 			});

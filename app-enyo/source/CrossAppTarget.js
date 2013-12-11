@@ -13,7 +13,7 @@ enyo.kind({
 	name: "Main.CrossAppLaunch",
 	kind: "Scroller",
 	components: [
-		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.contacts.carddav.service/",
+		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
 			method: "checkCredentials", onSuccess: "credentialsOK", onFailure: "credentialsWrong" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
 		{ kind: "PageHeader", content: "WebOs Ports CardDav Credentials Validator" },

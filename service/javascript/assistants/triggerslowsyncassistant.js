@@ -5,7 +5,7 @@ var TriggerSlowSyncAssistant = function () {};
 
 TriggerSlowSyncAssistant.prototype.run = function (outerFuture) {
 	var future = new Future(), args = this.controller.args,
-		query = {"from": "org.webosports.service.contacts.carddav.account:1"};
+		query = {"from": Kinds.account.metadata_id};
 
 	future.nest(DB.find(query, false, false));
 

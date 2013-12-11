@@ -1,5 +1,5 @@
 {
-	"id": "org.webosports.service.contacts.carddav.contactset:1",
+	"id": "org.webosports.cdav.contactset:1",
 	"sync": false,
 	"indexes": [
 		{

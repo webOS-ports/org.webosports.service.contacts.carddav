@@ -18,7 +18,7 @@ var lockCreateAssistant = function (accountId) {
 //be careful with manipulations on that obj:
 //This object get's deleted on some occasions!
 var getTransportObjByAccountId = function (args) {
-	var query = {"from": "org.webosports.service.contacts.carddav.account:1"}, future = new Future();
+	var query = {"from": Kinds.account.metadata_id}, future = new Future();
 
 	if (args.id) {
 		future.nest(DB.get([args.id]));
@@ -63,7 +63,7 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 
 	if (config[param]) {
 		future.nest(DB.find({
-			from: "org.webosports.service.contacts.carddav.account.config:1",
+			from: Kinds.accountConfig.id,
 			where: [ { prop: param, op: "=", val: config[param] } ]
 		}));
 
@@ -131,7 +131,7 @@ var searchAccountConfig = function (args) {
 				config.username = args.username || config.username;
 				config.accountId = args.accountId || config.accountId;
 				config.name = args.name || config.name;
-				config._kind = "org.webosports.service.contacts.carddav.account.config:1";
+				config._kind = Kinds.accountConfig.id;
 				delete config._id;
 				DB.merge([config]).then(function mergeCB(f) {
 					var result = f.result || f.exception;

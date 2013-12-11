@@ -14,7 +14,7 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 	} else {
 		log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
 		future.nest(this.processAccount(args, {
-			_kind: "org.webosports.service.contacts.carddav.account.config:1",
+			_kind: Kinds.accountConfig.id,
 			accountId: args.accountId
 		}));
 	}

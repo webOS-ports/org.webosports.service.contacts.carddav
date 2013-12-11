@@ -1,5 +1,5 @@
 {
-	"id": "org.webosports.service.contacts.carddav.calendar:1",
+	"id": "org.webosports.cdav.calendar:1",
 	"sync": false,
 	"extends": [
 		"com.palm.calendar:1"

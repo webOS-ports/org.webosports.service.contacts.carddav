@@ -386,7 +386,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		if (!home) {
 			debug("Need to get home folders first, doing discovery.");
-			future.nest(PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
+			future.nest(PalmCall.call("palm://org.webosports.cdav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
 		} else {
 			future.result = {returnValue: true}; //don't need to do discovery, tell futures to go on.
 		}

@@ -1,11 +1,11 @@
 {
-	"id": "org.webosports.service.contacts.carddav.service",
+	"id": "org.webosports.cdav.service",
 	"description": "CardDAV Contact Service",
 	"engine": "node",
 	"activityTimeout": 30,
 	"services": [
 		{
-			"name": "org.webosports.service.contacts.carddav.service",
+			"name": "org.webosports.cdav.service",
 			"description": "CardDAV Contact",
 			"globalized": false,
 			"assistant": "ServiceAssistant",

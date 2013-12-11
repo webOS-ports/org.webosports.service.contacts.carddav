@@ -1,5 +1,5 @@
 {
-	"id": "org.webosports.service.contacts.carddav.contact:1",
+	"id": "org.webosports.cdav.contact:1",
 	"sync": false,
 	"extends": [
 		"com.palm.contact:1"
