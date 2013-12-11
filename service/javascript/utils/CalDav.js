@@ -157,8 +157,8 @@ var CalDav = (function () {
 							future.result = f.result; //transfer future result.
 						});
 					} else {
-						log_calDavDebug("Already tried 5 times. Seems as if server won't answer? Sync seems broken.");
-						future.result = { returnValue: true, msg: "Message timedout, even after retries. Sync failed." };
+						log("Already tried 5 times. Seems as if server won't answer? Sync seems broken.");
+						future.result = { returnValue: false, msg: "Message timedout, even after retries. Sync failed." };
 					}
 				} else {
 					timeoutID = setTimeout(checkTimeout, 1000);
@@ -176,7 +176,7 @@ var CalDav = (function () {
 		debug("Sending request to " + options.path);
 		timeoutID = setTimeout(checkTimeout, 1000);
 		lastSend = Date.now();
-		req =  httpClient.request(options.method, options.path, options.headers);
+		req = httpClient.request(options.method, options.path, options.headers);
 		req.on('response', function (res) {
 			var result, newPath;
 			log_calDavDebug('STATUS: ' + res.statusCode);
@@ -285,6 +285,7 @@ var CalDav = (function () {
 	return {
 		//configures internal httpClient for new host/port
 		//returns pathname, i.e. the not host part of the url.
+		//FIXME: rework that to return  a future. httpClient create sometimes fails => sending fails, too, but will be tried nonetheless.
 		setHostAndPort: function (inUrl) {
 			if (inUrl) {
 				var parsedUrl = url.parse(inUrl);

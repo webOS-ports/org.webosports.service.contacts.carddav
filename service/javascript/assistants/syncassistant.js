@@ -179,6 +179,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//this is down-sync - create transformer object
 			//var transformer = new Json.Transformer(this._templates.calendar.remote2local);
 			return function (to, from) {
+				log("\n\n**************************SyncAssistant:_remote2local*****************************");
 				var key, obj = from.obj;
 
 				//populate to object with data from event:
@@ -703,8 +704,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				};
 			} else {
 				debug("Folder: " + this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].uri);
-				debug("remoteEtags: " + JSON.stringify(result.remoteEtags));
-				debug("localEtags: " + JSON.stringify(result.localEtags));
+				//debug("remoteEtags: " + JSON.stringify(result.remoteEtags));
+				//debug("localEtags: " + JSON.stringify(result.localEtags));
 				entries = this._parseEtags(result.remoteEtags, result.localEtags);
 
 				//now download object data and transfer it into webos datatypes.
@@ -756,7 +757,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			l.doDelete = true;
 			for (i = 0; i < this.collectionIds.length; i += 1) {
 				if (l.calendarId === this.collectionIds[i]) {
-					debug(l.remoteId + " was not found on server, but is in another collection locally. Do not delete.");
 					l.doDelete = false;
 					break;
 				}
