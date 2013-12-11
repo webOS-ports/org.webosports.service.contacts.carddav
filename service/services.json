@@ -26,8 +26,13 @@
 					"public": true
 				},
 				{
-					"name": "onEnabled",
-					"assistant": "OnEnabled",
+					"name": "onContactsEnabled",
+					"assistant": "OnContactsEnabled",
+					"public": true
+				},
+				{
+					"name": "onCalendarEnabled",
+					"assistant": "OnCalendarEnabled",
 					"public": true
 				},
 				{
@@ -36,8 +41,13 @@
 					"public": true
 				},
 				{
-					"name": "sync",
-					"assistant": "SyncAssistant",
+					"name": "syncContacts",
+					"assistant": "SyncContacts",
+					"public": true
+				},
+				{
+					"name": "syncCalendar",
+					"assistant": "SyncCalendar",
 					"public": true
 				},
 				{

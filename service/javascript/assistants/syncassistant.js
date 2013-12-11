@@ -1173,7 +1173,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	}
 });
 
-var SyncContactsAssistant = Class.create(SyncAssistant, {
+var SyncContacts = Class.create(SyncAssistant, {
 	/*
 	 * Return an array of strings identifying the object types for synchronization, in the correct order.
 	 */
@@ -1193,7 +1193,7 @@ var SyncContactsAssistant = Class.create(SyncAssistant, {
 	}
 });
 
-var SyncCalendarAssistant = Class.create(SyncAssistant, {
+var SyncCalendar = Class.create(SyncAssistant, {
 	/*
 	 * Return an array of strings identifying the object types for synchronization, in the correct order.
 	 */
