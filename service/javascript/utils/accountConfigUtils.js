@@ -108,6 +108,12 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 var searchAccountConfig = function (args) {
 	var outerFuture = new Future(), future = new Future();
 
+	if (createLocks[args.accountId]) {
+		log("Account " + args.accountId + " already locked for account creation. Not searching for config object.");
+		outerFuture.result = {returnValue: true, config: args };
+		return outerFuture;
+	}
+
 	future.nest(searchAccountConfigInConfigDB(args, "accountId", "name", "username"));
 
 	future.then(function configCB() {
@@ -133,14 +139,26 @@ var searchAccountConfig = function (args) {
 				config.name = args.name || config.name;
 				config._kind = Kinds.accountConfig.id;
 				delete config._id;
-				DB.merge([config]).then(function mergeCB(f) {
-					var result = f.result || f.exception;
-					log("Config store came back: " + JSON.stringify(result));
-					if (result.returnValue === true) {
-						config._id = result.results[0].id;
-					}
+				try {
+					DB.merge([config]).then(function mergeCB(f) {
+						try {
+							var result = f.result || f.exception;
+							log("Config store came back: " + JSON.stringify(result));
+							if (result.returnValue === true) {
+								config._id = result.results[0].id;
+							}
+							outerFuture.result = { returnValue: true, config: config };
+						} catch (e) {
+							log("Error in store config: " + e.message);
+							log("Ignoring error and continue execution.");
+							outerFuture.result = { returnValue: true, config: config };
+						}
+					});
+				} catch (e) {
+					log("Error in store config: " + e.message);
+					log("Ignoring error and continue execution.");
 					outerFuture.result = { returnValue: true, config: config };
-				});
+				}
 			} else {
 				//no config in transport object => fail.
 				//log("No transport object for account.");
