@@ -195,8 +195,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.remoteId = this._uriToRemoteId(from.uri);
 				}
 
-				debug("Converting from " + JSON.stringify(from));
-				debug("Converted to: " + JSON.stringify(to));
+				//debug("Converting from " + JSON.stringify(from));
+				//debug("Converted to: " + JSON.stringify(to));
 
 				return from.obj; //transformer.transformAndMerge(to, from);
 			};

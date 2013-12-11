@@ -142,6 +142,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 		},
 
 		getSyncInterval: function () {
+			log("*********************************** getSyncInterval ********************************");
 			return new Future("20m");  //default sync interval
 		},
 
