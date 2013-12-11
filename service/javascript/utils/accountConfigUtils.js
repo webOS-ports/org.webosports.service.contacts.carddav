@@ -72,7 +72,7 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 				var result = future.result || future.exception;
 				if (result.returnValue) {
 					if (result.results.length > 0) {
-						delete result.results[0]._rev;
+						//delete result.results[0]._rev; => nope, not allowed. Did try that to prevent "wrong rev errors". But seems that we have to live with them.
 						outerFuture.result = {
 							config: result.results[0],
 							returnValue: true
