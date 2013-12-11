@@ -47,9 +47,12 @@ var Kinds = {
 	}
 };
 
-Kinds.syncOrder = [
+Kinds.syncOrderContacts = [
 	Kinds.objects.contactset.name,
-	Kinds.objects.contact.name,
+	Kinds.objects.contact.name
+];
+
+Kinds.syncOrderCalendar = [
 	Kinds.objects.calendar.name,
 	Kinds.objects.calendarevent.name
 ];

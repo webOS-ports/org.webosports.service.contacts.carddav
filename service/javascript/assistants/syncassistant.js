@@ -1180,3 +1180,43 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return future;
 	}
 });
+
+var SyncContactsAssistant = Class.create(SyncAssistant, {
+	/*
+	 * Return an array of strings identifying the object types for synchronization, in the correct order.
+	 */
+	getSyncOrder: function () {
+		//log("\n\n**************************SyncAssistant: getSyncOrder*****************************");
+		return Kinds.syncOrderContacts;
+	},
+
+	/*
+	 * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
+	 * supported by the sync engine as specified in the account template (e.g.,
+	 * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
+	 * to provide automatic sync notification support.
+	 */
+	getCapabilityProviderId: function () {
+		return Kinds.objects.contact.identifier;
+	}
+});
+
+var SyncCalendarAssistant = Class.create(SyncAssistant, {
+	/*
+	 * Return an array of strings identifying the object types for synchronization, in the correct order.
+	 */
+	getSyncOrder: function () {
+		//log("\n\n**************************SyncAssistant: getSyncOrder*****************************");
+		return Kinds.syncOrderCalendar;
+	},
+
+	/*
+	 * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
+	 * supported by the sync engine as specified in the account template (e.g.,
+	 * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
+	 * to provide automatic sync notification support.
+	 */
+	getCapabilityProviderId: function () {
+		return Kinds.objects.calendar.identifier;
+	}
+});

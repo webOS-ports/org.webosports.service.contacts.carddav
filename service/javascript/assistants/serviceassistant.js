@@ -143,5 +143,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 //these endpoints are delegated to the sync framework to handle - use the serviceassistant code above to intercept
 //var OnCreate = Sync.CreateAccountCommand; //=> now in own assistant, creates account.config object.
 //var OnDelete = Sync.DeleteAccountCommand; //=> now in own assistant, deletes account.config object.
-var OnEnabled = Sync.EnabledAccountCommand;
+var OnContactsEnabled = Sync.EnabledAccountCommand;
+var OnCalendarEnabled = Sync.EnabledAccountCommand;
 var OnCredentialsChanged = Sync.CredentialsChangedCommand;
