@@ -1,38 +1,54 @@
 {
-    "templateId": "org.webosports.service.contacts.carddav.account",
-    "loc_name": "CardDAV Contacts",
-    "readPermissions": ["org.webosports.service.contacts.carddav.service", 
-				"com.palm.service.contacts",
-                "com.palm.service.contacts.linker",
-                "com.palm.app.contacts"],
-    "writePermissions": ["org.webosports.service.contacts.carddav.service", "com.palm.app.accounts", "com.palm.app.contacts"],
-    "validator" : {"address": "palm://org.webosports.service.contacts.carddav.service/checkCredentials", "customUI":{"appId":"org.webosports.service.contacts.carddav.app","name":"accountSetup"}},
-    "onCredentialsChanged" : "palm://org.webosports.service.contacts.carddav.service/onCredentialsChanged",
-    "loc_usernameLabel": "Username",
-    "icon": {"loc_32x32": "images/webos-ports32.png"},
-    "capabilityProviders": [{
-        "capability": "CONTACTS",
-        "id"        : "org.webosports.service.contacts.carddav",
-        "onCreate"  : "palm://org.webosports.service.contacts.carddav.service/onCreate",
-        "onEnabled" : "palm://org.webosports.service.contacts.carddav.service/onEnabled",
-        "onDelete"  : "palm://org.webosports.service.contacts.carddav.service/onDelete",
-        "sync"      : "palm://org.webosports.service.contacts.carddav.service/sync",
-        "loc_name"  : "CardDAV Contacts",
-        "dbkinds": {
-                "contact": "org.webosports.service.contacts.carddav.contact:1"
-        }
-    },
-	{
-		"capability": "CALENDAR",
-		"id": "org.webosports.service.contacts.carddav.calendar",
-		"onCreate"  : "palm://org.webosports.service.contacts.carddav.service/onCreate", 
-		"onDelete"  : "palm://org.webosports.service.contacts.carddav.service/onDelete",
-		"onEnabled" : "palm://org.webosports.service.contacts.carddav.service/onEnabled",
-		"sync"      : "palm://org.webosports.service.contacts.carddav.service/sync",   
-		"loc_name": "CalDav Calendar",
-		"dbkinds": {  
-			"calendar": "org.webosports.service.contacts.carddav.calendar:1",
-			"calendarevent" : "org.webosports.service.contacts.carddav.calendarevent:1"
+	"templateId": "org.webosports.service.contacts.carddav.account",
+	"loc_name": "CardDAV Contacts",
+	"readPermissions": [
+		"org.webosports.service.contacts.carddav.service",
+		"com.palm.service.contacts",
+		"com.palm.service.contacts.linker",
+		"com.palm.app.contacts"
+	],
+	"writePermissions": [
+		"org.webosports.service.contacts.carddav.service",
+		"com.palm.app.accounts",
+		"com.palm.app.contacts"
+	],
+	"validator": {
+		"address": "palm://org.webosports.service.contacts.carddav.service/checkCredentials",
+		"customUI": {
+			"appId": "org.webosports.service.contacts.carddav.app",
+			"name": "accountSetup"
 		}
-	}]
+	},
+	"onCredentialsChanged": "palm://org.webosports.service.contacts.carddav.service/onCredentialsChanged",
+	"loc_usernameLabel": "Username",
+	"icon": {
+		"loc_32x32": "images/webos-ports32.png"
+	},
+	"capabilityProviders": [
+		{
+			"capability": "CONTACTS",
+			"id": "org.webosports.service.contacts.carddav",
+			"onCreate": "palm://org.webosports.service.contacts.carddav.service/onCreate",
+			"onEnabled": "palm://org.webosports.service.contacts.carddav.service/onEnabled",
+			"onDelete": "palm://org.webosports.service.contacts.carddav.service/onDelete",
+			"sync": "palm://org.webosports.service.contacts.carddav.service/sync",
+			"loc_name": "CardDAV Contacts",
+			"dbkinds": {
+				"contact": "org.webosports.service.contacts.carddav.contact:1"
+			}
+		},
+		{
+			"capability": "CALENDAR",
+			"id": "org.webosports.service.contacts.carddav.calendar",
+			"onCreate": "palm://org.webosports.service.contacts.carddav.service/onCreate",
+			"onDelete": "palm://org.webosports.service.contacts.carddav.service/onDelete",
+			"onEnabled": "palm://org.webosports.service.contacts.carddav.service/onEnabled",
+			"sync": "palm://org.webosports.service.contacts.carddav.service/sync",
+			"loc_name": "CalDav Calendar",
+			"dbkinds": {
+				"calendar": "org.webosports.service.contacts.carddav.calendar:1",
+				"calendarevent": "org.webosports.service.contacts.carddav.calendarevent:1"
+			}
+		}
+	]
 }

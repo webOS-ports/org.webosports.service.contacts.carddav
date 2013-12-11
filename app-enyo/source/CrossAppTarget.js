@@ -1,4 +1,5 @@
-/*global enyo, $L, PalmCall */
+/*jslint sloppy: true */
+/*global enyo, $L, PalmCall, console */
 
 function log(msg) {
 	console.error(msg);
@@ -9,36 +10,36 @@ function debug(msg) {
 }
 
 enyo.kind({
-    name: "Main.CrossAppLaunch",
-    kind: "Scroller",
-    components:[
-		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.contacts.carddav.service/", 
+	name: "Main.CrossAppLaunch",
+	kind: "Scroller",
+	components: [
+		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.contacts.carddav.service/",
 			method: "checkCredentials", onSuccess: "credentialsOK", onFailure: "credentialsWrong" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
-        { kind: "PageHeader", content: "WebOs Ports CardDav Credentials Validator" },
-        { style:"margin:30px;", components:[
-			{ name: "alert", style:"margin-bottom:30px;text-align:center; background-color:red; color:yellow;" },
-				{ kind: "RowGroup", caption: "Text captured from Cross-App Source - App A", components: [
-		        { kind: "Input", hint: "Servername", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase" },
+		{ kind: "PageHeader", content: "WebOs Ports CardDav Credentials Validator" },
+		{ style: "margin:30px;", components: [
+			{ name: "alert", style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;" },
+			{ kind: "RowGroup", caption: "Text captured from Cross-App Source - App A", components: [
+				{ kind: "Input", hint: "Servername", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase" },
 				{ kind: "Input", hint: "URL", value: "", name: "txtURL", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase", inputType: "url" },
 				{ kind: "Input", hint: "Username", value: "", name: "txtUsername", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase", inputType: "email" },
 				{ kind: "PasswordInput", hint: "Password", value: "", name: "txtPassword", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase" },
-		        { kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
-		    ]}
-        ]},
-        {kind: "CrossAppResult"}
-    ],
-	create: function() {
+				{ kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
+			]}
+		]},
+		{kind: "CrossAppResult"}
+	],
+	create: function () {
 		this.inherited(arguments);
 		console.error(">>>>>>>>>>>>>>>>>>>> create");
 		console.error("Parameters: " + JSON.stringify(arguments));
-		
+
 		console.error("<<<<<<<<<<<<<<<<<<<< create");
 	},
-	showLoginError: function(caption, msg) {
+	showLoginError: function (caption, msg) {
 		this.$.alert.setContent(msg);
 	},
-	doCheckCredentials: function() {
+	doCheckCredentials: function () {
 		// Capture the user data
 		this.account = {
 			name: this.$.txtServerName.getValue(),
@@ -48,14 +49,14 @@ enyo.kind({
 				password: this.$.txtPassword.getValue()
 			}
 		};
-		
+
 		this.$.alert.setContent("");
 		if (!this.params) {
 			console.error("No params!");
 			this.$.alert.setContent($L("No parameters received. This needs to be called from Account Manager."));
 			return;
 		}
-		
+
 		if (!this.account.name) {
 			log("Need account.name to add account");
 			this.showLoginError("Account Name", "Please specify a valid account name.");
@@ -79,16 +80,16 @@ enyo.kind({
 			this.showLoginError("Password", "Please specify a valid account password.");
 			return;
 		}
-		
+
 		enyo.scrim.show();
-		this.showLoginError("","");
+		this.showLoginError("", "");
 		this.$.checkCredentials.call({
 			username: this.account.credentials.user,
 			password: this.account.credentials.password,
 			url: this.account.url
 		});
 	},
-	credentialsOK: function(inSender, inResponse) {
+	credentialsOK: function (inSender, inResponse) {
 		debug("Service Response: " + JSON.stringify(inResponse));
 		if (inResponse.success) {
 			debug("Check credentials came back successful");
@@ -129,14 +130,14 @@ enyo.kind({
 		}
 		enyo.scrim.hide();
 	},
-	credentialsWrong: function(inSender, inResponse) {
+	credentialsWrong: function (inSender, inResponse) {
 		enyo.scrim.hide();
 		log("CheckCredentials came back, but failed.");
 		debug("Response: " + JSON.stringify(inResponse));
 		this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (inResponse.reason ? " Message: " + inResponse.reason : ""));
 	},
-    // called when app is opened or reopened
-    windowParamsChangeHandler: function(inSender, event) {
+	// called when app is opened or reopened
+	windowParamsChangeHandler: function (inSender, event) {
 		console.error(">>>>>>>>>>>>>>>>>>>> windowParamsChangeHandler");
 		// capture any parameters associated with this app instance
 		if (!event || !event.params) {
@@ -144,10 +145,10 @@ enyo.kind({
 			this.$.alert.setContent($L("No parameters received. This needs to be called from Account Manager."));
 			return;
 		}
-		
+
 		this.params = event.params;
 		console.error("Params: " + JSON.stringify(this.params));
-		
+
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
-    }
+	}
 });

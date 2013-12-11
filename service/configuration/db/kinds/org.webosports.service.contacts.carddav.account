@@ -1,18 +1,25 @@
 {
-    "id": "org.webosports.service.contacts.carddav.account:1",
+	"id": "org.webosports.service.contacts.carddav.account:1",
 	"sync": true,
-    "indexes": [{
-        "name": "accountId",
-        "props": [{
-            "name": "accountId"
-        }]
-    },
-	{
-		"name": "accountId_remoteId",
-		"props": [{
-			"name": "accountId"
-		}, {
-			"name": "remoteId"
-		}]
-	}]
+	"indexes": [
+		{
+			"name": "accountId",
+			"props": [
+				{
+					"name": "accountId"
+				}
+			]
+		},
+		{
+			"name": "accountId_remoteId",
+			"props": [
+				{
+					"name": "accountId"
+				},
+				{
+					"name": "remoteId"
+				}
+			]
+		}
+	]
 }

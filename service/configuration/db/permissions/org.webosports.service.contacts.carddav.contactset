@@ -1,7 +1,7 @@
 [
 	{
 		"type": "db.kind",
-		"object": "org.webosports.service.contacts.carddav.calendar:1",
+		"object": "org.webosports.service.contacts.carddav.contactset:1",
 		"caller": "org.webosports.service.contacts.carddav.service",
 		"operations": {
 			"read": "allow",

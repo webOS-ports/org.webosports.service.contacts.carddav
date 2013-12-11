@@ -8,7 +8,7 @@ TriggerSlowSyncAssistant.prototype.run = function (outerFuture) {
 		query = {"from": "org.webosports.service.contacts.carddav.account:1"};
 
 	future.nest(DB.find(query, false, false));
-	
+
 	future.then(this, function gotDBObject() {
 		var result = future.result;
 		if (result.returnValue) {
@@ -33,15 +33,15 @@ TriggerSlowSyncAssistant.prototype.processAccount = function (objs, index) {
 
 	if (obj) {
 		syncKey = obj.syncKey || {};
-		
+
 		for (key in Kinds.objects) {
 			if (Kinds.objects.hasOwnProperty(key)) {
 				syncKey[key] = { error: true };
 			}
 		}
-		
+
 		obj.syncKey = syncKey;
-		
+
 		future.nest(DB.merge([obj]));
 
 		future.then(this, function storeCB() {
@@ -53,9 +53,6 @@ TriggerSlowSyncAssistant.prototype.processAccount = function (objs, index) {
 		log("All " + index + " objects processed.");
 		future.result = { returnValue: true };
 	}
-	
+
 	return future;
 };
-
-
-

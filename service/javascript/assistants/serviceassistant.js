@@ -1,8 +1,8 @@
 /* ServiceAssistant
 * Description: This method handles the high level transport setup.
-* This assistant is called before anything within the service.  This is useful to intercept the various endpoints and 
+* This assistant is called before anything within the service.  This is useful to intercept the various endpoints and
 * handle various tasks like key storage or customizations
-* 
+*
 * To run manually:
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.service.contacts.carddav.service/
 */
@@ -11,7 +11,7 @@
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",
-	
+
 	client: Class.create(Sync.AuthSyncClient, {
 
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
@@ -21,10 +21,10 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			//debug("\n------------------->launchConfig"+JSON.stringify(launchConfig));
 			//debug("\n------------------->launchArgs"+JSON.stringify(launchArgs));
 			log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
-	
+
 			//this seems necessary for super class constructor during checkCredentials calls.
 			this.accountId = launchArgs.accountId || "";
-			
+
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
 			if (launchArgs.config) {
 				this.config = {
@@ -32,7 +32,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					url:  launchArgs.config.url
 				};
 			}
-			
+
 			var future = new Future();
 
 			//initialize iCal stuff.
@@ -97,14 +97,14 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
 				return true;
 			});
-			
+
 			return future;
 		},
-		
+
 		getSyncInterval: function () {
 			return new Future("20m");  //default sync interval
 		},
-		
+
 		requiresInternet: function () {
 			return true;  //yes, we need internet to connect to Plaxo
 		}

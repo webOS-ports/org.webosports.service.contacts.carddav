@@ -9,7 +9,7 @@ var CalDav = (function () {
 	function endsWith(str, suffix) {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
 	}
-	
+
 	function getValue(obj, field) {
 		var f, f2 = field.toLowerCase();
 		for (f in obj) {
@@ -264,7 +264,7 @@ var CalDav = (function () {
 		if (folder.host.toLowerCase().indexOf("carddav") >= 0) {
 			newFolders.push({path: folder.path, host: folder.host.toLowerCase().replace("carddav", "caldav")});
 		}
-		
+
 		//check for duplicates:
 		for (j = 0; j < newFolders.length; j += 1) {
 			duplicate = false;
@@ -479,7 +479,7 @@ var CalDav = (function () {
 				} else {
 					//error, stop, return failure.
 					log("Error in getPrincipal: " + JSON.stringify(result));
-					//future.result = result;	
+					//future.result = result;
 				}
 
 				if (index < tryFolders.length) {
@@ -490,14 +490,14 @@ var CalDav = (function () {
 					if (principals.length === 0) {
 						log("Could not get any principal at all.");
 					}
-	
+
 					//prepare home folder search:
 					options.headers.Depth = 0;
 					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><c:calendar-home-set/></d:prop></d:propfind>";
-					
+
 					//reorder array, so that principal folders are tried first:
 					tryFolders = principals.concat(tryFolders);
-					
+
 					setNextUrl(tryFolders[0]);
 					future.nest(sendRequest(options, data));
 				}
@@ -519,7 +519,7 @@ var CalDav = (function () {
 					log("Error in getHomeCB: " + JSON.stringify(result));
 					//future.result = result;
 				}
-				
+
 				if (!home) {
 					if (index < tryFolders.length) {
 						log_calDavDebug("Trying to ask for " + (addressbook ? "addressbook" : "calendar") + "-home-set on next url: " + JSON.stringify(tryFolders[index]) + " index: " + index);
@@ -532,7 +532,7 @@ var CalDav = (function () {
 						home = params.originalUrl;
 					}
 				}
-				
+
 				if (homes.length > 0 && homes[0] === home) {
 					log_calDavDebug("Homes identical, ignore second one.");
 				} else {
@@ -584,7 +584,7 @@ var CalDav = (function () {
 					log("Error during folder-search: " + JSON.stringify(result));
 					//future.result = result;
 				}
-				
+
 				if (homes.length > 0) { //if we still have unsearched home-foders, search them:
 					log_calDavDebug("Getting folders from " + homes[0]);
 					params.cardDav = true; //bad hack.
@@ -704,7 +704,7 @@ var CalDav = (function () {
 								folder.resource = decideByComponents(folder.supportedComponents);
 							}
 						}
-						
+
 						if (!filter || folder.resource === filter) {
 							folder.uri = protocol + "//" + serverHost + folder.uri;
 							folder.remoteId = folder.uri;

@@ -1,7 +1,8 @@
 //JSLint stuff:
-/*global Contacts, fs, log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64 */
+/*jslint sloppy: true, nomen: true */
+/*global Contacts, fs, log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer */
 
-var vCard = (function () { 
+var vCard = (function () {
 	var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
 		photoPath = "/media/internal/.caldav_photos/",
 		vCardIndex = 0;
@@ -10,12 +11,14 @@ var vCard = (function () {
 		var field;
 		if (typeof obj === "object") {
 			for (field in obj) {
-				if (typeof obj[field] === "string") {
-					if (obj[field] === "") {
-						delete obj[field];
+				if (obj.hasOwnProperty(field)) {
+					if (typeof obj[field] === "string") {
+						if (obj[field] === "") {
+							delete obj[field];
+						}
+					} else if (typeof obj[field] === "object") {
+						cleanUpEmptyFields(obj[field]);
 					}
-				} else if (typeof obj[field] === "object") {
-					cleanUpEmptyFields(obj[field]);
 				}
 			}
 		}
@@ -36,7 +39,7 @@ var vCard = (function () {
 			};
 
 			//check that a temporary file path exists to save/read vcards to.
-			path.exists(tmpPath, function(exists)  {
+			path.exists(tmpPath, function (exists) {
 				if (!exists) {
 					fs.mkdir(tmpPath, 0777, function (error) {
 						if (error) {
@@ -53,7 +56,7 @@ var vCard = (function () {
 
 			//create path for photos:
 			path.exists(photoPath, function (exists) {
-				if(!exists) {
+				if (!exists) {
 					fs.mkdir(photoPath, 0777, function (error) {
 						if (error) {
 							log("Could not create photo-path, error: " + JSON.stringify(error));
@@ -75,8 +78,8 @@ var vCard = (function () {
 		//account = full account object.
 		//serverData = configuration data of the server..
 		parseVCard: function (input) {
-			var resFuture = new Future(), 
-				filename = tmpPath + (input.account.name || "nameless") + "_" + vCardIndex + ".vcf", 
+			var resFuture = new Future(),
+				filename = tmpPath + (input.account.name || "nameless") + "_" + vCardIndex + ".vcf",
 				vCardImporter,
 				currentLine,
 				lines,
@@ -85,7 +88,8 @@ var vCard = (function () {
 				version,
 				photoData = "",
 				emptyLine = /^[A-Za-z;\-_]*:[;]*$/;
-				vCardIndex += 1;
+
+			vCardIndex += 1;
 
 			if (!input.vCard) {
 				log("Empty vCard received.");
@@ -98,8 +102,8 @@ var vCard = (function () {
 			input.vCard = input.vCard.replace(/\r?\n /g, ''); //replace all \n+space, those are newlines in datablocks (i.e. notes).
 			if (input.vCard.indexOf("VERSION:3.0") > -1) {
 				version = "3.0";
-			} else  if (input.vCard.indexOf("VERSION:2.1") > -1) {
-				version = "2.1";			
+			} else if (input.vCard.indexOf("VERSION:2.1") > -1) {
+				version = "2.1";
 			}
 			lines = input.vCard.split(/\r?\n/);
 			data = [];
@@ -118,7 +122,7 @@ var vCard = (function () {
 					if (version === "2.1") {
 						//log("Decode, because version " + version);
 						currentLine = quoted_printable_decode(currentLine);
-						currentLine = currentLine.replace(/\r?\n=?/g,'\\n');
+						currentLine = currentLine.replace(/\r?\n=?/g, '\\n');
 					}
 					//currentLine = unquote(currentLine);
 					data.push(currentLine);
@@ -138,17 +142,19 @@ var vCard = (function () {
 					//do import:
 					var future = vCardImporter.readVCard();
 					future.then(function (f) {
-						var obj = f.result[0].getDBObject(), key;
+						var obj = f.result[0].getDBObject(), key, buff;
 						obj._kind = input.account.kind;
 
 						//prevent overriding of necessary stuff.
 						for (key in obj) {
-							if (obj[key] === undefined || obj[key] === null) {
-								//log("Deleting entry " + key + " from obj.");
-								delete obj[key];
+							if (obj.hasOwnProperty(key)) {
+								if (obj[key] === undefined || obj[key] === null) {
+									//log("Deleting entry " + key + " from obj.");
+									delete obj[key];
+								}
 							}
 						}
-						delete obj.accounts; 
+						delete obj.accounts;
 						delete obj.accountId;
 						delete obj.syncSource;
 
@@ -160,7 +166,7 @@ var vCard = (function () {
 						log("PhotoData Length: " + photoData.length);
 						if (photoData.length > 0) { //got a photo!! :)
 							log("Writing photo!");
-							var buff = new Buffer(photoData, 'base64');
+							buff = new Buffer(photoData, 'base64');
 							filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + ".jpg";
 							log("writing photo to: " + filename);
 							fs.writeFile(filename, buff, function (err) {
@@ -183,12 +189,13 @@ var vCard = (function () {
 		//input:
 		//contactId
 		generateVCard: function (input) {
-			var resFuture = new Future(), note, 
-				filename = tmpPath + (input.accountName || "nameless") + "_" + vCardIndex + ".vcf", 
-				version = "3.0"; //(input.serverData && input.serverData.serverType === MimeTypes.contacts.fallback) ? "2.1" : "3.0", 
+			var resFuture = new Future(), note,
+				filename = tmpPath + (input.accountName || "nameless") + "_" + vCardIndex + ".vcf",
+				version = "3.0", //(input.serverData && input.serverData.serverType === MimeTypes.contacts.fallback) ? "2.1" : "3.0",
 				//TODO: can we determine if the server only accepts 2.1?
 				vCardExporter = new Contacts.VCardExporter({ filePath: filename, version: version }); //could set vCardVersion here to decide if 3.0 or 2.1, default will be 3.0... is that really necessary?
-				vCardIndex += 1;
+
+			vCardIndex += 1;
 
 			log("Got contact: " + JSON.stringify(input.contact));
 			Contacts.Utils.defineConstant("kind", input.kind, Contacts.Person);
@@ -196,29 +203,29 @@ var vCard = (function () {
 			vCardExporter.exportOne(input.contactId, false).then(function (future) {
 				log("webOS saved vCard to " + filename);
 				log("result: " + JSON.stringify(future.result));
-				fs.readFile(filename, "utf-8", function(err, data) {
+				fs.readFile(filename, "utf-8", function (err, data) {
 					if (err) {
-						log ("Could not read back vCard from " + filename + ": " + JSON.stringify(err));
+						log("Could not read back vCard from " + filename + ": " + JSON.stringify(err));
 						resFuture.result = { returnValue: false };
 					} else {
 						log("Read vCard from " + filename + ": " + data);
-						data = data.replace(/TEL;TYPE=CELL,VOICE/g,"TEL;TYPE=CELL");
-						data = data.replace(/CELL;VOICE/g,"CELL");
-						data = data.replace(/\nTYPE=:/g,"URL:"); //repair borked up URL thing. Omitting type here..
+						data = data.replace(/TEL;TYPE=CELL,VOICE/g, "TEL;TYPE=CELL");
+						data = data.replace(/CELL;VOICE/g, "CELL");
+						data = data.replace(/\nTYPE=:/g, "URL:"); //repair borked up URL thing. Omitting type here..
 
 						//webos seems to "forget" the note field.. add it here.
 						if (input.contact && input.contact.note) {
 							note = input.contact.note;
 							if (note) {
-								note.replace(/[^\r]\n/g,"\r\n");
+								note.replace(/[^\r]\n/g, "\r\n");
 							}
 							if (version === "2.1") {
 								note = quoted_printable_encode(note);
 							}
 							note = quote(note);
 							log("Having note: " + note);
-							data = data.replace("END:VCARD","NOTE:" + note + "\r\nEND:VCARD");
-						}			
+							data = data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
+						}
 
 						log("Modified data: " + data);
 						resFuture.result = { returnValue: true, result: data };

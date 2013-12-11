@@ -27,7 +27,7 @@ if (typeof require === "undefined") {
 var querystring = require('querystring');
 var fs = require('fs'); //required for own node modules and current vCard converter.
 var path = require('path'); //required for vCard converter.
-var http = require('http'); //required for own httpClient. Not using AjaxCall, because 
+var http = require('http'); //required for own httpClient. Not using AjaxCall, because
                             //it is broken in 2.2.4 and can't handle custom ports, only 80 and 443
 var url = require('url');   //required to parse urls
 
@@ -45,12 +45,12 @@ var log = function (msg) {
 
 var log_icalDebug = function (msg) {
 	//uncomment to get ical debug:
-	//console.error(msg);	
+	//console.error(msg);
 };
 
 var log_calDavDebug = function (msg) {
 	//uncomment to get caldav debug, contains all http traffic, also
-	//console.error(msg);	
+	//console.error(msg);
 };
 
 /* Simple debug function to print out to console error */
@@ -95,6 +95,6 @@ var getTransportObjByAccountId = function (args) {
 			future.result = {returnValue: false, success: false};
 		}
 	});
-	
+
 	return future;
 };
