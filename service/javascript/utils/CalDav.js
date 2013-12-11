@@ -139,7 +139,7 @@ var CalDav = (function () {
 	}
 
 	function sendRequest(options, data, retry) {
-		var body = "", future = new Future(), req, received = false, lastSend, timeoutID;
+		var body = "", future = new Future(), req, received = false, lastSend, timeoutID, dataBuffer = new Buffer(data, 'utf8');
 		if (retry === undefined) {
 			retry = 0;
 		}
@@ -228,8 +228,8 @@ var CalDav = (function () {
 		});
 
 		// write data to request body
-		req.write(data);
-		req.end();
+		//req.write();
+		req.end(data, "utf8");
 
 		return future;
 	}
