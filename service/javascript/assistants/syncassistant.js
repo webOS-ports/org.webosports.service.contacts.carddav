@@ -148,7 +148,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (name === "remote2local") {
 				return function (to, from) {
 					to.accountId = this.client.clientId;
-					to.color = "purple"; //yes, I'm purple. :P
+					//to.color = "purple"; //yes, I'm purple. :P
 					to.excludeFromAll = false;
 					to.isReadOnly = from.isReadOnly; //we might want to get that from webdav?
 					to.name = from.name;
