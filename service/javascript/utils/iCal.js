@@ -663,6 +663,9 @@ var iCal = (function () {
 		text += ":";
 		if (attendee.email) {
 			text += "MAILTO:" + attendee.email;
+			if (attendee.email.indexOf("@") === -1) {
+				text += "@mail.invalid"; //prevent parsing errors on some servers.
+			}
 		}
 		res = [text];
 		if (attendee.organizer) {
