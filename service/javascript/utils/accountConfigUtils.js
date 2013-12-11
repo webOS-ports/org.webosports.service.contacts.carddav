@@ -1,5 +1,5 @@
 /*jslint sloppy: true, nomen: true */
-/*global debug, Future, DB, log*/
+/*global debug, Future, DB, log, Kinds*/
 
 //prevents the creation of multiple transport objects on webOS 2.2.4
 var createLocks = {};

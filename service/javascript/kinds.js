@@ -47,6 +47,16 @@ var Kinds = {
 	}
 };
 
+//general syncOrder should not be used.
+Kinds.syncOrder = [
+	Kinds.objects.calendar.name,
+	Kinds.objects.calendarevent.name,
+	Kinds.objects.contactset.name,
+	Kinds.objects.contact.name
+];
+
+//this is copied into the syncOrder field for the syncHandler.
+//this is also used in the onEnabled assistant to delete db entries!
 Kinds.syncOrderContacts = [
 	Kinds.objects.contactset.name,
 	Kinds.objects.contact.name

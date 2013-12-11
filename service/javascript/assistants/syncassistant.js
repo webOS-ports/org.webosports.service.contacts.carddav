@@ -7,14 +7,6 @@
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
-	 * Return an array of strings identifying the object types for synchronization, in the correct order.
-	 */
-	getSyncOrder: function () {
-		//log("\n\n**************************SyncAssistant: getSyncOrder*****************************");
-		return Kinds.syncOrder;
-	},
-
-	/*
 	 * Return an array of "kind objects" to identify object types for synchronization
 	 * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
 	 */
@@ -1186,7 +1178,7 @@ var SyncContactsAssistant = Class.create(SyncAssistant, {
 	 * Return an array of strings identifying the object types for synchronization, in the correct order.
 	 */
 	getSyncOrder: function () {
-		//log("\n\n**************************SyncAssistant: getSyncOrder*****************************");
+		//log("\n\n**************************SyncAssistant: getSyncOrderContacts *****************************");
 		return Kinds.syncOrderContacts;
 	},
 
@@ -1206,7 +1198,7 @@ var SyncCalendarAssistant = Class.create(SyncAssistant, {
 	 * Return an array of strings identifying the object types for synchronization, in the correct order.
 	 */
 	getSyncOrder: function () {
-		//log("\n\n**************************SyncAssistant: getSyncOrder*****************************");
+		//log("\n\n**************************SyncAssistant: getSyncOrderCalendar *****************************");
 		return Kinds.syncOrderCalendar;
 	},
 

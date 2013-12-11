@@ -123,7 +123,18 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			//preconfiguration of the service is complete...launch the sync engine
 			future.then(this, function () {
-				this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
+				if (launchConfig.name.indexOf("Calendar") >= 0) {
+					Kinds.syncOrder = Kinds.syncOrderCalendar;
+					log("Set syncOrder: " + JSON.stringify(Kinds.syncOrder));
+					this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
+				} else if (launchConfig.name.indexOf("Contacts") >= 0) {
+					Kinds.syncOrder = Kinds.syncOrderContacts;
+					log("Set syncOrder: " + JSON.stringify(Kinds.syncOrder));
+					this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
+				} else {
+					log("Set syncOrder: " + JSON.stringify(Kinds.syncOrder));
+					this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
+				}
 				return true;
 			});
 
