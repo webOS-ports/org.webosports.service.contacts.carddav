@@ -45,7 +45,7 @@ var log = Sync.Utils.error;
 
 var log_icalDebug = dummy;
 
-var log_calDavDebug = Sync.Utils.error;
+var log_calDavDebug = dummy; //Sync.Utils.error;
 
 /* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
 var debug = Sync.Utils.error;
