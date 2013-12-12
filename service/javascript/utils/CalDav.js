@@ -81,7 +81,7 @@ var CalDav = (function () {
 		} else {
 			response.propstats = [processPropstat(response.propstats)];
 		}
-		
+
 		log_calDavDebug("Resulting response: ", response);
 		return response;
 	}
@@ -157,7 +157,7 @@ var CalDav = (function () {
 			if (!received) {
 				now = Date.now();
 				debug("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
-				if (now - lastSend > 5 * 1000) { //last send before 5 seconds.. is that too fast?
+				if (now - lastSend > 30 * 1000) { //last send before 5 seconds.. is that too fast?
 					clearTimeout(timeoutID);
 					if (retry <= 5) {
 						log_calDavDebug("Trying to resend message.");
