@@ -16,4 +16,9 @@ Roadmap would look roughly like this:
 No timeline is given for this. Pull requests are always welcome.
 
 Changelog:
-0.2.0: First beta version.
+0.2.1:
+* Fixed issue with periodic sync
+* More assistant renaming
+* Fixed parsing issue with some caldav servers
+0.2.0:
+* First beta version.
