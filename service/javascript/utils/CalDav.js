@@ -4,6 +4,7 @@
 var CalDav = (function () {
 	var httpClient,
 		serverHost,
+		port,
 		protocol = "https:";
 
 	function endsWith(str, suffix) {
@@ -22,14 +23,14 @@ var CalDav = (function () {
 	}
 
 	function getResponses(body) {
-		var multistatus = getValue(body, "$multistatus");
+		var multistatus = getValue(body, "multistatus");
 		if (multistatus) {
-			return getValue(multistatus, "$response") || [];
+			return getValue(multistatus, "response") || [];
 		}
 	}
 
 	function processStatus(stat) {
-		//log_calDavDebug("Processing stat: " + JSON.stringify(stat));
+		log_calDavDebug("Processing stat: ", stat);
 		if (stat.length >= 0) {
 			if (stat.length !== 1) {
 				throw {msg: "multiple stati... can't process."};
@@ -37,13 +38,13 @@ var CalDav = (function () {
 				return getValue(stat[0], "$t"); //maybe extract number here?
 			}
 		} else {
-			//log_calDavDebug("Got single stat.");
+			log_calDavDebug("Got single stat.");
 			return getValue(stat, "$t");
 		}
 	}
 
 	function processProp(prop) {
-		//log_calDavDebug("Processing prop: " + JSON.stringify(prop));
+		log_calDavDebug("Processing prop: ", prop);
 		if (prop && prop.length >= 0) {
 			if (prop.length !== 1) {
 				throw {msg: "multiple props... can't process."};
@@ -51,23 +52,25 @@ var CalDav = (function () {
 				return prop[0];
 			}
 		}
+		log_calDavDebug("Resulting prop: ", prop);
 		return prop;
 	}
 
 	function processPropstat(ps) {
-		//log_calDavDebug("Processing propstat: " + JSON.stringify(ps));
+		log_calDavDebug("Processing propstat: " + JSON.stringify(ps));
 		var propstat = {
-			status: processStatus(getValue(ps, "$status")),
-			prop: processProp(getValue(ps, "$prop"))
+			status: processStatus(getValue(ps, "status")),
+			prop: processProp(getValue(ps, "prop"))
 		};
+		log_calDavDebug("Resulting propstat: ", propstat);
 		return propstat;
 	}
 
 	function processResponse(res) {
-		//log_calDavDebug("Processing response " + JSON.stringify(res));
+		log_calDavDebug("Processing response ", res);
 		var response = {
-			href: getValue(getValue(res, "$href"), "$t"),
-			propstats: getValue(res, "$propstat")
+			href: getValue(getValue(res, "href"), "$t"),
+			propstats: getValue(res, "propstat")
 		}, i;
 		if (!response.propstats) {
 			response.propstats = [];
@@ -78,18 +81,21 @@ var CalDav = (function () {
 		} else {
 			response.propstats = [processPropstat(response.propstats)];
 		}
+		
+		log_calDavDebug("Resulting response: ", response);
 		return response;
 	}
 
 	function parseResponseBody(body) {
 		var ri, responses = getResponses(body) || [], procRes = [];
+		log_calDavDebug("Parsing from: ", body);
 		if (responses.length >= 0) {
 			for (ri = 0; ri < responses.length; ri += 1) {
-				//log_calDavDebug("Got response array: " + JSON.stringify(responses));
+				log_calDavDebug("Got response array:", responses);
 				procRes.push(processResponse(responses[ri]));
 			}
 		} else { //got only one response
-			//log_calDavDebug("Got single response: " + JSON.stringify(responses));
+			log_calDavDebug("Got single response:", responses);
 			procRes.push(processResponse(responses));
 		}
 		return procRes;
@@ -102,8 +108,9 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop || {};
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
+						log_calDavDebug("Comparing", key, "to", searchedKey);
 						if (key.toLowerCase().indexOf(searchedKey) >= 0) {
-							//log_calDavDebug("Returning " + prop[key].$t + " for " + key);
+							log_calDavDebug("Returning", prop[key], "for", key);
 							text = getValue(prop[key], "$t");
 							if (notResolveText || !text) {
 								return prop[key];
@@ -124,6 +131,7 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop;
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
+						log_calDavDebug("Comparing " + key + " to getetag.");
 						if (key.toLowerCase().indexOf('getetag') >= 0) {
 							etag = getValue(prop[key], "$t");
 						}
@@ -134,7 +142,7 @@ var CalDav = (function () {
 				}
 			}
 		}
-		//log_calDavDebug("Etag directory: " + JSON.stringify(eTags));
+		log_calDavDebug("Etag directory:", eTags);
 		return eTags;
 	}
 
@@ -149,7 +157,7 @@ var CalDav = (function () {
 			if (!received) {
 				now = Date.now();
 				debug("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
-				if (now - lastSend > 60 * 1000) { //last send before 5 seconds.. is that too fast?
+				if (now - lastSend > 5 * 1000) { //last send before 5 seconds.. is that too fast?
 					clearTimeout(timeoutID);
 					if (retry <= 5) {
 						log_calDavDebug("Trying to resend message.");
@@ -171,16 +179,16 @@ var CalDav = (function () {
 
 		options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
 
-		log_calDavDebug("Sending request " + data + " to server.");
-		log_calDavDebug("Options: " + JSON.stringify(options));
-		debug("Sending request to " + options.path);
+		log_calDavDebug("Sending request ", data, " to server.");
+		log_calDavDebug("Options: ", options);
+		debug("Sending request to " + protocol + "//" + serverHost + ":" + port + options.path);
 		timeoutID = setTimeout(checkTimeout, 1000);
 		lastSend = Date.now();
 		req = httpClient.request(options.method, options.path, options.headers);
 		req.on('response', function (res) {
 			var result, newPath;
-			log_calDavDebug('STATUS: ' + res.statusCode);
-			log_calDavDebug('HEADERS: ' + JSON.stringify(res.headers));
+			log_calDavDebug('STATUS: ', res.statusCode);
+			log_calDavDebug('HEADERS: ', res.headers);
 			res.setEncoding('utf8');
 			res.on('data', function (chunk) {
 				lastSend = Date.now();
@@ -188,10 +196,10 @@ var CalDav = (function () {
 			});
 			res.on('end', function () {
 				if (received) {
-					log_calDavDebug(options.path + " was already received... exiting without callbacks.");
+					log_calDavDebug(options.path, " was already received... exiting without callbacks.");
 				}
 				received = true;
-				debug("Answer received.");
+				debug("Answer received or timeout?");
 				clearTimeout(timeoutID);
 				log_calDavDebug("Body: " + body);
 
@@ -200,13 +208,13 @@ var CalDav = (function () {
 					etag: res.headers.etag,
 					returnCode: res.statusCode,
 					body: body,
-					uri: protocol + "//" + serverHost + options.path
+					uri: protocol + "//" + serverHost + ":" + port + options.path
 				};
 
 				if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
-					log_calDavDebug("Location: " + res.headers.location);
+					log_calDavDebug("Location: ", res.headers.location);
 					newPath = CalDav.setHostAndPort(res.headers.location);
-					log_calDavDebug("Redirected to " + newPath);
+					log_calDavDebug("Redirected to ", newPath);
 					options.path = newPath;
 					options.headers.host = serverHost;
 					sendRequest(options, data).then(function (f) {
@@ -214,7 +222,7 @@ var CalDav = (function () {
 					});
 				} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 					result.parsedBody = xml.xmlstr2json(body);
-					log_calDavDebug("Parsed Body: " + JSON.stringify(result.parsedBody));
+					log_calDavDebug("Parsed Body:", result.parsedBody);
 					future.result = result;
 				} else {
 					future.result = result;
@@ -295,9 +303,11 @@ var CalDav = (function () {
 				}
 
 				if (parsedUrl.hostname && (serverHost !== parsedUrl.hostname ||
-										   protocol !== parsedUrl.protocol)) {
+										   protocol !== parsedUrl.protocol ||
+										   port !== parsedUrl.port)) {
 					serverHost = parsedUrl.hostname;
 					protocol = parsedUrl.protocol;
+					port = parsedUrl.port;
 					httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
 					httpClient.on("error", function (e) {
 						log("Error while creating httpClient: " + JSON.stringify(e));
@@ -469,7 +479,7 @@ var CalDav = (function () {
 				if (result.returnValue === true) {
 					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
 					if (principal) {
-						principal = getValue(getValue(principal, "$href"), "$t");
+						principal = getValue(getValue(principal, "href"), "$t");
 						log_calDavDebug("Got principal: " + principal);
 						if (principal) {
 							folder = {host: options.headers.host, path: principal};
@@ -508,11 +518,11 @@ var CalDav = (function () {
 				var result = future.result, home;
 				if (result.returnValue === true) {
 					//look for either calendar- or addressbook-home-set :)
-					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "$href"), "$t");
+					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "href"), "$t");
 					if (!home) {
 						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
 					} else {
-						home = protocol + "//" + options.headers.host + home;
+						home = protocol + "//" + options.headers.host + ":" + port + home;
 						log_calDavDebug("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
 					}
 				} else {
@@ -707,14 +717,14 @@ var CalDav = (function () {
 						}
 
 						if (!filter || folder.resource === filter) {
-							folder.uri = protocol + "//" + serverHost + folder.uri;
+							folder.uri = protocol + "//" + serverHost + ":" + port + folder.uri;
 							folder.remoteId = folder.uri;
 							folders.push(folder);
 						}
 					}
 					log_calDavDebug("Got folders: ");
 					for (i = 0; i < folders.length; i += 1) {
-						log_calDavDebug(JSON.stringify(folders[i]));
+						log_calDavDebug(folders[i]);
 					}
 					return folders;
 				};
