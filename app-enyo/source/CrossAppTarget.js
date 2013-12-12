@@ -13,7 +13,7 @@ enyo.kind({
 	name: "Main.CrossAppLaunch",
 	kind: "Scroller",
 	components: [
-		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.contacts.carddav.service/",
+		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
 			method: "checkCredentials", onSuccess: "credentialsOK", onFailure: "credentialsWrong" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
 		{ kind: "PageHeader", content: "WebOs Ports CardDav Credentials Validator" },
@@ -86,7 +86,8 @@ enyo.kind({
 		this.$.checkCredentials.call({
 			username: this.account.credentials.user,
 			password: this.account.credentials.password,
-			url: this.account.url
+			url: this.account.url,
+			name: this.account.name
 		});
 	},
 	credentialsOK: function (inSender, inResponse) {
@@ -115,11 +116,12 @@ enyo.kind({
 
 			template.loc_name = this.account.name;
 			this.accountSettings = {
-				"template": this.params.template,
-				"username": this.account.credentials.user,
-				"credentials": this.account.credentials,
-				"config": this.account,
-				"returnValue": true
+				template: this.params.template,
+				username: this.account.credentials.user,
+				credentials: this.account.credentials,
+				config: this.account,
+				alias: this.account.name,
+				returnValue: true
 			};
 			//Pop back to Account Creation Dialog
 			// Set val as a parameter to be passed back to our source application

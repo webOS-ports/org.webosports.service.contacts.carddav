@@ -39,62 +39,13 @@ var url = require('url');   //required to parse urls
 
 console.error("--------->Loaded Libraries OK1");
 
-var log = function (msg) {
-	console.error(msg);
-};
+var dummy = function () {};
 
-var log_icalDebug = function (msg) {
-	//uncomment to get ical debug:
-	//console.error(msg);
-};
+var log = Sync.Utils.error;
 
-var log_calDavDebug = function (msg) {
-	//uncomment to get caldav debug, contains all http traffic, also
-	//console.error(msg);
-};
+var log_icalDebug = dummy;
 
-/* Simple debug function to print out to console error */
-var debug = function (msg) {
-	console.error(msg);
-};
+var log_calDavDebug = dummy; //Sync.Utils.error;
 
-var createLocks = {};
-var lockCreateAssistant = function (accountId) {
-	debug("Locking account " + accountId + " for creation.");
-	if (createLocks[accountId]) {
-		debug("Already locked: " + JSON.stringify(createLocks));
-		return false;
-	} else {
-		createLocks[accountId] = true;
-		return true;
-	}
-};
-
-var getTransportObjByAccountId = function (args) {
-	var query = {"from": "org.webosports.service.contacts.carddav.account:1"}, future = new Future();
-
-	if (args.id) {
-		future.nest(DB.get([args.id]));
-	} else {
-		future.nest(DB.find(query, false, false));
-	}
-
-	future.then(this, function gotDBObject() {
-		var result = future.result, i, obj;
-		if (result.returnValue) {
-			for (i = 0; i < result.results.length; i += 1) {
-				obj = result.results[i];
-				if (obj.accountId === args.accountId) {
-					future.result = {returnValue: true, account: obj};
-					break;
-				}
-			}
-		} else {
-			log("Could not get DB object: " + JSON.stringify(result));
-			log(JSON.stringify(future.error));
-			future.result = {returnValue: false, success: false};
-		}
-	});
-
-	return future;
-};
+/* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
+var debug = Sync.Utils.error;

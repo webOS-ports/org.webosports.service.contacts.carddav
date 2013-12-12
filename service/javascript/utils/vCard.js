@@ -142,43 +142,49 @@ var vCard = (function () {
 					//do import:
 					var future = vCardImporter.readVCard();
 					future.then(function (f) {
-						var obj = f.result[0].getDBObject(), key, buff;
-						obj._kind = input.account.kind;
+						if (f.result[0]) {
+							var obj = f.result[0].getDBObject(), key, buff;
+							obj._kind = input.account.kind;
 
-						//prevent overriding of necessary stuff.
-						for (key in obj) {
-							if (obj.hasOwnProperty(key)) {
-								if (obj[key] === undefined || obj[key] === null) {
-									//log("Deleting entry " + key + " from obj.");
-									delete obj[key];
+							//prevent overriding of necessary stuff.
+							for (key in obj) {
+								if (obj.hasOwnProperty(key)) {
+									if (obj[key] === undefined || obj[key] === null) {
+										//log("Deleting entry " + key + " from obj.");
+										delete obj[key];
+									}
 								}
 							}
+							delete obj.accounts;
+							delete obj.accountId;
+							delete obj.syncSource;
+
+							log("Contact: " + JSON.stringify(obj));
+							//cleanUpEmptyFields(obj);
+							//log("Contact after cleanup: " + JSON.stringify(obj));
+							fs.unlink(filename);
+
+							log("PhotoData Length: " + photoData.length);
+							if (photoData.length > 0) { //got a photo!! :)
+								log("Writing photo!");
+								buff = new Buffer(photoData, 'base64');
+								filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + ".jpg";
+								log("writing photo to: " + filename);
+								fs.writeFile(filename, buff, function (err) {
+									if (err) {
+										log("Could not write photo to file: " + filename + " Error: " + JSON.stringify(err));
+									}
+								});
+								obj.photos.push({localPath: filename, primary: false, type: "type_big"});
+								obj.photos.push({localPath: filename, primary: false, type: "type_square"});
+							}
+
+							resFuture.result = {returnValue: true, result: obj};
+						} else {
+							log("No result from conversion: ", f.result);
+							fs.unlink(filename);
+							resFuture.result = {returnValue: false, result: {}};
 						}
-						delete obj.accounts;
-						delete obj.accountId;
-						delete obj.syncSource;
-
-						log("Contact: " + JSON.stringify(obj));
-						//cleanUpEmptyFields(obj);
-						//log("Contact after cleanup: " + JSON.stringify(obj));
-						fs.unlink(filename);
-
-						log("PhotoData Length: " + photoData.length);
-						if (photoData.length > 0) { //got a photo!! :)
-							log("Writing photo!");
-							buff = new Buffer(photoData, 'base64');
-							filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + ".jpg";
-							log("writing photo to: " + filename);
-							fs.writeFile(filename, buff, function (err) {
-								if (err) {
-									log("Could not write photo to file: " + filename + " Error: " + JSON.stringify(err));
-								}
-							});
-							obj.photos.push({localPath: filename, primary: false, type: "type_big"});
-							obj.photos.push({localPath: filename, primary: false, type: "type_square"});
-						}
-
-						resFuture.result = {returnValue: true, result: obj};
 					});
 				}
 			});

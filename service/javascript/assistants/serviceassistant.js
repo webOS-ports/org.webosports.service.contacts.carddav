@@ -4,22 +4,24 @@
 * handle various tasks like key storage or customizations
 *
 * To run manually:
-* run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.service.contacts.carddav.service/
+* run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global log, debug, Class, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64 */
+/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64, KindsCalendar, KindsContacts */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",
 
 	client: Class.create(Sync.AuthSyncClient, {
 
+		kinds: {},
+
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
 			log("\n\n**************************START SERVICEASSISTANT*****************************");
 			//for testing only - will expose credentials to log file if left open
-			//debug("\n------------------->accountId:"+JSON.stringify(accountid));
-			//debug("\n------------------->launchConfig"+JSON.stringify(launchConfig));
-			//debug("\n------------------->launchArgs"+JSON.stringify(launchArgs));
+			//debug("\n------------------->accountId:" + JSON.stringify(accountid));
+			//debug("\n------------------->launchConfig" + JSON.stringify(launchConfig));
+			//debug("\n------------------->launchArgs" + JSON.stringify(launchArgs));
 			log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
 
 			//this seems necessary for super class constructor during checkCredentials calls.
@@ -27,31 +29,68 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
 			if (launchArgs.config) {
-				this.config = {
-					name: launchArgs.config.name,
-					url:  launchArgs.config.url
-				};
+				if (!this.config) {
+					this.config = {};
+				}
+
+				this.config.name =      launchArgs.config.name || this.config.name;
+				this.config.url  =      launchArgs.config.url  || this.config.url;
+				this.config.username =  launchArgs.config.username || this.config.username;
+				this.config.accountId = this.accountId || this.config.accountId;
+
+				if (launchArgs.config.credentials) {
+					this.config.usnerame =  launchArgs.config.credentials.user || this.config.username;
+				}
+			}
+
+			if (launchConfig.name.indexOf("Calendar") >= 0) {
+				log("Setting Kinds to Calendar.");
+				this.kinds = KindsCalendar;
+			} else if (launchConfig.name.indexOf("Contacts") >= 0) {
+				log("Setting Kinds to Contacts");
+				this.kinds = KindsContacts;
+			} else {
+				log("Setting general kinds...");
+				this.kinds = Kinds;
 			}
 
 			var future = new Future();
 
-			//initialize iCal stuff.
-			future.nest(iCal.initialize());
+			//get config object from db:
+			if (this.accountId) {
+				if (!this.config) {
+					this.config = {};
+				}
+				this.config.accountId = this.accountId;
 
-			future.then(function () {
+				//search recursively, first by accountId, then account name then username.
+				future.nest(searchAccountConfig(this.config));
+			} else {
+				log("No accountId, continue execution without config lookup.");
+				future.result = { returnValue: false };
+			}
+
+			//initialize iCal stuff.
+			future.then(this, function () {
 				var result = future.result;
-				debug("iCal init came back.");
-				if (result.iCal) {
-					debug("iCal init ok.");
+				if (result.returnValue === true) {
+					this.config = result.config;
+				}
+				future.nest(iCal.initialize());
+			});
+
+			future.then(this, function () {
+				var result = future.result;
+				if (!result.iCal) {
+					debug("iCal init not ok.");
 				}
 				future.nest(vCard.initialize());
 			});
 
-			future.then(function () {
+			future.then(this, function () {
 				var result = future.result;
-				debug("vCard init came back.");
-				if (result.vCard) {
-					debug("vCard init ok.");
+				if (!result.vCard) {
+					debug("vCard init not ok.");
 				}
 				future.result = { returnValue: true };
 			});
@@ -63,6 +102,10 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: launchArgs.url};
 					future.result = {}; //do continue future execution
 				} else {
+					if (!this.accountId) {
+						throw "Need accountId for operation " + launchConfig.name;
+					}
+
 					future.nest(KeyStore.checkKey(this.accountId));
 					future.then(this, function () {
 						debug("------------->Checked Key" + JSON.stringify(future.result));
@@ -93,8 +136,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			//preconfiguration of the service is complete...launch the sync engine
 			future.then(this, function () {
-				debug("Calling super function from future.then");
-				this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
+				this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(this.kinds)));
 				return true;
 			});
 
@@ -102,6 +144,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 		},
 
 		getSyncInterval: function () {
+			log("*********************************** getSyncInterval ********************************");
 			return new Future("20m");  //default sync interval
 		},
 
@@ -112,7 +155,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 });
 
 //these endpoints are delegated to the sync framework to handle - use the serviceassistant code above to intercept
-//var OnCreate = Sync.CreateAccountCommand; //=> now in own assistant. Does discovery.
-var OnDelete = Sync.DeleteAccountCommand;
-var OnEnabled = Sync.EnabledAccountCommand;
+var OnContactsEnabled = Sync.EnabledAccountCommand;
+var OnCalendarEnabled = Sync.EnabledAccountCommand;
 var OnCredentialsChanged = Sync.CredentialsChangedCommand;

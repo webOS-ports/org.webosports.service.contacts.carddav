@@ -3,26 +3,9 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint node: true, nomen: true, sloppy: true */
-/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall */
+/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar */
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
-	/*
-	 * Return an array of strings identifying the object types for synchronization, in the correct order.
-	 */
-	getSyncOrder: function () {
-		//log("\n\n**************************SyncAssistant: getSyncOrder*****************************");
-		return Kinds.syncOrder;
-	},
-
-	/*
-	 * Return an array of "kind objects" to identify object types for synchronization
-	 * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
-	 */
-	getSyncObjects: function () {
-		//log("\n\n**************************SyncAssistant: getSyncObjects*****************************");
-		return Kinds.objects;
-	},
-
 	_uriToRemoteId: function (uri) {
 		var i;
 		if (!uri) {
@@ -148,9 +131,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (name === "remote2local") {
 				return function (to, from) {
 					to.accountId = this.client.clientId;
-					to.color = "purple"; //yes, I'm purple. :P
+					//to.color = "purple"; //yes, I'm purple. :P
 					to.excludeFromAll = false;
-					to.isReadOnly = from.isReadOnly; //we might want to get that from webdav?
+					to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
 					to.name = from.name;
 					to.syncSource = "CalDav";
 					to.remoteId = from.uri;
@@ -179,6 +162,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//this is down-sync - create transformer object
 			//var transformer = new Json.Transformer(this._templates.calendar.remote2local);
 			return function (to, from) {
+				log("\n\n**************************SyncAssistant:_remote2local*****************************");
 				var key, obj = from.obj;
 
 				//populate to object with data from event:
@@ -202,8 +186,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.remoteId = this._uriToRemoteId(from.uri);
 				}
 
-				debug("Converting from " + JSON.stringify(from));
-				debug("Converted to: " + JSON.stringify(to));
+				//debug("Converting from " + JSON.stringify(from));
+				//debug("Converted to: " + JSON.stringify(to));
 
 				return from.obj; //transformer.transformAndMerge(to, from);
 			};
@@ -319,7 +303,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 
-		if (!this.client.transport || !this.client.transport.config) {
+		if (!this.client.config) {
 			log("No config stored. Can't determine URL, no sync possible.");
 			future.result = {
 				returnValue: false,
@@ -379,13 +363,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("\n\n**************************SyncAssistant:_getRemoteCollectionChanges*****************************");
 		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
-			home = this.client.transport.config[subKind] ? this.client.transport.config[subKind].homeFolder : undefined,
+			home = this.client.config[subKind] ? this.client.config[subKind].homeFolder : undefined,
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 
 		if (!home) {
 			debug("Need to get home folders first, doing discovery.");
-			future.nest(PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
+			future.nest(PalmCall.call("palm://org.webosports.cdav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
 		} else {
 			future.result = {returnValue: true}; //don't need to do discovery, tell futures to go on.
 		}
@@ -393,7 +377,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function discoveryCB() {
 			var result = future.result;
 			if (result.success === true) {
-				this.client.transport.config = result.config;
+				this.client.config = result.config;
 				if (result.config[subKind]) {
 					home = result.config[subKind].homeFolder;
 				}
@@ -401,12 +385,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 			if (!home) {
 				log("Discovery was not successful. No calendar / addressbook home. Trying to use URL for that.");
-				home = this.client.transport.config.url;
+				home = this.client.config.url;
 			}
 
 			this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
-			debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
 			future.nest(this._getLocalEtags(kindName));
 		});
 
@@ -418,6 +401,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 				//now get remote folders
 				this.params.path = home;
+				debug("Getting remote collections for " + kindName + " from " + home + ", filtering for " + filter);
 				future.nest(CalDav.getFolders(this.params, filter));
 			} else {
 				log("Could not get local folders.");
@@ -435,6 +419,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 			if (result.returnValue === true) {
 				debug("Got " + JSON.stringify(rFolders) + " remote folders, comparing them to " + JSON.stringify(localFolders) + " local ones.");
+				if (rFolders.length === 0) {
+					log("Remote did not supply folders in listing. Using home URL as fall back.");
+					rFolders.push({
+						name: "Home",
+						uri: home,
+						remoteId: home
+					});
+				}
+				
 				entries = this._parseEtags(rFolders, localFolders, "uri");
 				future.result = {
 					more: false,
@@ -543,10 +536,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Updates the stored config for calendar/addressbook folders from collection changes.
 	 */
 	_updateCollectionsConfig: function (kindName, remoteFolders) {
-		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder, remoteFolder, change = false,
+		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder,
+			remoteFolder, change = false,
 			deleteAllCallback = function (future) {
 				debug("Delete all objects returned: " + JSON.stringify(future.result));
 			};
+
 		folders = this.client.transport.syncKey[subKind].folders;
 
 		for (i = 0; i < remoteFolders.length; i += 1) {
@@ -701,8 +696,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				};
 			} else {
 				debug("Folder: " + this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].uri);
-				debug("remoteEtags: " + JSON.stringify(result.remoteEtags));
-				debug("localEtags: " + JSON.stringify(result.localEtags));
+				//debug("remoteEtags: " + JSON.stringify(result.remoteEtags));
+				//debug("localEtags: " + JSON.stringify(result.localEtags));
 				entries = this._parseEtags(result.remoteEtags, result.localEtags);
 
 				//now download object data and transfer it into webos datatypes.
@@ -754,7 +749,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			l.doDelete = true;
 			for (i = 0; i < this.collectionIds.length; i += 1) {
 				if (l.calendarId === this.collectionIds[i]) {
-					debug(l.remoteId + " was not found on server, but is in another collection locally. Do not delete.");
 					l.doDelete = false;
 					break;
 				}
@@ -873,7 +867,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						} else if (kindName === Kinds.objects.contact.name) {
 							//TODO: rework iCal and vCard and equalize their outer api, so that the calls are the same... :(
 							debug("Starting vCard conversion");
-							future.nest(vCard.parseVCard({account: { name: this.client.transport.config.name,
+							future.nest(vCard.parseVCard({account: { name: this.client.config.name,
 																		kind: Kinds.objects[kindName].id, account: this.client.clientId },
 																		vCard: result.data}));
 						} else {
@@ -1067,7 +1061,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (kindName === Kinds.objects.calendarevent.name) {
 				future.nest(iCal.generateICal(obj.local, {}));
 			} else if (kindName === Kinds.objects.contact.name) {
-				future.nest(vCard.generateVCard({accountName: this.client.transport.config.name,
+				future.nest(vCard.generateVCard({accountName: this.client.config.name,
 												contact: obj.local, kind: Kinds.objects[kindName].id}));
 			} else {
 				throw new Error("Kind '" + kindName + "' not supported in _putOneRemoteObject.");
@@ -1178,3 +1172,141 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return future;
 	}
 });
+
+var ContactsSync = Class.create(SyncAssistant, {
+	/*
+	 * Return an array of strings identifying the object types for synchronization, in the correct order.
+	 */
+	getSyncOrder: function () {
+		//log("\n\n**************************SyncAssistant: getSyncOrderContacts *****************************");
+		return KindsContacts.syncOrder;
+	},
+
+	/*
+	 * Return an array of "kind objects" to identify object types for synchronization
+	 * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
+	 */
+	getSyncObjects: function () {
+		//log("\n\n**************************SyncAssistant: getSyncObjects*****************************");
+		return KindsContacts.objects;
+	},
+
+	/*
+	 * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
+	 * supported by the sync engine as specified in the account template (e.g.,
+	 * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
+	 * to provide automatic sync notification support.
+	 */
+	getCapabilityProviderId: function () {
+		return Kinds.objects.contact.identifier;
+	}
+});
+
+var CalendarSync = Class.create(SyncAssistant, {
+	/*
+	 * Return an array of strings identifying the object types for synchronization, in the correct order.
+	 */
+	getSyncOrder: function () {
+		//log("\n\n**************************SyncAssistant: getSyncOrderCalendar *****************************");
+		return KindsCalendar.syncOrder;
+	},
+
+	/*
+	 * Return an array of "kind objects" to identify object types for synchronization
+	 * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
+	 */
+	getSyncObjects: function () {
+		//log("\n\n**************************SyncAssistant: getSyncObjects*****************************");
+		return KindsCalendar.objects;
+	},
+
+	/*
+	 * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
+	 * supported by the sync engine as specified in the account template (e.g.,
+	 * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
+	 * to provide automatic sync notification support.
+	 */
+	getCapabilityProviderId: function () {
+		return Kinds.objects.calendar.identifier;
+	}
+});
+
+var SyncAll = function () {};
+
+SyncAll.prototype.run = function (outerfuture) {
+	var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
+	
+	errorOut = function (msg) {
+		log(msg);
+		outerfuture.result = { returnValue: false, message: msg };
+		return outerfuture;
+	};
+	
+	processCapabilities = function (capabilities, index) {
+		var capObj = capabilities[index], outerfuture = new Future(), syncCB;
+		
+		syncCB = function (name, future) {
+			var result = future.result;
+			log("Sync came back: " + JSON.stringify(result));
+			future.nest(processCapabilities(capabilities, index + 1));
+			
+			//augment result a bit:
+			future.then(function innerCB() {
+				var innerResult = future.result;
+				
+				//only be a success if all syncs ware a success.
+				innerResult.returnValue = innerResult.returnValue && result.returnValue;
+				innerResult[name] = result;
+				outerfuture.result = innerResult;
+			});
+		};
+		
+		if (capObj) {
+			if (capObj.capability === "CONTACTS") {
+				PalmCall.call("palm://org.webosports.cdav.service/", "doContactsSync", {accountId: accountId}).then(syncCB.bind(this, "contacts"));
+			} else if (capObj.capability === "CALENDAR") {
+				PalmCall.call("palm://org.webosports.cdav.service/", "doCalendarSync", {accountId: accountId}).then(syncCB.bind(this, "calendar"));
+			} else {
+				log("Unknown capability: " + JSON.stringify(capObj));
+				outerfuture.nest(processCapabilities(capabilities, index + 1));
+			}
+		} else {
+			log("Processing capabilities done.");
+			outerfuture.result = { returnValue: true };
+		}
+		
+		return outerfuture;
+	};
+
+	if (accountId) {
+		future.nest(PalmCall.call("palm://com.palm.service.accounts", "getAccountInfo", {accountId: accountId}));
+	} else {
+		return errorOut("No accountId given, no sync possible.");
+	}
+
+	future.then(this, function accountInfoCB() {
+		var result = future.result || future.exception, account = result.result;
+		if (result.returnValue === true) {
+			if (account && account.capabilityProviders) {
+				if (account.capabilityProviders.length === 0) {
+					future.result = {returnValue: true};
+					log("WARNING: No capabilityProviders defined, won't sync anything.");
+				} else {
+					future.nest(processCapabilities(account.capabilityProviders, 0));
+				}
+			} else {
+				errorOut("No account or capabilityProviders in result: " + JSON.stringify(result));
+			}
+		} else {
+			errorOut("Could not get account info: " + JSON.stringify(result));
+		}
+	});
+	
+	future.then(this, function syncsCB() {
+		var result = future.result;
+		log("All syncs done, returning.");
+		outerfuture.result = result;
+	});
+	
+	return outerfuture;
+};

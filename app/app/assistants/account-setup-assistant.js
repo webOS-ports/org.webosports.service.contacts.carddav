@@ -88,10 +88,11 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		return;
 	}
 
-	credFuture = PalmCall.call("palm://org.webosports.service.contacts.carddav.service/", "checkCredentials", {
+	credFuture = PalmCall.call("palm://org.webosports.cdav.service/", "checkCredentials", {
 		username: this.account.credentials.user,
 		password: this.account.credentials.password,
-		url: this.account.url
+		url: this.account.url,
+		name: this.account.name
 	});
 	credFuture.then(this, function (f) {
 		if (f.result.success) {
@@ -113,13 +114,14 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 
 			template.loc_name = this.account.name;
 			this.accountSettings = {
-				"template": this.params.initialTemplate,
-				"username": this.account.credentials.user,
-				"defaultResult": {
-					"result": {
+				template: this.params.initialTemplate,
+				username: this.account.credentials.user,
+				alias: this.account.name,
+				defaultResult: {
+					result: {
 						returnValue: true,
-						"credentials": this.account.credentials,
-						"config": this.account
+						credentials: this.account.credentials,
+						config: this.account
 					}
 				}
 			};

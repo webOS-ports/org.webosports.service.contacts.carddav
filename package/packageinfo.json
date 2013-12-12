@@ -1,15 +1,15 @@
 {
-	"id": "org.webosports.service.contacts.carddav",
+	"id": "org.webosports.cdav",
 	"package_format_version": 2,
-	"loc_name": "CardDAV synergy connector",
-	"version": "0.1.0",
+	"loc_name": "C+DAV synergy connector",
+	"version": "0.2.1",
 	"vendor": "WebOS Ports - Stefan Schmidt",
 	"vendorurl": "www.webos-ports.org",
-	"app": "org.webosports.service.contacts.carddav.app",
+	"app": "org.webosports.cdav.app",
 	"services": [
-		"org.webosports.service.contacts.carddav.service"
+		"org.webosports.cdav.service"
 	],
 	"accounts": [
-		"org.webosports.service.contacts.carddav.account"
+		"org.webosports.cdav.account"
 	]
 }
