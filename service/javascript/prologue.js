@@ -39,21 +39,13 @@ var url = require('url');   //required to parse urls
 
 console.error("--------->Loaded Libraries OK1");
 
-var log = function (msg) {
-	console.error(msg);
-};
+var dummy = function () {};
 
-var log_icalDebug = function (msg) {
-	//uncomment to get ical debug:
-	//console.error(msg);
-};
+var log = Sync.Utils.error;
 
-var log_calDavDebug = function (msg) {
-	//uncomment to get caldav debug, contains all http traffic, also
-	//console.error(msg);
-};
+var log_icalDebug = dummy;
 
-/* Simple debug function to print out to console error */
-var debug = function (msg) {
-	console.error(msg);
-};
+var log_calDavDebug = Sync.Utils.error;
+
+/* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
+var debug = Sync.Utils.error;
