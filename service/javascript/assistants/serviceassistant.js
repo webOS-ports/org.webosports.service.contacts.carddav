@@ -7,12 +7,14 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64 */
+/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64, KindsCalendar, KindsContacts */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",
 
 	client: Class.create(Sync.AuthSyncClient, {
+
+		kinds: {},
 
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
 			log("\n\n**************************START SERVICEASSISTANT*****************************");
@@ -39,6 +41,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				if (launchArgs.config.credentials) {
 					this.config.usnerame =  launchArgs.config.credentials.user || this.config.username;
 				}
+			}
+
+			if (launchConfig.name.indexOf("Calendar") >= 0) {
+				log("Setting Kinds to Calendar.");
+				this.kinds = KindsCalendar;
+			} else if (launchConfig.name.indexOf("Contacts") >= 0) {
+				log("Setting Kinds to Contacts");
+				this.kinds = KindsContacts;
+			} else {
+				log("Setting general kinds...");
+				this.kinds = Kinds;
 			}
 
 			var future = new Future();
@@ -123,18 +136,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			//preconfiguration of the service is complete...launch the sync engine
 			future.then(this, function () {
-				if (launchConfig.name.indexOf("Calendar") >= 0) {
-					Kinds.syncOrder = Kinds.syncOrderCalendar;
-					log("Set syncOrder: " + JSON.stringify(Kinds.syncOrder));
-					this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
-				} else if (launchConfig.name.indexOf("Contacts") >= 0) {
-					Kinds.syncOrder = Kinds.syncOrderContacts;
-					log("Set syncOrder: " + JSON.stringify(Kinds.syncOrder));
-					this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
-				} else {
-					log("Set syncOrder: " + JSON.stringify(Kinds.syncOrder));
-					this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(Kinds)));
-				}
+				this.$super(setup)(service, this.accountId, undefined, Transport.HandlerFactoryBuilder(Sync.SyncHandler(this.kinds)));
 				return true;
 			});
 
@@ -153,8 +155,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 });
 
 //these endpoints are delegated to the sync framework to handle - use the serviceassistant code above to intercept
-//var OnCreate = Sync.CreateAccountCommand; //=> now in own assistant, creates account.config object.
-//var OnDelete = Sync.DeleteAccountCommand; //=> now in own assistant, deletes account.config object.
 var OnContactsEnabled = Sync.EnabledAccountCommand;
 var OnCalendarEnabled = Sync.EnabledAccountCommand;
 var OnCredentialsChanged = Sync.CredentialsChangedCommand;

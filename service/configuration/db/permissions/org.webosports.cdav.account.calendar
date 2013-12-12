@@ -1,7 +1,7 @@
 [
 	{
 		"type": "db.kind",
-		"object": "org.webosports.cdav.account:1",
+		"object": "org.webosports.cdav.account.calendar:1",
 		"caller": "org.webosports.cdav.*",
 		"operations": {
 			"read": "allow",

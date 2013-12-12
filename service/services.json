@@ -21,7 +21,12 @@
 					"public": true
 				},
 				{
-					"name": "onCreate",
+					"name": "onContactsCreate",
+					"assistant": "OnContactsCreate",
+					"public": true
+				},
+				{
+					"name": "onCalendarCreate",
 					"assistant": "OnCreate",
 					"public": true
 				},
@@ -36,18 +41,28 @@
 					"public": true
 				},
 				{
-					"name": "onDelete",
+					"name": "onCalendarDelete",
 					"assistant": "OnDelete",
 					"public": true
 				},
 				{
-					"name": "syncContacts",
-					"assistant": "SyncContacts",
+					"name": "onContactsDelete",
+					"assistant": "OnDelete",
 					"public": true
 				},
 				{
-					"name": "syncCalendar",
-					"assistant": "SyncCalendar",
+					"name": "doContactsSync",
+					"assistant": "ContactsSync",
+					"public": true
+				},
+				{
+					"name": "doCalendarSync",
+					"assistant": "CalendarSync",
+					"public": true
+				},
+				{
+					"name": "sync",
+					"assistant": "SyncAll",
 					"public": true
 				},
 				{

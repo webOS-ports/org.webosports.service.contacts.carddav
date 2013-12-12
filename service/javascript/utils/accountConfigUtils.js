@@ -14,11 +14,20 @@ var lockCreateAssistant = function (accountId) {
 	}
 };
 
+var unlockCreateAssistant = function (accountId) {
+	if (createLocks[accountId]) {
+		debug("Unlocking account " + accountId + " for creation.");
+		delete createLocks[accountId];
+	} else {
+		debug("Tried unlocking account " + accountId + ", but was not locked.");
+	}
+};
+
 //search transport object managed by mojo sync framework.
 //be careful with manipulations on that obj:
 //This object get's deleted on some occasions!
-var getTransportObjByAccountId = function (args) {
-	var query = {"from": Kinds.account.metadata_id}, future = new Future();
+var getTransportObjByAccountId = function (args, kind) {
+	var query = {"from": kind}, future = new Future();
 
 	if (args.id) {
 		future.nest(DB.get([args.id]));
@@ -122,50 +131,7 @@ var searchAccountConfig = function (args) {
 			//log("Found config in config db: " + JSON.stringify(result.config));
 			outerFuture.result = { returnValue: true, config: result.config };
 		} else {
-			log("Did not find object in config db, try transport object.");
-			future.nest(getTransportObjByAccountId(args));
-		}
-	});
-
-	future.then(function transportCB() {
-		var result = future.result || future.exception, config;
-
-		if (result.returnValue === true) {
-			if (result.transportObj && result.transportObj.config) {
-				log("Transfering old config store into new one.");
-				config = result.transportObj.config;
-				config.username = args.username || config.username;
-				config.accountId = args.accountId || config.accountId;
-				config.name = args.name || config.name;
-				config._kind = Kinds.accountConfig.id;
-				delete config._id;
-				try {
-					DB.merge([config]).then(function mergeCB(f) {
-						try {
-							var result = f.result || f.exception;
-							log("Config store came back: " + JSON.stringify(result));
-							if (result.returnValue === true) {
-								config._id = result.results[0].id;
-							}
-							outerFuture.result = { returnValue: true, config: config };
-						} catch (e) {
-							log("Error in store config: " + e.message);
-							log("Ignoring error and continue execution.");
-							outerFuture.result = { returnValue: true, config: config };
-						}
-					});
-				} catch (e) {
-					log("Error in store config: " + e.message);
-					log("Ignoring error and continue execution.");
-					outerFuture.result = { returnValue: true, config: config };
-				}
-			} else {
-				//no config in transport object => fail.
-				//log("No transport object for account.");
-				outerFuture.result = { returnValue: false };
-			}
-		} else {
-			log("Failed to get transport object for account.");
+			log("Did not find object in config db.");
 			outerFuture.result = { returnValue: false };
 		}
 	});

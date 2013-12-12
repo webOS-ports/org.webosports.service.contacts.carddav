@@ -1,5 +1,5 @@
 {
-	"id": "org.webosports.cdav.account:1",
+	"id": "org.webosports.cdav.account.contacts:1",
 	"sync": true,
 	"indexes": [
 		{

@@ -1,0 +1,25 @@
+{
+	"id": "org.webosports.cdav.account.calendar:1",
+	"sync": true,
+	"indexes": [
+		{
+			"name": "accountId",
+			"props": [
+				{
+					"name": "accountId"
+				}
+			]
+		},
+		{
+			"name": "accountId_remoteId",
+			"props": [
+				{
+					"name": "accountId"
+				},
+				{
+					"name": "remoteId"
+				}
+			]
+		}
+	]
+}
