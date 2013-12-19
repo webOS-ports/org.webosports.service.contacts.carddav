@@ -38,6 +38,13 @@ AccountSetupAssistant.prototype.setup = function () {
 	this.spinnerModel = { spinning: false };
 	this.controller.setupWidget("saveSpinner", this.attributes = { spinnerSize: "large" }, this.spinnerModel);
 	this.controller.get('Scrim').hide();
+
+    if (!this.params) {
+        setTimeout(function () {
+            this.disableControls();
+            showError(this.controller, "Account App", "Please run this from account app, not standalane.");
+        }.bind(this), 100);
+    }
 };
 
 AccountSetupAssistant.prototype.enableControls = function () {
