@@ -19,65 +19,65 @@
 //Quite impossible: Server sends dates in other TS than device is in... Don't know how to handle that, yet. :(
 
 var iCal = (function () {
-//	var e = { //structure of webOs events:
-//			alarm					: [ { //=VALARM
-//				action			 : "", //one or more of "audio", "display", "email"
-//				alarmTrigger : { //only first one supported (from webpage.. don't really understand what that means.
-//												 //Is this meant to be an array? or only for first alarm supported? or is only datetime supported?
-//					value:		 "", // "19981208T000000Z | (+/-) PT15M"
-//					valueType: "DURATION"		// DATETIME | DURATION - should match the value. :) => in RFC this is DATE-TIME..?
-//					},
-//				attach			 : "", //string => url / binary? => don't use. :) => not in RFC?
-//				description	: "", //text of e-mail body or text description. Does webOs actually support this? I didn't see something like that, yet. => not in RFC?
-//				duration		 : "", //time between repeats => makes repeat required.
-//				repeat			 : 0,	//number of times to repeat. => makes duration required.
-//				summary			: "", //subject for e-mail. => not in RFC?
-//				trigger			: ""} ], //original trigger string vom iCal. => will be only stored. Hm.
-//			allDay				 : false, //all day has no time, only a date. TODO: check if that really is true.. we had severe problems with allDay and sync. :( => not in RFC => real problem!
-//			attach				 : [""], //attachment as uri.
-//			attendees			: [{
-//				calendarUserType		: "", //comma seperated list of "INDIVIDUAL", "GROUP", "RESOURCE", "ROOM", "UNKNOWN", "other"
-//				commonName					: "", //name of attendee.
-//				delegatedFrom			 : "",
-//				delegatedTo				 : "",
-//				dir								 : "", //LDAP or webadress - not checked.
-//				email							 : "",
-//				language						: "", //not validated.
-//				organizer					 : false,
-//				member							: string,
-//				participationStatus : "", //Comma-separated list of "NEEDS-ACTION", "ACCEPTED", "DECLINED", "TENTATIVE", "DELEGATED", "other".
-//				role								: "", //Comma-separated list of "CHAIR", "REQ-PARTICIPANT", "OPT-PARTICIPANT", "NON-PARTICIPANT", "other".
-//				rsvp								: boolean,
-//				sentBy							: string }],
-//			calendarId		 : "",
-//			categories		 : "",
-//			classification : "", //RFC field. "PUBLIC" "PRIVATE" | "CONFIDENTIAL".
-//			comment				: "",
-//			contact				: "",
-//			created				: 0,	//created time.
-//			dtend					: 0,	//end time
-//			dtstart				: 0,	//start time
-//			dtstamp				: "", //object created.
-//			exdates				: [""],
-//			geo						: "", //lat/long coordinates listed as "float;float".
-//			lastModified	 : 0,	//lastModified
-//			location			 : "", //event location.
-//			note					 : "", //text content.
-//			parentDtstart	: 0,	//quite complex to fill, see "tryToFillParentID"
-//			parentId			 : 0,	// same as parteDtstart
-//			priority			 : 0,	//0-9: 0=undefined, 1=high, 9=low
-//			rdates				 : [""],
-//			recurrenceId	 : "",
-//			relatedTo			: "",
-//			requestStatus	: "",
-//			resources			: "",
-//			rrule					: { },
-//			sequence			 : 0,	//kind of "version" of the event.
-//			subject				: "", //event subject
-//			transp				 : "", //"OPAQUE" | "TRANSPARENT". Opaque if this event displays as busy on a calendar, transparent if it displays as free.
-//			tzId					 : "",
-//			url						: ""
-//	},
+//  var e = { //structure of webOs events:
+//      alarm                   : [ { //=VALARM
+//        action              : "", //one or more of "audio", "display", "email"
+//        alarmTrigger : { //only first one supported (from webpage.. don't really understand what that means.
+//                         //Is this meant to be an array? or only for first alarm supported? or is only datetime supported?
+//          value:         "", // "19981208T000000Z | (+/-) PT15M"
+//          valueType: "DURATION"        // DATETIME | DURATION - should match the value. :) => in RFC this is DATE-TIME..?
+//        },
+//        attach       : "", //string => url / binary? => don't use. :) => not in RFC?
+//        description  : "", //text of e-mail body or text description. Does webOs actually support this? I didn't see something like that, yet. => not in RFC?
+//        duration     : "", //time between repeats => makes repeat required.
+//        repeat       : 0,  //number of times to repeat. => makes duration required.
+//        summary      : "", //subject for e-mail. => not in RFC?
+//        trigger      : ""} ], //original trigger string vom iCal. => will be only stored. Hm.
+//      allDay         : false, //all day has no time, only a date. TODO: check if that really is true.. we had severe problems with allDay and sync. :( => not in RFC => real problem!
+//      attach         : [""], //attachment as uri.
+//      attendees      : [{
+//        calendarUserType    : "", //comma seperated list of "INDIVIDUAL", "GROUP", "RESOURCE", "ROOM", "UNKNOWN", "other"
+//        commonName          : "", //name of attendee.
+//        delegatedFrom       : "",
+//        delegatedTo         : "",
+//        dir                 : "", //LDAP or webadress - not checked.
+//        email               : "",
+//        language            : "", //not validated.
+//        organizer           : false,
+//        member              : string,
+//        participationStatus : "", //Comma-separated list of "NEEDS-ACTION", "ACCEPTED", "DECLINED", "TENTATIVE", "DELEGATED", "other".
+//        role                : "", //Comma-separated list of "CHAIR", "REQ-PARTICIPANT", "OPT-PARTICIPANT", "NON-PARTICIPANT", "other".
+//        rsvp                : boolean,
+//        sentBy              : string }],
+//      calendarId     : "",
+//      categories     : "",
+//      classification : "", //RFC field. "PUBLIC" "PRIVATE" | "CONFIDENTIAL".
+//      comment        : "",
+//      contact        : "",
+//      created        : 0,  //created time.
+//      dtend          : 0,  //end time
+//      dtstart        : 0,  //start time
+//      dtstamp        : "", //object created.
+//      exdates        : [""],
+//      geo            : "", //lat/long coordinates listed as "float;float".
+//      lastModified   : 0,  //lastModified
+//      location       : "", //event location.
+//      note           : "", //text content.
+//      parentDtstart  : 0,  //quite complex to fill, see "tryToFillParentID"
+//      parentId       : 0,  // same as parteDtstart
+//      priority       : 0,  //0-9: 0=undefined, 1=high, 9=low
+//      rdates         : [""],
+//      recurrenceId   : "",
+//      relatedTo      : "",
+//      requestStatus  : "",
+//      resources      : "",
+//      rrule          : { },
+//      sequence       : 0,  //kind of "version" of the event.
+//      subject        : "", //event subject
+//      transp         : "", //"OPAQUE" | "TRANSPARENT". Opaque if this event displays as busy on a calendar, transparent if it displays as free.
+//      tzId           : "",
+//      url            : ""
+//  },
 	"use strict";
 	var dayToNum = { "SU": 0, "MO": 1, "TU": 2, "WE": 3, "TH": 4, "FR": 5, "SA": 6 },
 		numToDay = { "0": "SU", "1": "MO", "2": "TU", "3": "WE", "4": "TH", "5": "FR", "6": "SA"},
@@ -1208,7 +1208,7 @@ var iCal = (function () {
 	return {
 		parseICal: function (ical, serverData, callback) { // 6 === 1 + transTime.length in parseLineIntoObj, this is important.
 			var proc, lines, lines2, line, j, i, lObj, event = {alarm: [], loadTimezones: 6,
-					comment: "", note: "", location: "", subject: "", attendees: []}, alarm, tzContinue, afterTZ, outerFuture = new Future();
+					comment: "", note: "", location: "", subject: "", attendees: [], rrule: {}, exdates: [], rdates: []}, alarm, tzContinue, afterTZ, outerFuture = new Future();
 			//used for timezone mangling.
 			afterTZ = function (future) {
 				try {
