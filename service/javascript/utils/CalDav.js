@@ -88,11 +88,11 @@ var CalDav = (function () {
 		log_calDavDebug("Parsing from: ", body);
 		if (responses.length >= 0) {
 			for (ri = 0; ri < responses.length; ri += 1) {
-				log_calDavDebug("Got response array:", responses);
+				log_calDavDebug("Got response array: ", responses);
 				procRes.push(processResponse(responses[ri]));
 			}
 		} else { //got only one response
-			log_calDavDebug("Got single response:", responses);
+			log_calDavDebug("Got single response: ", responses);
 			procRes.push(processResponse(responses));
 		}
 		return procRes;
@@ -105,9 +105,9 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop || {};
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						log_calDavDebug("Comparing", key, "to", searchedKey);
+						log_calDavDebug("Comparing ", key, " to ", searchedKey);
 						if (key.toLowerCase().indexOf(searchedKey) >= 0) {
-							log_calDavDebug("Returning", prop[key], "for", key);
+							log_calDavDebug("Returning ", prop[key], " for ", key);
 							text = getValue(prop[key], "$t");
 							if (notResolveText || !text) {
 								return prop[key];
@@ -139,7 +139,7 @@ var CalDav = (function () {
 				}
 			}
 		}
-		log_calDavDebug("Etag directory:", eTags);
+		log_calDavDebug("Etag directory: ", eTags);
 		return eTags;
 	}
 
@@ -189,7 +189,7 @@ var CalDav = (function () {
 			httpClient,
 			req,
 			received = false,
-			lastSend,
+			lastSend = 0,
 			timeoutID,
 			dataBuffer = new Buffer(data, 'utf8');
 
