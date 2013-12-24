@@ -3,7 +3,7 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint node: true, nomen: true, sloppy: true */
-/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar */
+/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar, url */
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	_uriToRemoteId: function (uri) {
@@ -56,6 +56,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return result;
 	},
 
+	_setParamsFromCollectionId: function (id, kindName) {
+		var prefix, i;
+		for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
+			if (this.client.transport.syncKey[kindName].folders[i].collectionId === id) {
+				prefix = this.client.transport.syncKey[kindName].folders[i].uri;
+				break;
+			}
+		}
+		if (!prefix) {
+			debug("No prefix found for collectionId: " + id);
+			prefix = this.client.transport.syncKey[kindName].folders[0].uri;
+		}
+		this.params.path = prefix;
+	},
 	/*
 	 * This method is used to find the correct URI from a local/remote object pair.
 	 */
@@ -1056,7 +1070,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				this._findURIofRemoteObject(kindName, obj);
 			}
 
-			future.nest(this._sendObjToServer(obj.remote));
+			future.nest(this._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
 		}
 
 		if (obj.operation === "save") {
@@ -1075,8 +1089,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//check collectionID, prevents deletion on server if local collection got deleted:
 			if (this._checkCollectionId(kindName, obj.local.calendarId)) {
 				//send delete request to server.
-				this.params.path = obj.remote.uri;
-				future.nest(CalDav.deleteObject(this.params, obj.remote.etag));
+				this._setParamsFromCollectionId(kindName, obj.local.calendarId);
+				future.nest(CalDav.deleteObject(this.params, obj.remote));
 				future.then(this, function deleteCB() {
 					var result = future.result;
 					if (result.returnValue === true) {
@@ -1102,11 +1116,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * uploads one object to the server and gets etag.
 	 * input is the "remote" object.
 	 */
-	_sendObjToServer: function (obj) {
+	_sendObjToServer: function (kindName, obj, collectionId) {
 		log("\n\n**************************SyncAssistant:_sendObjToServer*****************************");
 		var future = new Future();
 
-		future.nest(CalDav.putObject({authToken: this.client.userAuth.authToken, path: obj.uri, etag: obj.etag, cardDav: this.params.cardDav}, obj.data));
+		this._setParamsFromCollectionId(kindName, collectionId);
+		future.nest(CalDav.putObject(this.params, obj));
 
 		future.then(this, function putCB() {
 			var result = future.result;
@@ -1116,7 +1131,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					future.result = { returnValue: true, uri: result.uri, etags: [{etag: result.etag, uri: result.uri}]};
 				} else {
 					log("Need to get new etag from server.");
-					future.nest(CalDav.downloadEtags({authToken: this.client.userAuth.authToken, path: result.uri}));
+					this._setParamsFromCollectionId(kindName, collectionId);
+					future.nest(CalDav.downloadEtags(this.params, result.uri));
 				}
 			} else {
 				log("put object failed for " + obj.uri);

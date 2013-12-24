@@ -43,10 +43,10 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			this.config = result.config;
 		}
 		if (args.url) {
-			path = CalDav.setHostAndPort(args.url);
+			path = args.url;
 		} else {
 			if (this.config && this.config.url) {
-				path = CalDav.setHostAndPort(this.config.url);
+				path = this.config.url;
 			} else {
 				log("No URL. Can't check credentials!");
 				outerfuture.result = {success: false, returnValue: false};

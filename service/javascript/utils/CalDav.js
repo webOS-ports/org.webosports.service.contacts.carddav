@@ -2,10 +2,7 @@
 /*global debug, log, http, url, Future, xml, log_calDavDebug */
 
 var CalDav = (function () {
-	var httpClient,
-		serverHost,
-		port,
-		protocol = "https:";
+	var httpClientCache = {};
 
 	function endsWith(str, suffix) {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
@@ -146,8 +143,56 @@ var CalDav = (function () {
 		return eTags;
 	}
 
+	function getHttpClient(options) {
+		var key = options.prefix, future = new Future();
+		if (!httpClientCache[key]) {
+			httpClientCache[key] = {};
+		}
+
+		if (httpClientCache[key].connected) {
+			future.result = {returnValue: true, client: httpClientCache[key].client};
+		} else {
+			httpClientCache[key].client = http.createClient(options.port, options.headers.host, options.protocol === "https:");
+			httpClientCache[key].client.on("error", function (e) {
+				log("Error while creating httpClient: " + JSON.stringify(e));
+				future.result = {returnValue: false, error: e};
+			});
+			httpClientCache[key].client.on("connect", function () {
+				debug("====================== Stream connected!! ============================");
+				httpClientCache[key].connected = true;
+				future.result = {returnValue: true, client: httpClientCache[key].client};
+			});
+		}
+		return future;
+	}
+
+	function parseURLIntoOptions(inUrl, options) {
+		var parsedUrl = url.parse(inUrl);
+		options.path = parsedUrl.pathname || "/";
+		if (!options.headers) {
+			options.headers = {};
+		}
+		options.headers.host = parsedUrl.hostname;
+		options.port = parsedUrl.port;
+		options.protocol = parsedUrl.protocol;
+
+		if (!parsedUrl.port) {
+			options.port = parsedUrl.protocol === "https:" ? 443 : 80;
+		}
+
+		options.prefix = options.protocol + "//" + options.headers.host + ":" + options.port;
+	}
+
 	function sendRequest(options, data, retry) {
-		var body = "", future = new Future(), req, received = false, lastSend, timeoutID, dataBuffer = new Buffer(data, 'utf8');
+		var body = "",
+			future = new Future(),
+			httpClient,
+			req,
+			received = false,
+			lastSend,
+			timeoutID,
+			dataBuffer = new Buffer(data, 'utf8');
+
 		if (retry === undefined) {
 			retry = 0;
 		}
@@ -177,108 +222,132 @@ var CalDav = (function () {
 			}
 		}
 
-		options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
+		function endCB(res) {
+			var result, newPath, redirectOptions;
+			if (received) {
+				log_calDavDebug(options.path, " was already received... exiting without callbacks.");
+			}
+			received = true;
+			debug("Answer received."); //thoes this also happen on timeout??
+			clearTimeout(timeoutID);
+			log_calDavDebug("Body: " + body);
 
-		log_calDavDebug("Sending request ", data, " to server.");
-		log_calDavDebug("Options: ", options);
-		debug("Sending request to " + protocol + "//" + serverHost + ":" + port + options.path);
-		timeoutID = setTimeout(checkTimeout, 1000);
-		lastSend = Date.now();
-		req = httpClient.request(options.method, options.path, options.headers);
-		req.on('response', function (res) {
-			var result, newPath;
+			result = {
+				returnValue: (res.statusCode < 400),
+				etag: res.headers.etag,
+				returnCode: res.statusCode,
+				body: body,
+				uri: options.prefix + options.path
+			};
+
+			if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
+				log_calDavDebug("Location: ", res.headers.location);
+				parseURLIntoOptions(res.headers.location, options);
+				log_calDavDebug("Redirected to ", res.headers.location);
+				sendRequest(options, data).then(function (f) {
+					future.result = f.result; //transfer future result.
+				});
+			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
+				result.parsedBody = xml.xmlstr2json(body);
+				log_calDavDebug("Parsed Body: ", result.parsedBody);
+				future.result = result;
+			} else {
+				future.result = result;
+			}
+		}
+
+		function responseCB(res) {
 			log_calDavDebug('STATUS: ', res.statusCode);
 			log_calDavDebug('HEADERS: ', res.headers);
 			res.setEncoding('utf8');
-			res.on('data', function (chunk) {
+			res.on('data', function dataCB(chunk) {
 				lastSend = Date.now();
 				body += chunk;
 			});
-			res.on('end', function () {
-				if (received) {
-					log_calDavDebug(options.path, " was already received... exiting without callbacks.");
-				}
-				received = true;
-				debug("Answer received or timeout?");
-				clearTimeout(timeoutID);
-				log_calDavDebug("Body: " + body);
+			res.on('end', endCB.bind(this, res));
+		}
 
-				result = {
-					returnValue: (res.statusCode < 400),
-					etag: res.headers.etag,
-					returnCode: res.statusCode,
-					body: body,
-					uri: protocol + "//" + serverHost + ":" + port + options.path
-				};
+		function doSendRequest() {
+			options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
 
-				if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
-					log_calDavDebug("Location: ", res.headers.location);
-					newPath = CalDav.setHostAndPort(res.headers.location);
-					log_calDavDebug("Redirected to ", newPath);
-					options.path = newPath;
-					options.headers.host = serverHost;
-					sendRequest(options, data).then(function (f) {
-						future.result = f.result; //transfer future result.
-					});
-				} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
-					result.parsedBody = xml.xmlstr2json(body);
-					log_calDavDebug("Parsed Body:", result.parsedBody);
-					future.result = result;
-				} else {
-					future.result = result;
-				}
+			log_calDavDebug("Sending request ", data, " to server.");
+			log_calDavDebug("Options: ", options);
+			debug("Sending request to " + options.prefix + options.path);
+			timeoutID = setTimeout(checkTimeout, 1000);
+			lastSend = Date.now();
+			req = httpClient.request(options.method, options.path, options.headers);
+			req.on('response', responseCB);
+
+			req.on('error', function (e) {
+				log('problem with request: ' + e.message);
+				lastSend = 0; //let's trigger retry.
+				//future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
 			});
-		});
 
-		req.on('error', function (e) {
-			log('problem with request: ' + e.message);
-			future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
-		});
+			// write data to request body
+			req.end(data, "utf8");
+		}
 
-		// write data to request body
-		//req.write();
-		req.end(data, "utf8");
+		getHttpClient(options).then(function httpClientCB(f) {
+			var result = f.result;
+			if (result.returnValue) {
+				doSendRequest();
+			} else {
+				sendRequest(options, data, retry + 1);
+			}
+		});
 
 		return future;
 	}
 
 	function preProcessOptions(params) {
 		var options = {
-			path: CalDav.setHostAndPort(params.path) || params.path,
 			method: "PROPFIND",
 			headers: {
 				//Depth: 0, //used for DAV reports.
 				Prefer: "return-minimal", //don't really know why that is.
 				"Content-Type": "application/xml; charset=utf-8", //necessary
 				Connection: "keep-alive",
-				"Authorization": params.authToken,
-				"host": serverHost
+				Authorization: params.authToken
 			}
 		};
+		parseURLIntoOptions(params.path, options);
 		return options;
 	}
 
 	function generateMoreTestPaths(folder, tryFolders) {
-		var newFolders = [], i, j, duplicate;
-		if (folder.path.toLowerCase().indexOf("caldav") >= 0) {
-			newFolders.push({path: folder.path.toLowerCase().replace("caldav", "carddav"), host: folder.host});
-		}
-		if (folder.host.toLowerCase().indexOf("caldav") >= 0) {
-			newFolders.push({path: folder.path, host: folder.host.toLowerCase().replace("caldav", "carddav")});
-		}
-		if (folder.path.toLowerCase().indexOf("carddav") >= 0) {
-			newFolders.push({path: folder.path.toLowerCase().replace("carddav", "caldav"), host: folder.host});
-		}
-		if (folder.host.toLowerCase().indexOf("carddav") >= 0) {
-			newFolders.push({path: folder.path, host: folder.host.toLowerCase().replace("carddav", "caldav")});
+		var newFolders = [], i, j, duplicate, tmp,
+			replacePart = function (data, searchString, replacement, caseInsensitive) {
+				if (data.indexOf(searchString) >= 0) {
+					return data.replace(searchString, replacement);
+				} else if (data.toLowerCase().indexOf(searchString) >= 0) {
+					return data.toLowerCase().replace(searchString, replacement); //could theoretically screw up path.
+				}
+				return false;
+			},
+			stringReplacements = [
+				{search: "caldav", replace: "carddav"},
+				{search: "caldav", replace: "contacts"},
+				{search: "calendar", replace: "carddav"},
+				{search: "calendar", replace: "contacts"},
+				{search: "carddav", replace: "calendar"},
+				{search: "contacts", replace: "caldav"},
+				{search: "contacts", replace: "calendar"}
+			];
+
+		for (i = 0; i < stringReplacements.length; i += 1) {
+			tmp = replacePart(folder, stringReplacements[i].search, stringReplacements[i].replace);
+			while (tmp !== false) {
+				newFolders.push(tmp);
+				tmp = replacePart(folder, stringReplacements[i].search, stringReplacements[i].replace);
+			}
 		}
 
 		//check for duplicates:
 		for (j = 0; j < newFolders.length; j += 1) {
 			duplicate = false;
 			for (i = 0; i < tryFolders.length; i += 1) {
-				if (newFolders[j].path.toLowerCase() === tryFolders[i].path.toLowerCase() &&
-						newFolders[j].host.toLowerCase() === tryFolders[i].host.toLowerCase()) {
+				if (newFolders[j] === tryFolders[i]) {
 					duplicate = true;
 					break;
 				}
@@ -291,34 +360,6 @@ var CalDav = (function () {
 
 	//define public interface
 	return {
-		//configures internal httpClient for new host/port
-		//returns pathname, i.e. the not host part of the url.
-		//FIXME: rework that to return  a future. httpClient create sometimes fails => sending fails, too, but will be tried nonetheless.
-		setHostAndPort: function (inUrl) {
-			if (inUrl) {
-				var parsedUrl = url.parse(inUrl);
-
-				if (!parsedUrl.port) {
-					parsedUrl.port = parsedUrl.protocol === "https:" ? 443 : 80;
-				}
-
-				if (parsedUrl.hostname && (serverHost !== parsedUrl.hostname ||
-										   protocol !== parsedUrl.protocol ||
-										   port !== parsedUrl.port)) {
-					serverHost = parsedUrl.hostname;
-					protocol = parsedUrl.protocol;
-					port = parsedUrl.port;
-					httpClient = http.createClient(parsedUrl.port, serverHost, parsedUrl.protocol === "https:");
-					httpClient.on("error", function (e) {
-						log("Error while creating httpClient: " + JSON.stringify(e));
-					});
-				}
-
-				return parsedUrl.pathname || "/"; //if no path, return / as root path.
-			}
-			return "/";
-		},
-
 		//checks only authorization.
 		//But does that with propfind user principal now, instead of GET.
 		//Issue was that one can get the login screen without (and also with wrong) credentials.
@@ -367,8 +408,11 @@ var CalDav = (function () {
 			return future;
 		},
 
-		downloadEtags: function (params) {
+		downloadEtags: function (params, path) {
 			var options = preProcessOptions(params), future = new Future(), data;
+			if (path) {
+				options.path = path;
+			}
 			options.method = "REPORT";
 			options.headers.Depth = 1;
 			options.parse = true;
@@ -420,13 +464,14 @@ var CalDav = (function () {
 		 * Sends delete request to the server.
 		 * Future will cotain uri member with old uri for reference.
 		 */
-		deleteObject: function (params, etag) {
+		deleteObject: function (params, obj) {
 			var future = new Future(), options = preProcessOptions(params);
+			options.path = obj.uri;
 			options.method = "DELETE";
 
 			//prevent overriding remote changes.
-			if (etag) {
-				options.headers["If-Match"] = etag;
+			if (obj.etag) {
+				options.headers["If-Match"] = obj.etag;
 			}
 
 			future.nest(sendRequest(options, ""));
@@ -438,22 +483,23 @@ var CalDav = (function () {
 		 * Puts an object to server.
 		 * If server delivers etag in response, will also add etag to future.result.
 		 */
-		putObject: function (params, data) {
+		putObject: function (params, obj) {
 			var future = new Future(), options = preProcessOptions(params);
 			options.method = "PUT";
+			options.path = obj.uri;
 			options.headers["Content-Type"] = "text/calendar; charset=utf-8";
 			if (params.cardDav) {
 				options.headers["Content-Type"] = "text/vcard; charset=utf-8";
 			}
 
 			//prevent overriding remote changes.
-			if (params.etag) {
-				options.headers["If-Match"] = params.etag;
+			if (obj.etag) {
+				options.headers["If-Match"] = obj.etag;
 			} else {
 				options.headers["If-None-Match"] = "*";
 			}
 
-			future.nest(sendRequest(options, data));
+			future.nest(sendRequest(options, obj.data));
 
 			return future;
 		},
@@ -465,15 +511,6 @@ var CalDav = (function () {
 			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = { subFolders: {} }, folderCB,
 				tryFolders = [], principals = [];
 
-			function setNextUrl(folder) {
-				if (folder.url) {
-					options.path = CalDav.setHostAndPort(folder.url);
-				} else {
-					options.path = folder.path;
-					options.headers.host = folder.host;
-				}
-			}
-
 			function principalCB(index) {
 				var result = future.result, principal, folder, i;
 				if (result.returnValue === true) {
@@ -482,9 +519,12 @@ var CalDav = (function () {
 						principal = getValue(getValue(principal, "href"), "$t");
 						log_calDavDebug("Got principal: " + principal);
 						if (principal) {
-							folder = {host: options.headers.host, path: principal};
-							principals.push(folder); //try to find homes in principal folder, later.
-							generateMoreTestPaths(folder, principals);
+							if (principal.indexOf("http") === 0) {
+								principals.push(principal);
+							} else {
+								principals.push(options.prefix + principal); //try to find homes in principal folder, later.
+							}
+							generateMoreTestPaths(principals[principals.lenght - 1], principals);
 						}
 					}
 				} else {
@@ -494,7 +534,7 @@ var CalDav = (function () {
 				}
 
 				if (index < tryFolders.length) {
-					setNextUrl(tryFolders[index]);
+					parseURLIntoOptions(tryFolders[index], options);
 					future.nest(sendRequest(options, data));
 					future.then(principalCB.bind(this, index + 1));
 				} else {
@@ -509,7 +549,7 @@ var CalDav = (function () {
 					//reorder array, so that principal folders are tried first:
 					tryFolders = principals.concat(tryFolders);
 
-					setNextUrl(tryFolders[0]);
+					parseURLIntoOptions(tryFolders[0], options);
 					future.nest(sendRequest(options, data));
 				}
 			}
@@ -522,7 +562,13 @@ var CalDav = (function () {
 					if (!home) {
 						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
 					} else {
-						home = protocol + "//" + options.headers.host + ":" + port + home;
+						log_calDavDebug("Original home: " + home);
+						if (home.indexOf(http) === 0) {
+							log_calDavDebug("Home already complete?");
+						} else {
+							log("Augmenting home...");
+							home = options.prefix + home;
+						}
 						log_calDavDebug("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
 					}
 				} else {
@@ -534,7 +580,7 @@ var CalDav = (function () {
 				if (!home) {
 					if (index < tryFolders.length) {
 						log_calDavDebug("Trying to ask for " + (addressbook ? "addressbook" : "calendar") + "-home-set on next url: " + JSON.stringify(tryFolders[index]) + " index: " + index);
-						setNextUrl(tryFolders[index]);
+						parseURLIntoOptions(tryFolders[index], options);
 						future.nest(sendRequest(options, data));
 						future.then(getHomeCB.bind(this, addressbook, index + 1));
 						return;
@@ -553,7 +599,7 @@ var CalDav = (function () {
 				if (!addressbook) {
 					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
 					folders.calendarHome = home;
-					setNextUrl(tryFolders[0]);
+					parseURLIntoOptions(tryFolders[0], options);
 					future.nest(sendRequest(options, data));
 					future.then(getHomeCB.bind(this, true, 1)); //calendar done, start with addressbook
 				} else {
@@ -568,15 +614,16 @@ var CalDav = (function () {
 			}
 
 			//some folders to probe for:
-			tryFolders.push({url: params.originalUrl, path: options.path, host: options.headers.host}); //push original URL to test-for-home-folders.
+			tryFolders.push(params.originalUrl); //push original URL to test-for-home-folders.
 			generateMoreTestPaths(tryFolders[0], tryFolders);
-			generateMoreTestPaths({path: "/.well-known/caldav", host: serverHost}, tryFolders);
-			generateMoreTestPaths({path: "/.well-known/carddav", host: serverHost}, tryFolders);
+			parseURLIntoOptions(params.originalUrl, options); //set prefix for the well-known tries.
+			generateMoreTestPaths(options.prefix + "/.well-known/caldav", tryFolders);
+			generateMoreTestPaths(options.prefix + "/.well-known/carddav", tryFolders);
 
 			//first get user principal:
 			options.method = "PROPFIND";
 			options.parse = true;
-			setNextUrl(tryFolders[0]);
+			parseURLIntoOptions(tryFolders[0], options);
 			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 			future.nest(sendRequest(options, data));
 			future.then(principalCB.bind(this, 1));
@@ -717,7 +764,7 @@ var CalDav = (function () {
 						}
 
 						if (!filter || folder.resource === filter) {
-							folder.uri = protocol + "//" + serverHost + ":" + port + folder.uri;
+							folder.uri = options.prefix + folder.uri;
 							folder.remoteId = folder.uri;
 							folders.push(folder);
 						}

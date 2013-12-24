@@ -53,7 +53,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		}
 
 		params = {
-			path: CalDav.setHostAndPort(config.url),
+			path: config.url,
 			authToken: this.client.userAuth.authToken,
 			originalUrl: config.url
 		};
