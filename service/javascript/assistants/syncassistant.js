@@ -87,6 +87,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				obj.local.calendarId = this.client.transport.syncKey[kindName].folders[0].collectionId;
 			}
 
+			prefix = url.parse(prefix).path || "/";
+
 			if (prefix.charAt(prefix.length - 1) !== '/') {
 				prefix += "/";
 			}
