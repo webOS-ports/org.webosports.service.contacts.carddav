@@ -1,5 +1,5 @@
 /*jslint sloppy: true */
-/*global IMPORTS, console, require:true */
+/*global IMPORTS, console, require:true, process */
 console.error("Starting to load libraries");
 
 //... Load the Foundations library and create
@@ -39,6 +39,9 @@ var url = require('url');   //required to parse urls
 
 console.error("--------->Loaded Libraries OK1");
 
+var Config = {
+	logs: "verbose" //configure log util to split log entries so that ALL of them go into the log.
+};
 var dummy = function () {};
 
 var log = Sync.Utils.error;
@@ -49,3 +52,8 @@ var log_calDavDebug = dummy; //Sync.Utils.error;
 
 /* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
 var debug = Sync.Utils.error;
+
+process.on("uncaughtException", function (e) {
+	log("Uncaought error:", e);
+	//throw e;
+});
