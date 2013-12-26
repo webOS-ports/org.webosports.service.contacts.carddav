@@ -1208,7 +1208,7 @@ var iCal = (function () {
 	return {
 		parseICal: function (ical, serverData, callback) { // 6 === 1 + transTime.length in parseLineIntoObj, this is important.
 			var proc, lines, lines2, line, j, i, lObj, event = {alarm: [], loadTimezones: 6,
-					comment: "", note: "", location: "", subject: "", attendees: [], rrule: {}, exdates: [], rdates: []}, alarm, tzContinue, afterTZ, outerFuture = new Future();
+					comment: "", note: "", location: "", subject: "", attendees: [], rrule: null}, alarm, tzContinue, afterTZ, outerFuture = new Future();
 			//used for timezone mangling.
 			afterTZ = function (future) {
 				try {
