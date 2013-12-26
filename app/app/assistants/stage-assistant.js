@@ -4,5 +4,5 @@ function StageAssistant() {
 }
 
 StageAssistant.prototype.setup = function () {
-	this.controller.pushScene("accountSetup");
+	this.controller.pushScene("main");
 };

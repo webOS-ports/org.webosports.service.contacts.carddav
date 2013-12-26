@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, log, Kinds, debug, DB, CalDav */
+/*global Future, log, Kinds, debug, DB, CalDav, UrlSchemes */
 
 var DiscoveryAssistant = function () {};
 
@@ -27,8 +27,37 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 	return outerFuture;
 };
 
+DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
+    var future = new Future(), home;
+
+    home = UrlSchemes.resolveURL(params.originalUrl, username, type);
+    if (home !== params.originalUrl) {
+        log("Could resolve " + type + " home from known URL schemes, get folders from there");
+        params.path = home;
+        future.nest(CalDav.getFolders(params, type));
+
+        future.then(this, function foldersCB() {
+            var result = future.result;
+            if (result.returnValue === true) {
+                if (result.folders && result.folders.length > 0) {
+                    log("Got " + type + " folders from known home.");
+                    future.result = { returnValue: true, home: home };
+                } else {
+                    log("No " + type + " folders from known home, trying usual discovery.");
+                    future.result = { returnValue: false };
+                }
+            }
+        });
+    } else {
+        log("Could not resolve " + type + " home from known URL schemes.");
+        future.result = { returnValue: false };
+    }
+
+    return future;
+};
+
 DiscoveryAssistant.prototype.processAccount = function (args, config) {
-	var future = new Future(), outerFuture = new Future(), params;
+	var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome;
 
 	if (config) {
 		debug("Got config object: " + JSON.stringify(config));
@@ -53,12 +82,46 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		}
 
 		params = {
-			path: CalDav.setHostAndPort(config.url),
+			path: config.url,
 			authToken: this.client.userAuth.authToken,
 			originalUrl: config.url
 		};
 
-		future.nest(CalDav.discovery(params));
+        future.nest(this.resolveHome(params, config.username, "calendar"));
+
+        future.then(this, function calendarResolveCB() {
+            var result = future.result;
+            if (result.returnValue === true) {
+                calendarHome = result.home;
+            } else {
+                calendarHome = false;
+            }
+
+            future.nest(this.resolveHome(params, config.username, "contact"));
+        });
+
+        future.then(this, function contactResolveCB() {
+            var result = future.result;
+            if (result.returnValue === true) {
+                contactHome = result.home;
+            } else {
+                contactHome = false;
+            }
+
+            if (!calendarHome || !contactHome) {
+                log("Missing some homes, start discovery. CalendarHome: " + calendarHome + ", ConctactHome: " + contactHome);
+                if (calendarHome) {
+                    params.path = calendarHome;
+                } else if (contactHome) {
+                    params.path = contactHome;
+                } else {
+                    params.path = config.url;
+                }
+                future.nest(CalDav.discovery(params));
+            } else {
+                future.result = { returnValue: true, calendarHome: calendarHome, contactHome: contactHome};
+            }
+        });
 
 		future.then(this, function discoverCB() {
 			var result = future.result, i, f;

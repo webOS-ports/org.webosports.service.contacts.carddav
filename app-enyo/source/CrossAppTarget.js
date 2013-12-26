@@ -1,5 +1,5 @@
 /*jslint sloppy: true */
-/*global enyo, $L, PalmCall, console */
+/*global enyo, $L, console, setTimeout */
 
 function log(msg) {
 	console.error(msg);
@@ -95,6 +95,11 @@ enyo.kind({
 		if (inResponse.success) {
 			debug("Check credentials came back successful");
 
+			if (!this.params) {
+				this.showLoginError("Account App", "Please do run this from account app, not stand alanoe.");
+				return;
+			}
+
 			this.accountSettings = {};
 			var i, template = this.params.template;
 			template.config = this.account;
@@ -144,12 +149,14 @@ enyo.kind({
 		// capture any parameters associated with this app instance
 		if (!event || !event.params) {
 			console.error("No params received...");
-			this.$.alert.setContent($L("No parameters received. This needs to be called from Account Manager."));
-			return;
-		}
+			setTimeout(function () {
+                this.$.alert.setContent($L("No parameters received. This needs to be called from Account Manager."));
+            }.bind(this), 500);
+		} else {
 
-		this.params = event.params;
-		console.error("Params: " + JSON.stringify(this.params));
+            this.params = event.params;
+            console.error("Params: " + JSON.stringify(this.params));
+        }
 
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
 	}
