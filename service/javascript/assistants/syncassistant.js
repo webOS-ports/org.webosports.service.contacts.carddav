@@ -70,6 +70,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		this.params.path = prefix;
 	},
+
 	/*
 	 * This method is used to find the correct URI from a local/remote object pair.
 	 */
@@ -354,6 +355,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						this.client.transport.syncKey[kindName].folders[i].ctag = 0;
 					}
 				}
+
+                //clear possibly stored entries from previous syncs:
+                for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
+					delete this.client.transport.syncKey[kindName].folders[i].entries;
+				}
+
 				log("Modified SyncKey: " + JSON.stringify(this.client.transport.syncKey[kindName]));
 
 				//reset error. If folders had error, transfer error state to content.
@@ -441,17 +448,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						remoteId: home
 					});
 				}
-				
+
 				entries = this._parseEtags(rFolders, localFolders, "uri");
-				future.result = {
-					more: false,
-					entries: entries //etags will be undefined for both. But that is fine. Just want to compare uris.
-				};
 
 				//if collection changed, we also need to sync from different folders.
 				//update the config here.
 				this._updateCollectionsConfig(kindName, rFolders);
-				this.client.transport.syncKey[kindName].error = false; //if we reached here, then there were no errors.
 			} else {
 				log("Could not get remote collection. Skipping down sync.");
 				future.result = {
@@ -504,8 +506,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		debug("Starting sync for " + folder.name + ".");
 		future.nest(this._initCollectionId(kindName));
 		future.then(this, function () {
-			this.params.ctag = this.client.transport.syncKey[kindName].folders[index].ctag || 0;
-			future.nest(CalDav.checkForChanges(this.params));
+            if (folder.entries &&
+                    folder.entries.length > 0) {
+                //trigger download directly.
+                future.result = {needsUpdate: true};
+            } else {
+                this.params.ctag = this.client.transport.syncKey[kindName].folders[index].ctag || 0;
+                future.nest(CalDav.checkForChanges(this.params));
+            }
 		});
 
 		//called from success callback, if needs update, determine which objects to update
@@ -520,16 +528,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				future.then(this, function updateCB() {
 					var result = future.result;
 
-					//save ctag to fastly determine if sync is necessary at all.
-					this.client.transport.syncKey[kindName].folders[index].ctag = ctag;
+                    if (!result.more) {
+				        debug("Sync for folder " + folder.name + " finished.");
+					    this.client.transport.syncKey[kindName].folderIndex = nextIndex;
+                    }
 
-					//use next folder on next run.
-					result.more = nextIndex < folders.length;
-					future.result = result;
+                    //save ctag to fastly determine if sync is necessary at all
+                    this.client.transport.syncKey[kindName].folders[index].ctag = ctag;
 
-					debug("Sync for folder " + folder.name + " finished.");
-					this.client.transport.syncKey[kindName].error = false;
-					this.client.transport.syncKey[kindName].folderIndex = nextIndex;
+                    //this is required here to let next getRemoteChanges not run into error-case.
+                    this.client.transport.syncKey[kindName].error = false;
+
+                    future.result = result;
 				});
 			} else {
 				//we don't need an update, tell sync engine that we are finished.
@@ -650,15 +660,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * Handles download and parsing of etag data and then download of object data.
 	 */
 	_doUpdate: function (kindName, folder) {
-		var future = new Future(), remoteEtags;
+		var future = new Future(), remoteEtags, entries;
 		debug("Need update, getting etags from server.");
 
 		if (folder.doDelete) {
 			debug("Server wants us to delete this collection. Tell webOS to delete all local entries.");
 			future.result = {returnValue: true, etags: []}; //emulate empty remote etags => will delete all local objects for this collection.
 		} else {
-			//download etags and trigger next callback
-			future.nest(CalDav.downloadEtags(this.params));
+            entries = this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].entries;
+            if (entries && entries.length > 0) {
+                log("Had changes remaining from last doUpdate call:", entries);
+                log("Starting download.");
+                future.nest(this._downloadData(kindName, entries, 0));
+                return future;
+            } else {
+                //download etags and trigger next callback
+                entries = [];
+                future.nest(CalDav.downloadEtags(this.params));
+            }
 		}
 
 		future.then(this, function handleRemoteEtags() {
@@ -696,11 +715,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		});
 
-		//hand response of etags
+		//check local etags against remote ones:
 		future.then(this, function handleEtagResponse() {
 			log("---------------------->hanleEtagResponse()");
 
-			var result = future.result, entries = [];
+			var result = future.result;
 			if (future.exception || result.returnValue !== true) {
 				log("Something in getting etags went wrong: " + JSON.stringify(future.exception));
 				log("Aborting with no downsync.");
@@ -713,6 +732,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				//debug("remoteEtags: " + JSON.stringify(result.remoteEtags));
 				//debug("localEtags: " + JSON.stringify(result.localEtags));
 				entries = this._parseEtags(result.remoteEtags, result.localEtags);
+                this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].entries = entries;
 
 				//now download object data and transfer it into webos datatypes.
 				future.nest(this._downloadData(kindName, entries, 0));
@@ -860,9 +880,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * the future returns when all downloads are finished.
 	 */
 	_downloadData: function (kindName, entries, entriesIndex) {
-		var future = new Future();
+		var future = new Future(), resultEntries, fi;
 
-		if (entriesIndex < entries.length) {
+		if (entriesIndex < entries.length && entriesIndex < 10) {
 			if (entries[entriesIndex].doDelete) { //no need to download for deleted entry, skip.
 				future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 			} else {
@@ -913,10 +933,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				});
 			} //end update
 		} else { //entriesIndex >= entries.length => finished.
-			log("All items received and converted. Return.");
+			log(entriesIndex + " items received and converted.");
+            resultEntries = entries.splice(0, entriesIndex);
+
+            fi = this.client.transport.syncKey[kindName].folderIndex;
+            if (entries.length > 0) {
+                this.client.transport.syncKey[kindName].folders[fi].entries = entries;
+            } else {
+                this.client.transport.syncKey[kindName].folders[fi].entries = undefined;
+            }
+
+            log(entries.length + " items for next run.");
 			future.result = {
-				more: false, //always doing every folder in one batch. Can we split that up to save memory?
-				entries: entries
+				more: true, //force download of etags, necessary if entries where left from last sync.
+				entries: resultEntries
 			};
 		}
 
