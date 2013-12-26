@@ -853,10 +853,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		//uri only on server => needs to be added
 		//uri on server & local, etag same => no (remote) change.
 		//uri on server & local, but etag differs => needs to be updated (local changes might be lost)
-		//local with uri & etag, but not on server => deleted on server, delete local (local changes might be lost)
+		//local with uri, but not on server => deleted on server, delete local (local changes might be lost)
+        //two local with same uri: delete one..
 		for (i = 0; i < localEtags.length; i += 1) {
 			l = localEtags[i];
-			if (l[key]) {
+			if (l.remoteId) {
 
 				//filter orphaned entries in different collections.
 				if (!this._isOrphanedEntry(l)) {
@@ -865,17 +866,21 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					r = this._findMatch(l.remoteId, remoteEtags);
 
 					if (r) {
-						//log("Found match: " + JSON.stringify(r));
-						found = true;
-						r.found = true;
-						if (l[key] !== r[key]) { //have change on server => need update.
-							//log("Pushing: " + JSON.stringify(l));
-							entries.push(r);
-							stats.update += 1;
-						} else {
-							//log("No change.");
-							stats.noChange += 1;
-						}
+                        if (r.found) {
+                            log("Found local duplicate.");
+                        } else {
+				            //log("Found match: " + JSON.stringify(r));
+				            found = true;
+				            r.found = true;
+                            if (l[key] !== r[key]) { //have change on server => need update.
+                                //log("Pushing: " + JSON.stringify(l));
+                                entries.push(r);
+                                stats.update += 1;
+                            } else {
+                                //log("No change.");
+                                stats.noChange += 1;
+                            }
+                        }
 					}
 
 					//not found => deleted on server.
@@ -1057,7 +1062,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 			if (result.returnValue === true) {
 				rid = this._uriToRemoteId(result.uri);
-			}
+                debug("Have rid " + rid + " from " + result.uri);
+                delete batch[index].local.uploadFailed;
+			} else {
+                batch[index].local.uploadFailed = 1; //TODO: find those objects and retry upload later.
+            }
 
 			//save remote id for local <=> remote mapping
 			remoteIds[index] = rid;
@@ -1195,8 +1204,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					future.result = { returnValue: true, uri: result.uri, etags: [{etag: result.etag, uri: result.uri}]};
 				} else {
 					log("Need to get new etag from server.");
-					this._setParamsFromCollectionId(kindName, collectionId);
-					future.nest(CalDav.downloadEtags(this.params, result.uri));
+                    this.params.path = result.uri; //this already is the complete URL.
+					future.nest(CalDav.downloadEtags(this.params));
 				}
 			} else {
 				log("put object failed for " + obj.uri);
@@ -1216,12 +1225,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			var result = future.result;
 			if (result.returnValue === true && result.etags && result.etags.length >= 1) {
 				log("Got updated etag.");
-				future.result = { returnValue: true, uri: result.uri, etag: result.etags[0].etag };
+				future.result = { returnValue: true, uri: obj.uri, etag: result.etags[0].etag };
 			} else {
 				if (!future.exception) { //was no follow up error => log.
 					log("Get etag failed for " + obj.uri);
-				}
-				future.result = { returnValue: false, uri: obj.uri };
+                    future.result = { returnValue: true, uri: obj.uri, etag: "0" };
+				} else {
+				    future.result = { returnValue: false, uri: obj.uri };
+                }
 			}
 		});
 
@@ -1317,32 +1328,32 @@ var SyncAll = function () {};
 
 SyncAll.prototype.run = function (outerfuture) {
 	var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
-	
+
 	errorOut = function (msg) {
 		log(msg);
 		outerfuture.result = { returnValue: false, message: msg };
 		return outerfuture;
 	};
-	
+
 	processCapabilities = function (capabilities, index) {
 		var capObj = capabilities[index], outerfuture = new Future(), syncCB;
-		
+
 		syncCB = function (name, future) {
 			var result = future.result;
 			log("Sync came back: " + JSON.stringify(result));
 			future.nest(processCapabilities(capabilities, index + 1));
-			
+
 			//augment result a bit:
 			future.then(function innerCB() {
 				var innerResult = future.result;
-				
+
 				//only be a success if all syncs ware a success.
 				innerResult.returnValue = innerResult.returnValue && result.returnValue;
 				innerResult[name] = result;
 				outerfuture.result = innerResult;
 			});
 		};
-		
+
 		if (capObj) {
 			if (capObj.capability === "CONTACTS") {
 				PalmCall.call("palm://org.webosports.cdav.service/", "doContactsSync", {accountId: accountId}).then(syncCB.bind(this, "contacts"));
@@ -1356,7 +1367,7 @@ SyncAll.prototype.run = function (outerfuture) {
 			log("Processing capabilities done.");
 			outerfuture.result = { returnValue: true };
 		}
-		
+
 		return outerfuture;
 	};
 
@@ -1383,12 +1394,12 @@ SyncAll.prototype.run = function (outerfuture) {
 			errorOut("Could not get account info: " + JSON.stringify(result));
 		}
 	});
-	
+
 	future.then(this, function syncsCB() {
 		var result = future.result;
 		log("All syncs done, returning.");
 		outerfuture.result = result;
 	});
-	
+
 	return outerfuture;
 };
