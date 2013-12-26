@@ -56,7 +56,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return result;
 	},
 
-	_setParamsFromCollectionId: function (id, kindName) {
+	_setParamsFromCollectionId: function (kindName, id) {
 		var prefix, i;
 		for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
 			if (this.client.transport.syncKey[kindName].folders[i].collectionId === id) {
@@ -101,7 +101,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				obj.local.calendarId = this.client.transport.syncKey[kindName].folders[0].collectionId;
 			}
 
-			prefix = url.parse(prefix).path || "/";
+			prefix = url.parse(prefix).pathname || "/";
 
 			if (prefix.charAt(prefix.length - 1) !== '/') {
 				prefix += "/";
