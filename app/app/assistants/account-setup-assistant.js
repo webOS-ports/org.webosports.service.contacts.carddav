@@ -135,7 +135,7 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 			//Pop back to Account Creation Dialog
 			this.popScene();
 		} else {
-			log("CheckCredentials came back, but failed.");
+			log("CheckCredentials came back, but failed, message: " + f.result.reason);
 			this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (f.result.reason ? " Message: " + f.result.reason : ""));
 		}
 	});

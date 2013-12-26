@@ -95,10 +95,10 @@ enyo.kind({
 		if (inResponse.success) {
 			debug("Check credentials came back successful");
 
-            if (!this.params) {
-                this.showLoginError("Account App", "Please do run this from account app, not stand alanoe.");
-                return;
-            }
+			if (!this.params) {
+				this.showLoginError("Account App", "Please do run this from account app, not stand alanoe.");
+				return;
+			}
 
 			this.accountSettings = {};
 			var i, template = this.params.template;

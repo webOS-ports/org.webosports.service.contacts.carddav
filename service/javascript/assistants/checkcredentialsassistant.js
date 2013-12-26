@@ -59,7 +59,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	});
 
 	future.then(this, function credentialsCheckCB() {
-		var result = future.result, authToken;
+		var result = future.result, authToken, msg;
 		// Check if we are getting a good return code for success
 		if (result.returnValue === true) {
 			// Pass back credentials and config (username/password/url);
@@ -80,7 +80,25 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
 		} else {
 			debug("Password rejected");
-			outerfuture.result = {returnValue: false, success: false};
+            switch (result.returnCode) {
+            case 404:
+                msg = "URL wrong, document not found.";
+                break;
+            case 403:
+                msg = "Access forbidden, probably server or URL issue.";
+                break;
+            case 401:
+                msg = "Credentials are wrong.";
+                break;
+            case 405:
+                msg = "Method not allowed, probably URL is no caldav/carddav URL. Please look up configuration of your server or report back to developers.";
+                break;
+            default:
+                msg = "Connection issue: " + result.returnCode + ". Maybe try again later or check url.";
+                break;
+            }
+            msg += " - URL: " + result.uri;
+			outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.ur};
 		}
 	});
 
