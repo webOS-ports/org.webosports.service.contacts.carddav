@@ -151,7 +151,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.excludeFromAll = false;
 					to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
 					to.name = from.name;
-					to.syncSource = "CalDav";
+					to.syncSource = "cdav";
 					to.remoteId = from.uri;
 					to.uri = from.uri;
 
@@ -175,17 +175,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		log("\n\n**************************SyncAssistant:_getObjectTransformer*****************************");
 
 		if (name === "remote2local") {
-			//this is down-sync - create transformer object
-			//var transformer = new Json.Transformer(this._templates.calendar.remote2local);
 			return function (to, from) {
 				log("\n\n**************************SyncAssistant:_remote2local*****************************");
-				var key, obj = from.obj;
+				var key, obj = from.obj, i;
 
 				//populate to object with data from event:
 				for (key in obj) {
-					if (obj.hasOwnProperty(key) && obj[key] !== undefined && obj[key] !== null) {
+					if (obj.hasOwnProperty(key) && obj[key] !== undefined) { // && obj[key] !== null) {
 						to[key] = obj[key];
-						//log("Copied event[" + key + "] = " + to[key]);
+						//debug("Copied event[" + key + "] = " + to[key]);
 					}
 				}
 
