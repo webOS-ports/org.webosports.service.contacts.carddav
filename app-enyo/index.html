@@ -6,6 +6,10 @@
 	</head>
 	<body>
 	<script type="text/javascript">
+        if (window.PalmSystem) {
+            window.PalmSystem.stageReady();
+        }
+
 		new Main.CrossAppLaunch().renderInto(document.body);
 		</script>
 	</body>

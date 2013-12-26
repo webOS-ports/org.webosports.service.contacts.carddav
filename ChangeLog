@@ -1,3 +1,24 @@
+0.2.2:
+	o Added messages to enyo-app, that it is not to be run manually, at this point in time
+    o Added another stage to mojo-app to allow some recovering stuff like trigger slow sync.
+    o Cleaned up auto discovery and added possible support for iCloud.
+    o Changed host/port/protocol stuff in Caldav.js, now should work fine with multiple servers
+    o Caldav.js now also reacts to connection issue with server other than send timeout.
+    o Added urlscheme.js as place to store known server configs in. These do not require a discovery anymore, fallback is implemented, though.
+    o Prevent local duplicates if upload (or download of etag) did not work.
+    o Prevent endless loop during redirections to always the same URL.
+    o Download 10 items at one time, which keeps memory footprint low  even for massive downsyncs.
+
+2013-12-26: Achim Königs <garfonso@mobo.info>
+
+0.2.1:
+	o Initial test versions send to some testers
+	o Fixed issues with periodic sync
+	o service assistants renamed, now single assistants for contacts and cards
+	o Fixed parsing issues with some caldav server
+
+2013-12-21: Achim Königs <garfonso@mobo.info>
+
 0.2.0:
 	o Addition of CardDAV as well as CalDAV support
 	o Use of mojo sync framework for regular syncs
