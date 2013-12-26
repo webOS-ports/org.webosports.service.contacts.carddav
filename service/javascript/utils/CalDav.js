@@ -352,7 +352,7 @@ var CalDav = (function () {
 			tmp = replacePart(folder, stringReplacements[i].search, stringReplacements[i].replace);
 			while (tmp !== false) {
 				newFolders.push(tmp);
-				tmp = replacePart(folder, stringReplacements[i].search, stringReplacements[i].replace);
+				tmp = replacePart(tmp, stringReplacements[i].search, stringReplacements[i].replace);
 			}
 		}
 
@@ -537,7 +537,7 @@ var CalDav = (function () {
 							} else {
 								principals.push(options.prefix + principal); //try to find homes in principal folder, later.
 							}
-							generateMoreTestPaths(principals[principals.lenght - 1], principals);
+							generateMoreTestPaths(principals[principals.length - 1], principals);
 						}
 					}
 				} else {
