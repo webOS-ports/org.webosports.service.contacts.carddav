@@ -453,7 +453,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 				//if collection changed, we also need to sync from different folders.
 				//update the config here.
-				this._updateCollectionsConfig(kindName, rFolders);
+				future.nest(this._updateCollectionsConfig(kindName, rFolders));
+
+                //wait till updateCollectionsConfig is finished, because this might delete all entries of a kind.
+                future.then(this, function updateConfigCB() {
+                    var result = future.result;
+                    future.result = {
+				        more: false,
+				        entries: entries //etags will be undefined for both. But that is fine. Just want to compare uris.
+				    };
+
+                    this.client.transport.syncKey[kindName].error = false; //if we reached here, then there were no errors.
+                });
 			} else {
 				log("Could not get remote collection. Skipping down sync.");
 				future.result = {
@@ -561,10 +572,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 */
 	_updateCollectionsConfig: function (kindName, remoteFolders) {
 		var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder,
-			remoteFolder, change = false,
-			deleteAllCallback = function (future) {
-				debug("Delete all objects returned: " + JSON.stringify(future.result));
-			};
+			remoteFolder, change = false, future = new Future(), outerFuture = new Future(), toBeDeleted = [];
 
 		folders = this.client.transport.syncKey[subKind].folders;
 
@@ -590,17 +598,45 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (!remoteFolder) { //folder not found => need to delete.
 				debug("Need to delete local folder " + JSON.stringify(folder));
 				folders.splice(i, 1);
-				DB.merge({from: Kinds.objects[subKind].id, where: [{prop: "calendarId", op: "=", val: folder.collectionId}] },
-						 {"_del": true, preventSync: true}).then(this, deleteAllCallback);
+
+                toBeDeleted.push(folder.collectionId);
 				change = true;
 			}
 		}
+
+        function deleteContent(ids) {
+            var id = ids.shift();
+            if (id) {
+                future.nest(DB.merge(
+                    {
+                        from: Kinds.objects[subKind].id,
+                        where: [{prop: "calendarId", op: "=", val: folder.collectionId}]
+                    },
+                    {
+                        "_del": true,
+                        preventSync: true
+                    }
+                ));
+
+                future.then(this, function deleteCB() {
+                    var result = future.result;
+                    debug("Delete all objects returned: " + JSON.stringify(result));
+                    deleteContent(ids);
+                });
+            } else {
+                outerFuture.result = {returnValue: true};
+            }
+        }
+
+        deleteContent(toBeDeleted);
 
 		//now save config:
 		if (change) {
 			this._saveErrorState(subKind); //trigger slow sync for subKind because of collection changes.
 			delete this.collectionIds; //reset this for orphaned checks.
 		}
+
+        return outerFuture;
 	},
 
 	/*
