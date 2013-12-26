@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global debug, Base64, CalDav, DB, searchAccountConfig, Future, log, KeyStore */
+/*global debug, Base64, CalDav, DB, searchAccountConfig, Future, log, KeyStore, UrlSchemes */
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () {};
@@ -53,6 +53,9 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 				return outerfuture;
 			}
 		}
+
+        //try to augment URL for known servers:
+        path = UrlSchemes.resolveURL(path, args.username, "checkCredentials");
 
 		// Test basic authentication. If this fails username and or password is wrong
 		future.nest(CalDav.checkCredentials({authToken: base64Auth, path: path}));

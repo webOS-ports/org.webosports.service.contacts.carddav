@@ -47,6 +47,9 @@
 	{
 		"source": "javascript/kinds.js"
 	},
+    {
+        "source": "javascript/urlschemes.js"
+    },
 	{
 		"source": "javascript/utils/accountConfigUtils.js"
 	},
