@@ -144,26 +144,19 @@ var CalDav = (function () {
 	}
 
 	function getHttpClient(options) {
-		var key = options.prefix, future = new Future();
+		var key = options.prefix;
 		if (!httpClientCache[key]) {
 			httpClientCache[key] = {};
 		}
 
 		if (httpClientCache[key].connected) {
-			future.result = {returnValue: true, client: httpClientCache[key].client};
+            log_calDavDebug("Already connected");
 		} else {
+            log_calDavDebug("Creating connection from ", options.port, options.headers.host, options.protocol === "https:");
 			httpClientCache[key].client = http.createClient(options.port, options.headers.host, options.protocol === "https:");
-			httpClientCache[key].client.on("error", function (e) {
-				log("Error while creating httpClient: " + JSON.stringify(e));
-				future.result = {returnValue: false, error: e};
-			});
-			httpClientCache[key].client.on("connect", function () {
-				debug("====================== Stream connected!! ============================");
-				httpClientCache[key].connected = true;
-				future.result = {returnValue: true, client: httpClientCache[key].client};
-			});
+            httpClientCache[key].connected = true; //connected is not 100% true anymore. But can't really check for connection without adding unnecessary requests.
 		}
-		return future;
+		return httpClientCache[key].client;
 	}
 
 	function parseURLIntoOptions(inUrl, options) {
@@ -202,7 +195,7 @@ var CalDav = (function () {
 			if (!received) {
 				now = Date.now();
 				debug("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
-				if (now - lastSend > 30 * 1000) { //last send before 5 seconds.. is that too fast?
+				if (now - lastSend > 30 * 1000) { //last send before 30 seconds.. is that too fast?
 					clearTimeout(timeoutID);
 					if (retry <= 5) {
 						log_calDavDebug("Trying to resend message.");
@@ -292,7 +285,6 @@ var CalDav = (function () {
 			log_calDavDebug("Sending request ", data, " to server.");
 			log_calDavDebug("Options: ", options);
 			debug("Sending request to " + options.prefix + options.path);
-			timeoutID = setTimeout(checkTimeout, 1000);
 			lastSend = Date.now();
 			req = httpClient.request(options.method, options.path, options.headers);
 			req.on('response', responseCB);
@@ -307,15 +299,17 @@ var CalDav = (function () {
 			req.end(data, "utf8");
 		}
 
-		getHttpClient(options).then(function httpClientCB(f) {
-			var result = f.result;
-			if (result.returnValue) {
-				doSendRequest();
-			} else {
-				sendRequest(options, data, retry + 1);
-			}
-		});
+        timeoutID = setTimeout(checkTimeout, 1000);
+        lastSend = Date.now();
+		httpClient = getHttpClient(options);
 
+        httpClient.on("error", function (e) {
+            log("Error with http connection: ", e);
+            httpClientCache[options.prefix].connected = false;
+            lastSend = 0; //trigger retry.
+        });
+
+        doSendRequest();
 		return future;
 	}
 
