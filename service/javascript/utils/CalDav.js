@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true */
-/*global debug, log, http, url, Future, xml, log_calDavDebug */
+/*global debug, log, http, url, Future, xml, log_calDavDebug, log_calDavParsingDebug */
 
 var CalDav = (function () {
 	var httpClientCache = {};
@@ -27,7 +27,7 @@ var CalDav = (function () {
 	}
 
 	function processStatus(stat) {
-		log_calDavDebug("Processing stat: ", stat);
+		log_calDavParsingDebug("Processing stat: ", stat);
 		if (stat.length >= 0) {
 			if (stat.length !== 1) {
 				throw {msg: "multiple stati... can't process."};
@@ -35,13 +35,13 @@ var CalDav = (function () {
 				return getValue(stat[0], "$t"); //maybe extract number here?
 			}
 		} else {
-			log_calDavDebug("Got single stat.");
+			log_calDavParsingDebug("Got single stat.");
 			return getValue(stat, "$t");
 		}
 	}
 
 	function processProp(prop) {
-		log_calDavDebug("Processing prop: ", prop);
+		log_calDavParsingDebug("Processing prop: ", prop);
 		if (prop && prop.length >= 0) {
 			if (prop.length !== 1) {
 				throw {msg: "multiple props... can't process."};
@@ -49,22 +49,22 @@ var CalDav = (function () {
 				return prop[0];
 			}
 		}
-		log_calDavDebug("Resulting prop: ", prop);
+		log_calDavParsingDebug("Resulting prop: ", prop);
 		return prop;
 	}
 
 	function processPropstat(ps) {
-		log_calDavDebug("Processing propstat: " + JSON.stringify(ps));
+		log_calDavParsingDebug("Processing propstat: " + JSON.stringify(ps));
 		var propstat = {
 			status: processStatus(getValue(ps, "status")),
 			prop: processProp(getValue(ps, "prop"))
 		};
-		log_calDavDebug("Resulting propstat: ", propstat);
+		log_calDavParsingDebug("Resulting propstat: ", propstat);
 		return propstat;
 	}
 
 	function processResponse(res) {
-		log_calDavDebug("Processing response ", res);
+		log_calDavParsingDebug("Processing response ", res);
 		var response = {
 			href: getValue(getValue(res, "href"), "$t"),
 			propstats: getValue(res, "propstat")
@@ -79,20 +79,20 @@ var CalDav = (function () {
 			response.propstats = [processPropstat(response.propstats)];
 		}
 
-		log_calDavDebug("Resulting response: ", response);
+		log_calDavParsingDebug("Resulting response: ", response);
 		return response;
 	}
 
 	function parseResponseBody(body) {
 		var ri, responses = getResponses(body) || [], procRes = [];
-		log_calDavDebug("Parsing from: ", body);
+		log_calDavParsingDebug("Parsing from: ", body);
 		if (responses.length >= 0) {
 			for (ri = 0; ri < responses.length; ri += 1) {
-				log_calDavDebug("Got response array: ", responses);
+				log_calDavParsingDebug("Got response array: ", responses);
 				procRes.push(processResponse(responses[ri]));
 			}
 		} else { //got only one response
-			log_calDavDebug("Got single response: ", responses);
+			log_calDavParsingDebug("Got single response: ", responses);
 			procRes.push(processResponse(responses));
 		}
 		return procRes;
@@ -105,9 +105,9 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop || {};
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						log_calDavDebug("Comparing ", key, " to ", searchedKey);
+						log_calDavParsingDebug("Comparing ", key, " to ", searchedKey);
 						if (key.toLowerCase().indexOf(searchedKey) >= 0) {
-							log_calDavDebug("Returning ", prop[key], " for ", key);
+							log_calDavParsingDebug("Returning ", prop[key], " for ", key);
 							text = getValue(prop[key], "$t");
 							if (notResolveText || !text) {
 								return prop[key];
@@ -128,7 +128,7 @@ var CalDav = (function () {
 				prop = responses[i].propstats[j].prop;
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						log_calDavDebug("Comparing " + key + " to getetag.");
+						log_calDavParsingDebug("Comparing " + key + " to getetag.");
 						if (key.toLowerCase().indexOf('getetag') >= 0) {
 							etag = getValue(prop[key], "$t");
 						}
@@ -249,7 +249,7 @@ var CalDav = (function () {
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body);
-				log_calDavDebug("Parsed Body: ", result.parsedBody);
+				log_calDavParsingDebug("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else {
 				future.result = result;

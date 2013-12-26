@@ -28,7 +28,7 @@ var querystring = require('querystring');
 var fs = require('fs'); //required for own node modules and current vCard converter.
 var path = require('path'); //required for vCard converter.
 var http = require('http'); //required for own httpClient. Not using AjaxCall, because
-                            //it is broken in 2.2.4 and can't handle custom ports, only 80 and 443
+							//it is broken in 2.2.4 and can't handle custom ports, only 80 and 443
 var url = require('url');   //required to parse urls
 
 //node in webos is VERY picky about require paths. Really point it to the library here.
@@ -39,19 +39,49 @@ var url = require('url');   //required to parse urls
 
 console.error("--------->Loaded Libraries OK1");
 
-var Config = {
-	logs: "verbose" //configure log util to split log entries so that ALL of them go into the log.
-};
 var dummy = function () {};
 
-var log = Sync.Utils.error;
+var logBase = function () {
+    var i, pos, datum, argsArr = Array.prototype.slice.call(arguments, 0),
+        data;
 
-var log_icalDebug = dummy;
+    for (i = 0; i < argsArr.length; i += 1) {
+        if (typeof argsArr[i] !== "string") {
+            try {
+                argsArr[i] = JSON.stringify(argsArr[i]);
+            } catch (e) {
+                argsArr[i] += "(circular object)";
+            }
+        }
+    }
 
-var log_calDavDebug = dummy; //Sync.Utils.error;
+    data = argsArr.join(" ");
+
+    // I want ALL my logs!
+    data = data.split("\n");
+    for (i = 0; i < data.length; i += 1) {
+        datum = data[i];
+        if (datum.length < 500) {
+            console.error(datum);
+        } else {
+            // Do our own wrapping
+            for (pos = 0; pos < datum.length; pos += 500) {
+                console.error(datum.slice(pos, pos + 500));
+            }
+        }
+    }
+};
+
+var log = logBase;
+
+var log_icalDebug = log;
+
+var log_calDavDebug = log;
+
+var log_calDavParsingDebug = dummy;
 
 /* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
-var debug = Sync.Utils.error;
+var debug = logBase;
 
 process.on("uncaughtException", function (e) {
 	log("Uncaought error:", e);
