@@ -46,6 +46,7 @@ MainAssistant.prototype.triggerSlow = function (event) {
 
 MainAssistant.prototype.callService = function (method) {
     "use strict";
+    this.setControlsEnabled(false);
     console.error("Selecting account " + this.dropboxModel.value);
     this.currentAccount = this.dropboxModel.value;
     if (this.currentAccount !== -1) {
@@ -53,10 +54,28 @@ MainAssistant.prototype.callService = function (method) {
                       method,
                       this.accounts[this.currentAccount]).then(this, function serviceCB(f) {
             var result = f.result;
-            this.showMessage(method + " Result", "Sync result: " + JSON.stringify(result));
+            this.setControlsEnabled(true);
+            this.showMessage(method + " Result", method + " result: " + JSON.stringify(result));
         });
     } else {
         this.showMessage($L("Error"), "You need to select an account first.");
+    }
+};
+
+MainAssistant.prototype.setControlsEnabled = function (enabled) {
+    "use strict";
+    this.triggerSlowModel.disabled = !enabled;
+    this.discoveryModel.disabled = !enabled;
+    this.startSyncModel.disabled = !enabled;
+    this.controller.modelChanged(this.triggerSlowModel);
+    this.controller.modelChanged(this.discoveryModel);
+    this.controller.modelChanged(this.startSyncModel);
+    if (enabled) {
+        this.controller.get('Scrim').hide();
+        this.controller.get('loadSpinner').mojo.stop();
+    } else {
+        this.controller.get('Scrim').show();
+        this.controller.get('loadSpinner').mojo.start();
     }
 };
 
@@ -75,26 +94,12 @@ MainAssistant.prototype.refreshAccounts = function () {
 
     this.dropboxModel.disabled = false;
     this.controller.modelChanged(this.dropboxModel);
-    this.controller.get('Scrim').hide();
-    this.controller.get('loadSpinner').mojo.stop();
-    this.triggerSlowModel.disabled = false;
-    this.discoveryModel.disabled = false;
-    this.startSyncModel.disabled = false;
-    this.controller.modelChanged(this.triggerSlowModel);
-    this.controller.modelChanged(this.discoveryModel);
-    this.controller.modelChanged(this.startSyncModel);
+    this.setControlsEnabled(true);
 };
 
 MainAssistant.prototype.activate = function (event) {
     "use strict";
-    this.triggerSlowModel.disabled = true;
-    this.discoveryModel.disabled = true;
-    this.startSyncModel.disabled = true;
-    this.controller.modelChanged(this.triggerSlowModel);
-    this.controller.modelChanged(this.discoveryModel);
-    this.controller.modelChanged(this.startSyncModel);
-    this.controller.get('Scrim').show();
-    this.controller.get('loadSpinner').mojo.start();
+    this.setControlsEnabled(false);
 
     PalmCall.call("palm://com.palm.db/", "find",
                   {query: {from: "org.webosports.cdav.account.config:1"}}).then(this, function (f) {

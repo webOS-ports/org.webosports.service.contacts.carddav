@@ -549,6 +549,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     //this is required here to let next getRemoteChanges not run into error-case.
                     this.client.transport.syncKey[kindName].error = false;
+                    delete this.collectionIds; //reset this for orphaned checks.
 
                     future.result = result;
 				});

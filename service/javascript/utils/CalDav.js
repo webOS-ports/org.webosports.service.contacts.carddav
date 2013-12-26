@@ -151,6 +151,7 @@ var CalDav = (function () {
 
 		if (httpClientCache[key].connected) {
             log_calDavDebug("Already connected");
+            httpClientCache[key].client.removeAllListeners("error"); //remove previous listeners.
 		} else {
             log_calDavDebug("Creating connection from ", options.port, options.headers.host, options.protocol === "https:");
 			httpClientCache[key].client = http.createClient(options.port, options.headers.host, options.protocol === "https:");
