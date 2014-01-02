@@ -31,7 +31,7 @@
 			"onCreate": "palm://org.webosports.cdav.service/onContactsCreate",
 			"onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
 			"onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
-			"sync": "palm://org.webosports.cdav.service/doContactsSync",
+			"sync": "palm://org.webosports.cdav.service/sync",
 			"loc_name": "CardDAV Contacts",
 			"dbkinds": {
 				"contactset": "org.webosports.cdav.contactset:1",
@@ -44,7 +44,7 @@
 			"onCreate": "palm://org.webosports.cdav.service/onCalendarCreate",
 			"onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
 			"onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
-			"sync": "palm://org.webosports.cdav.service/doCalendarSync",
+			"sync": "palm://org.webosports.cdav.service/sync",
 			"loc_name": "CalDav Calendar",
 			"dbkinds": {
 				"calendar": "org.webosports.cdav.calendar:1",

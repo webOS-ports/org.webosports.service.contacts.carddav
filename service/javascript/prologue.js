@@ -16,7 +16,8 @@ var AjaxCall = Foundations.Comms.AjaxCall;
 var Class = Foundations.Class;
 var DB = Foundations.Data.DB;
 var Future = Foundations.Control.Future;
-var ObjectUtils = Foundations.ObjectUtils; //don't know what we need that for..
+var Activity = Foundations.Control.Activity;
+//var ObjectUtils = Foundations.ObjectUtils; //don't know what we need that for..
 var PalmCall = Foundations.Comms.PalmCall;
 var xml = IMPORTS["foundations.xml"];
 
@@ -41,6 +42,25 @@ console.error("--------->Loaded Libraries OK1");
 
 var dummy = function () {};
 
+var printObj = function (obj, depth) {
+    var key, msg = "{";
+    if (depth < 5) {
+        for (key in obj) {
+            if (obj.hasOwnProperty(key)) {
+                try {
+                    msg += " " + key + ": " + JSON.stringify(obj[key]) + ",";
+                } catch (e) {
+                    msg += " " + key + ": " + printObj(obj[key], depth + 1) + ",";
+                }
+            }
+        }
+        msg[msg.length - 1] = "}";
+    } else {
+        msg = "...";
+    }
+    return msg;
+};
+
 var logBase = function () {
     var i, pos, datum, argsArr = Array.prototype.slice.call(arguments, 0),
         data;
@@ -50,7 +70,7 @@ var logBase = function () {
             try {
                 argsArr[i] = JSON.stringify(argsArr[i]);
             } catch (e) {
-                argsArr[i] += "(circular object)";
+                argsArr[i] = printObj(argsArr[i], 0);
             }
         }
     }
