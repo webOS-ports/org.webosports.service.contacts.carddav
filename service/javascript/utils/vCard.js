@@ -106,14 +106,16 @@ var vCard = (function () {
 			}
 
 			log("Writing vCard to file " + filename);
-			log("vCard data: " + input.vCard);
-			input.vCard = input.vCard.replace(/\=\r?\n/g, ''); //replace all =\n, those are newlines in datablocks (i.e. notes).
-			input.vCard = input.vCard.replace(/\r?\n /g, ''); //replace all \n+space, those are newlines in datablocks (i.e. notes).
+			log_icalDebug("vCard data: " + input.vCard);
+
 			if (input.vCard.indexOf("VERSION:3.0") > -1) {
 				version = "3.0";
 			} else if (input.vCard.indexOf("VERSION:2.1") > -1) {
 				version = "2.1";
+				input.vCard = input.vCard.replace(/\=\r?\n/g, ''); //replace all =\n, those are newlines in datablocks
 			}
+
+			input.vCard = input.vCard.replace(/\r?\n /g, ''); //replace all \n+space, those are newlines in datablocks
 			lines = input.vCard.split(/\r?\n/);
 			data = [];
 			for (i = 0; i < lines.length; i += 1) {
