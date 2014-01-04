@@ -1061,12 +1061,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function oneObjectCallback() {
 			var result = future.result, rid;
 
+			rid = this._uriToRemoteId(result.uri);
+			debug("Have rid " + rid + " from " + result.uri);
+
 			if (result.returnValue === true) {
-				rid = this._uriToRemoteId(result.uri);
-                debug("Have rid " + rid + " from " + result.uri);
-                delete batch[index].local.uploadFailed;
+				debug("Upload of " + rid + " worked.");
+				delete batch[index].local.uploadFailed;
 			} else {
-                batch[index].local.uploadFailed = 1; //TODO: find those objects and retry upload later.
+				debug("Upload of " + rid + " failed. Save failure for later.");
+                batch[index].local.uploadFailed = 1;
             }
 
 			//save remote id for local <=> remote mapping
@@ -1172,7 +1175,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						future.result = result;
 					} else {
 						log("Could not delete object: " + JSON.stringify(obj));
-						throw new Error("Delete object failed: " + JSON.stringify(future.result) + " for " + obj.remote.uri);
+						future.result = result;
 					}
 				});
 			} else {
@@ -1215,9 +1218,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				//issue is that on error code 412 (i.e. something changed on server on this object) sync will NEVER finish
 				//and always will be triggered.
 				if (result.returnCode === 412) {
-					future.result = {returnValue: false, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(future.result) + " for " + obj.uri };
+					future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(future.result) + " for " + obj.uri };
 				} else {
-					throw new Error("Put object failed: " + JSON.stringify(future.result) + " for " + obj.uri);
+					future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(future.result) + " for " + obj.uri };
 				}
 			}
 		});
@@ -1228,10 +1231,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				log("Got updated etag.");
 				future.result = { returnValue: true, uri: obj.uri, etag: result.etags[0].etag };
 			} else {
-				if (!future.exception) { //was no follow up error => log.
+				if (!result.putError) { //put was ok, only etag issue, let downsync solve that.
 					log("Get etag failed for " + obj.uri);
                     future.result = { returnValue: true, uri: obj.uri, etag: "0" };
-				} else {
+				} else { //put also failed, tell _processOne to store a failed upload.
 				    future.result = { returnValue: false, uri: obj.uri };
                 }
 			}
