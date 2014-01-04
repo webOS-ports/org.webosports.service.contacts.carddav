@@ -119,11 +119,12 @@ function quote(string) {
 	string = string.replace(/;/gmi, "\\;");
 	string = string.replace(/\n/gmi, "\\n");
 	string = string.replace(/\r/gmi, "\\r");
-	string = string.replace(/&/gmi, "&amp;");
+	//we don't need them, because we are not using XML anymore, yeah :)
+	/*string = string.replace(/&/gmi, "&amp;");
 	string = string.replace(/</gmi, "&lt;");
 	string = string.replace(/>/gmi, "&gt;");
 	string = string.replace(/"/gmi, "&quot;");
-	string = string.replace(/'/gmi, "&apos;");
+	string = string.replace(/'/gmi, "&apos;");*/
 	return string;
 }
 
