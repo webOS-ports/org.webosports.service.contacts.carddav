@@ -96,7 +96,9 @@ var vCard = (function () {
 				i,
 				version,
 				photoData = "",
-				emptyLine = /^[A-Za-z;\-_]*:[;]*$/;
+				emptyLine = /^[A-Za-z;\-_]*:[;]*$/,
+				//for extracting photo type.
+				photoType;
 
 			vCardIndex += 1;
 
@@ -125,11 +127,11 @@ var vCard = (function () {
 				if (currentLine.indexOf("PHOTO") > -1) {
 					log("got photo...");
 					photoData = currentLine.substring(currentLine.indexOf(":") + 1);
-					//log("PhotoData: " + photoData);
-					continue; //skip photo init line..
-				}
 
-				if (!emptyLine.test(currentLine)) {
+					photoType = extractPhotoType(currentLine);
+
+					//log("PhotoData: " + photoData);
+				} else if (!emptyLine.test(currentLine)) {
 					if (version === "2.1") {
 						//log("Decode, because version " + version);
 						currentLine = quoted_printable_decode(currentLine);
@@ -138,11 +140,11 @@ var vCard = (function () {
 					//currentLine = unquote(currentLine);
 					data.push(currentLine);
 				} else {
-					log("Skipping empty line " + currentLine);
+					log_icalDebug("Skipping empty line " + currentLine);
 				}
 			}
 			input.vCard = data.join("\r\n");
-			log("vCard data cleaned up: " + input.vCard);
+			log_icalDebug("vCard data cleaned up: " + input.vCard);
 			fs.writeFile(filename, input.vCard, "utf-8", function (err) {
 				if (err) {
 					log("Could not write vCard to file: " + filename + " Error: " + JSON.stringify(err));
@@ -179,7 +181,7 @@ var vCard = (function () {
 							if (photoData.length > 0) { //got a photo!! :)
 								log("Writing photo!");
 								buff = new Buffer(photoData, 'base64');
-								filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + ".jpg";
+								filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photoType;
 								log("writing photo to: " + filename);
 								fs.writeFile(filename, buff, function (err) {
 									if (err) {
