@@ -3,7 +3,7 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint node: true, nomen: true, sloppy: true */
-/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar, url */
+/*global debug, log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar, url, Activity */
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	_uriToRemoteId: function (uri) {
@@ -1264,6 +1264,129 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		future.result = result;
 		return future;
+	},
+
+
+	/*
+     * Helper function that creats syncOnEdit Activities for all Kind objects from upSyncs.
+	 * Returns a future that will return after all work is done.
+	 */
+	_buildSyncOnEditActivity: function (upSyncs, index) {
+		var syncObj = upSyncs[index], future = new Future(),
+			rev, name, queryParams, activity;
+
+		if (!syncObj) {
+			future.result = { returnValue: true};
+		} else {
+			if (syncObj.allowUpsync && !this.client.transport.syncKey[syncObj.name].error) {
+				//only redo upsync if not in error state?
+
+				rev = this.client.transport.modnum;
+				name = "SyncOnEdit:" + this.controller.service.name + ":" + this.client.clientId + ":" + syncObj.name;
+				queryParams = {
+					query: {
+						from: syncObj.id,
+						where: [
+							{prop: "accountId", op: "=", val: this.client.transport.accountId},
+							{prop: "_rev", op: ">", val: rev}
+						],
+						incDel: true
+					},
+					subscribe: true
+				};
+
+				activity = new Activity(name, "Sync On Edit", true)
+					.setUserInitiated(false)
+					.setExplicit(true)
+					.setPersist(true)
+					.setReplace(true)
+					.setRequirements({ internetConfidence: "fair" })
+					.setTrigger("fired", "palm://com.palm.db/watch", queryParams)
+					.setCallback("palm://" + this.controller.service.name + "/" + this.controller.config.name,
+								 { accountId: this.client.clientId });
+				future.nest(activity.start());
+
+				future.then(this, function startCB() {
+					var result = future.result || future.exception;
+					debug("Activity " + name + " Start result: ", result);
+					future.result = { returnValue: true };
+				});
+			} else {
+				debug("No upsync for " + syncObj.name + " => no SyncOnEdit activity");
+				future.result = { returnValue: true };
+			}
+
+			future.then(this, function startCB() {
+				var result = future.result;
+
+				future.nest(this._buildSyncOnEditActivity(upSyncs, index + 1));
+			});
+		}
+
+		return future;
+	},
+
+	//Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
+    complete: function (activity) {
+        log("CDav-Completing activity ", activity.name);
+
+        // this.recreateActivitiesOnComplete will be set to false when
+		// the sync command is run while the capability is disabled
+		// This is a little messy
+		if (!this.recreateActivitiesOnComplete) {
+			log("CDav-complete(): skipping creating of sync activities");
+			return activity.complete().then(function (future) {
+				future.result = true;
+			});
+		} else {
+			var syncActivity, outerFuture = new Future(), future;
+
+			future = this.getPeriodicSyncActivity().then(this, function getPeriodicSyncActivityCB() {
+				var restart = false;
+				syncActivity = future.result;
+				if (activity._activityId === syncActivity.activityId) {
+					log("Periodic sync. Restarting activity");
+					restart = true;
+				} else {
+					log("Not periodic sync. Completing activity");
+				}
+				if (this._hadLocalRevisionError) { //no clue, comes from mojoservice-sync-framework so we will keep this here.
+					restart = true;
+					this._hadLocalRevisionError = false;
+				}
+				future.nest(activity.complete(restart));
+			});
+
+			future.then(function completeCB(future) {
+				debug("Complete succeeded, result = ", future.result);
+				future.result = true;
+			}, function completeErrorCB(future) {
+				log("Complete FAILED, exception = ", future.exception);
+				future.result = false;
+			});
+
+			future.then(this, function completeDoneCB(future) {
+				if (future.result) {
+					var syncObjects = this.getSyncObjects(), kindName, upSyncs = [];
+
+					for (kindName in syncObjects) {
+						if (syncObjects.hasOwnProperty(kindName)) {
+							upSyncs.push(syncObjects[kindName]);
+						}
+					}
+
+					future.nest(this._buildSyncOnEditActivity(upSyncs, 0));
+
+					future.then(this, function syncOnEditCB() {
+						debug("All sync on edit creation came back.");
+						outerFuture.result = true;
+					});
+				} else {
+					outerFuture.result = true;
+				}
+			});
+			return outerFuture;
+		}
 	}
 });
 

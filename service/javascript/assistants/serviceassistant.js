@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, CalDav, Base64, KindsCalendar, KindsContacts */
+/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",
@@ -19,9 +19,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
 			log("\n\n**************************START SERVICEASSISTANT*****************************");
 			//for testing only - will expose credentials to log file if left open
-			//debug("\n------------------->accountId:" + JSON.stringify(accountid));
-			//debug("\n------------------->launchConfig" + JSON.stringify(launchConfig));
-			//debug("\n------------------->launchArgs" + JSON.stringify(launchArgs));
+			//debug("\n------------------->accountId:", accountid);
+			//debug("\n------------------->launchConfig", launchConfig);
+			//debug("\n------------------->launchArgs", launchArgs);
 			log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
 
 			//this seems necessary for super class constructor during checkCredentials calls.
@@ -33,13 +33,13 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					this.config = {};
 				}
 
-				this.config.name =      launchArgs.config.name || this.config.name;
-				this.config.url  =      launchArgs.config.url  || this.config.url;
+				this.config.name =	  launchArgs.config.name || this.config.name;
+				this.config.url  =	  launchArgs.config.url  || this.config.url;
 				this.config.username =  launchArgs.config.username || this.config.username;
 				this.config.accountId = this.accountId || this.config.accountId;
 
 				if (launchArgs.config.credentials) {
-					this.config.usnerame =  launchArgs.config.credentials.user || this.config.username;
+					this.config.username =  launchArgs.config.credentials.user || this.config.username;
 				}
 			}
 
@@ -83,7 +83,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				var result = future.result;
 				if (!result.iCal) {
 					debug("iCal init not ok.");
-				}
+				} else {
+                    debug("iCal initialized");
+                }
 				future.nest(vCard.initialize());
 			});
 
@@ -91,11 +93,14 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				var result = future.result;
 				if (!result.vCard) {
 					debug("vCard init not ok.");
-				}
+				} else {
+                    debug("vCard initialized");
+                }
 				future.result = { returnValue: true };
 			});
 
 			future.then(this, function getCredentials() {
+                debug("Getting credentials.");
 				//these two endpoints don't require stored auth data (passed in as default)
 				//onEnabled also did not supply creds.. hm. Will this cause problems?
 				if (launchConfig.name === "onDelete" || launchConfig.name === "checkCredentials") {
@@ -113,7 +118,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 						if (future.result.value) {  //found key
 							debug("------------->Existing Key Found");
 							KeyStore.getKey(this.accountId).then(this, function (getKey) {
-								//log("------------->Got Key: "+JSON.stringify(getKey.result));
+								log("------------->Got Key"); //+JSON.stringify(getKey.result));
 								this.userAuth = {"user": getKey.result.credentials.user, "password": getKey.result.credentials.password, "authToken": getKey.result.credentials.authToken};
 							});
 						} else { //no key found - check for username / password and save
