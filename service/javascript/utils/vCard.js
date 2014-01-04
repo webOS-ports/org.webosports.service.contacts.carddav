@@ -1,5 +1,5 @@
 //JSLint stuff:
-/*jslint sloppy: true, nomen: true */
+/*jslint sloppy: true, nomen: true, regexp: true */
 /*global Contacts, fs, log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer */
 
 var vCard = (function () {
@@ -22,6 +22,15 @@ var vCard = (function () {
 				}
 			}
 		}
+	}
+
+	function applyHacks(data, server) {
+		if (server === "egroupware") {
+			data = data.replace(/TEL;TYPE=CELL,VOICE/g, "TEL;TYPE=CELL");
+			data = data.replace(/CELL;VOICE/g, "CELL");
+		}
+
+		return data;
 	}
 
 	//public interface:
@@ -197,16 +206,16 @@ var vCard = (function () {
 		generateVCard: function (input) {
 			var resFuture = new Future(), note,
 				filename = tmpPath + (input.accountName || "nameless") + "_" + vCardIndex + ".vcf",
-				version = "3.0", //(input.serverData && input.serverData.serverType === MimeTypes.contacts.fallback) ? "2.1" : "3.0",
-				//TODO: can we determine if the server only accepts 2.1?
-				vCardExporter = new Contacts.VCardExporter({ filePath: filename, version: version }); //could set vCardVersion here to decide if 3.0 or 2.1, default will be 3.0... is that really necessary?
+				version = "3.0",
+				contactId = input.contact._id,
+				vCardExporter = new Contacts.VCardExporter({ filePath: filename, version: version });
 
 			vCardIndex += 1;
 
 			log("Got contact: " + JSON.stringify(input.contact));
 			Contacts.Utils.defineConstant("kind", input.kind, Contacts.Person);
-			log("Get contact " + input.contactId + " transfer it to version " + version + " vCard.");
-			vCardExporter.exportOne(input.contactId, false).then(function (future) {
+			log("Get contact " + contactId + " transfer it to version " + version + " vCard.");
+			vCardExporter.exportOne(contactId, false).then(function (future) {
 				log("webOS saved vCard to " + filename);
 				log("result: " + JSON.stringify(future.result));
 				fs.readFile(filename, "utf-8", function (err, data) {
@@ -215,9 +224,7 @@ var vCard = (function () {
 						resFuture.result = { returnValue: false };
 					} else {
 						log("Read vCard from " + filename + ": " + data);
-						data = data.replace(/TEL;TYPE=CELL,VOICE/g, "TEL;TYPE=CELL");
-						data = data.replace(/CELL;VOICE/g, "CELL");
-						data = data.replace(/\nTYPE=:/g, "URL:"); //repair borked up URL thing. Omitting type here..
+						data = applyHacks(data, input.server);
 
 						//webos seems to "forget" the note field.. add it here.
 						if (input.contact && input.contact.note) {
@@ -225,12 +232,13 @@ var vCard = (function () {
 							if (note) {
 								note.replace(/[^\r]\n/g, "\r\n");
 							}
-							if (version === "2.1") {
-								note = quoted_printable_encode(note);
-							}
 							note = quote(note);
 							log("Having note: " + note);
 							data = data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
+						}
+
+						if (input.contact && input.contact.uId) {
+							data = data.replace("END:VCARD", "UID:" + input.contact.uId + "\r\nEND:VCARD");
 						}
 
 						log("Modified data: " + data);
