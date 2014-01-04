@@ -126,3 +126,13 @@ function quote(string) {
 	string = string.replace(/'/gmi, "&apos;");
 	return string;
 }
+
+function fold(string) {
+	var parts = [];
+	while (string.length > 72) {
+		parts.push(string.substring(0, 72) + "\n\r ");
+		string = string.substring(72);
+	}
+	parts.push(string);
+	return parts.join("");
+}

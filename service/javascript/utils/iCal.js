@@ -1,6 +1,6 @@
 //JSLint things:
 /*jslint nomen: true, continue: true */
-/*global log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, log_icalDebug */
+/*global log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, log_icalDebug, fold */
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.
@@ -1236,14 +1236,7 @@ var iCal = (function () {
 		//lines "should not" be longer than 75 chars in icalendar spec.
 		if (calendarVersion !== 1) { //vcalendar spec read like this is optional. But breaks are only allowed in whitespaces. => ignore that.
 			for (i = 0; i < text.length; i += 1) {
-				line = text[i];
-				offset = 0;
-				while (line.length > 75) {
-					//leave a bit room while splitting.
-					text.splice(i + offset, 1, line.substr(0, 70), " " + line.substr(70)); //take out last element and add two new ones.
-					offset += 1;
-					line = text[i];
-				}
+				text[i] = fold(text[i]);
 			}
 		}
 		result = text.join("\r\n");
