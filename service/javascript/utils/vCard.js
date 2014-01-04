@@ -1,6 +1,6 @@
 //JSLint stuff:
 /*jslint sloppy: true, nomen: true, regexp: true */
-/*global Contacts, fs, log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer */
+/*global Contacts, fs, log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer, log_icalDebug, fold */
 
 var vCard = (function () {
 	var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
@@ -22,6 +22,78 @@ var vCard = (function () {
 				}
 			}
 		}
+	}
+
+	function extractPhotoType(line) {
+		var startIndex, endIndex, endIndex2, type;
+
+		startIndex = line.indexOf("TYPE=");
+		if (startIndex >= 0) {
+			startIndex += 5;
+			log_icalDebug("StartIndex: " + startIndex);
+
+			endIndex = line.indexOf(";", startIndex);
+			endIndex2 = line.indexOf(":", startIndex);
+
+			if (endIndex > 0 && endIndex2 > 0) {
+				endIndex = Math.min(endIndex, endIndex2);
+			} else if (endIndex2 > 0) {
+				endIndex = endIndex2;
+			}
+			type = line.substring(startIndex, endIndex);
+		}
+
+		if (type) {
+			type = "." + type.toLowerCase();
+		} else {
+			type = ".jpg";
+		}
+		log_icalDebug("Read Photo Type: " + type + " from " + startIndex);
+		return type;
+	}
+
+	function createPhotoBlob(photos) {
+		var future = new Future(), blob = "", photo, i, photoType;
+		log_icalDebug("Creating photo blob...");
+
+		for (i = 0; i < photos.length; i += 1) {
+			//Select smaller photo?
+			if (photos[i].type === "type_square") {
+				photo = photos[i];
+				break;
+			}
+		}
+		if (!photo) { //if no "square" photo, just take first one.
+			photo = photos[0];
+		}
+
+		log_icalDebug("Photo: " + JSON.stringify(photo));
+
+		//if we got a photo, build blob.
+		if (photo) {
+			photoType = photo.localPath.substring(photo.localPath.indexOf(".") + 1);
+			photoType = photoType.toUpperCase();
+
+			fs.readFile(photo.localPath, function (err, data) {
+				if (err) {
+					log("Could not read file " + photo.localPath + ": " + JSON.stringify(err));
+					future.result = {blob: ""};
+				} else {
+					log_icalDebug("Photo read...");
+					blob = "PHOTO;ENCODING=b;TYPE=" + photoType + ":" + data.toString("base64");
+					blob = fold(blob) + "\r\n";
+					log_icalDebug("Blob: \n" + blob);
+
+					future.result = {blob: blob};
+				}
+			});
+
+		} else {
+			log_icalDebug("Urgs...??");
+			future.result = {blob: blob};
+		}
+
+		return future;
 	}
 
 	function applyHacks(data, server) {
@@ -238,7 +310,7 @@ var vCard = (function () {
 							if (note) {
 								note.replace(/[^\r]\n/g, "\r\n");
 							}
-							note = quote(note);
+							note = fold(quote(note));
 							log("Having note: " + note);
 							data = data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
 						}
@@ -247,8 +319,16 @@ var vCard = (function () {
 							data = data.replace("END:VCARD", "UID:" + input.contact.uId + "\r\nEND:VCARD");
 						}
 
-						log("Modified data: " + data);
-						resFuture.result = { returnValue: true, result: data };
+						if (input.contact && input.contact.photos && input.contact.photos.length > 0) {
+							createPhotoBlob(input.contact.photos).then(this, function photoBlobCB(f) {
+								var result = f.result;
+								data = data.replace("END:VCARD", result.blob + "END:VCARD");
+								resFuture.result = { returnValue: true, result: data};
+							});
+						} else {
+							log("Modified data: " + data);
+							resFuture.result = { returnValue: true, result: data };
+						}
 					}
 					fs.unlink(filename);
 				});
