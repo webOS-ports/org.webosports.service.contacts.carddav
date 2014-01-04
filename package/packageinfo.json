@@ -2,7 +2,7 @@
 	"id": "org.webosports.cdav",
 	"package_format_version": 2,
 	"loc_name": "C+DAV synergy connector",
-	"version": "0.2.2",
+	"version": "0.2.3",
 	"vendor": "WebOS Ports - Stefan Schmidt",
 	"vendorurl": "www.webos-ports.org",
 	"app": "org.webosports.cdav.app",
