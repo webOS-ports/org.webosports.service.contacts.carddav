@@ -94,9 +94,9 @@ var logBase = function () {
 
 var log = logBase;
 
-var log_icalDebug = log;
+var log_icalDebug = dummy;
 
-var log_calDavDebug = log;
+var log_calDavDebug = dummy;
 
 var log_calDavParsingDebug = dummy;
 
