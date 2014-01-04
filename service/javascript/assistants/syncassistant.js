@@ -1066,7 +1066,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 			if (result.returnValue === true) {
 				debug("Upload of " + rid + " worked.");
-				delete batch[index].local.uploadFailed;
+				if (batch[index].local.uploadFailed) {
+					batch[index].local.uploadFailed = 0;
+				}
 			} else {
 				debug("Upload of " + rid + " failed. Save failure for later.");
                 batch[index].local.uploadFailed = 1;
@@ -1281,7 +1283,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (!syncObj) {
 			future.result = { returnValue: true};
 		} else {
-			if (syncObj.allowUpsync && !this.client.transport.syncKey[syncObj.name].error) {
+			if (syncObj.allowUpsync && (!this.client.transport.syncKey[syncObj.name] || !this.client.transport.syncKey[syncObj.name].error)) {
 				//only redo upsync if not in error state?
 
 				rev = this.client.transport.modnum;
