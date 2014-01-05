@@ -1,6 +1,6 @@
 //JSLint things:
 /*jslint nomen: true, continue: true */
-/*global log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, log_icalDebug */
+/*global log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, log_icalDebug, fold */
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.
@@ -181,6 +181,54 @@ var iCal = (function () {
 			t = webOsTimeToICal(time2, allDay, localTzId, addTZIDParam);
 		}
 		return t;
+	}
+
+	function convertDurationIntoMicroseconds(duration) {
+		var signRegExp = /^([+\-])?PT?([0-9DHM]+)/gi, parts, sign, remaining,
+			weekRegExp = /(\d)+W/gi,
+			dayRegExp = /(\d)+D/gi,
+			hourRegExp = /(\d)+H/gi,
+			minuteRegExp = /(\d)+M/gi,
+			secondRegExp = /(\d)+S/gi,
+			offset = 0;
+
+		parts = signRegExp.exec(duration);
+		if (parts) {
+			sign = parts[1] === "-" ? -1 : 1;
+			remaining = parts[2];
+
+			parts = weekRegExp.exec(remaining);
+			if (parts) {
+				offset += parseInt(parts[1], 10) * 86400000 * 7;
+			}
+
+			parts = dayRegExp.exec(remaining);
+			if (parts) {
+				offset += parseInt(parts[1], 10) * 86400000;
+			}
+
+			parts = hourRegExp.exec(remaining);
+			if (parts) {
+				offset += parseInt(parts[1], 10) * 3600000;
+			}
+
+			parts = minuteRegExp.exec(remaining);
+			if (parts) {
+				offset += parseInt(parts[1], 10) * 60000;
+			}
+
+			parts = secondRegExp.exec(remaining);
+			if (parts) {
+				offset += parseInt(parts[1], 10) * 1000;
+			}
+
+			offset *= sign;
+			log_icalDebug("Converted duration " + duration + " into offset " + offset);
+			return offset;
+		} else {
+			log("iCal.js======> DURATION DID NOT MATCH: ", duration);
+			return 0;
+		}
 	}
 
 	function parseDATEARRAY(str) {
@@ -715,7 +763,7 @@ var iCal = (function () {
 			//log_icalDebug("Got TZID: " + lObj.value);
 			event.tzId = lObj.value;
 			future = TZManager.loadTimezones([event.tzId, localTzId]);
-			future.then(afterTZ); //I hope this is allowed..
+			future.then(afterTZ);
 			future.onError(function (f) {
 				log("Error in TZManager.loadTimezones-future: " + f.exeption);
 				future.result = { returnValue: false };
@@ -812,6 +860,11 @@ var iCal = (function () {
 					event.allDay = false;
 				}
 				break;
+			case "DURATION":
+				//this can be specified instead of DTEND.
+				event.duration = lObj.value;
+				event.loadTimezones -= 1;
+				break;
 			default:
 				if (lObj.key !== "PRODID" && lObj.key !== "METHOD" && lObj.key !== "END") {
 					log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
@@ -887,6 +940,13 @@ var iCal = (function () {
 				}
 			}
 		}
+
+		if (!event.dtend && event.duration) {
+			event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
+			log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
+			delete event.duration;
+		}
+
 		if (event.rrule && event.rrule.until) {
 			t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
 			event.rrule.until = t.ts;
@@ -1004,7 +1064,7 @@ var iCal = (function () {
 
 	//x-vcalendar things:
 	function prepareXVCalendar(event) {
-		var i, ts, alarmValue, parts, regExp = /([+\-])?PT?(\d+)([DHM])/gi, date, sign;
+		var i, ts, alarmValue, parts, date, sign;
 
 		log_icalDebug("Converting to x-vcalendar: " + JSON.stringify(event));
 		for (i = 0; event.alarm && i < event.alarm.length; i += 1) {
@@ -1013,25 +1073,11 @@ var iCal = (function () {
 					log_icalDebug("Got duration-alarm " + event.alarm[i].alarmTrigger.value + " and converting it to aalarm.");
 					ts = event.dtstart;
 					alarmValue = event.alarm[i].alarmTrigger.value;
-					parts = regExp.exec(alarmValue);
-					if (parts && parts.length >= 4) {
-						sign = parts[1] === "+" ? 1 : -1;
-						if (parts && parts.length >= 4) {
-							if (parts[3] === "M") {
-								ts += parts[2] * 60000 * sign;
-							} else if (parts[3] === "H") {
-								ts += parts[2] * 3600000 * sign;
-							} else if (parts[3] === "D") {
-								ts += parts[2] * 86400000 * sign;
-							} else {
-								log("Unsupported duration: " + parts[3] + " of length " + parts[2] + " in alarm " + JSON.stringify(event.alarm[i]));
-								continue;
-							}
-							event.aalarm = webOsTimeToICal(ts, false, event.tzId || localTzId);
-							log_icalDebug("Found alarm: " + JSON.stringify(event.alarm[i]) + ", created: " + event.aalarm);
-							break;
-						}
-					}
+					ts += convertDurationIntoMicroseconds(alarmValue);
+
+					event.aalarm = webOsTimeToICal(ts, false, event.tzId || localTzId);
+					log_icalDebug("Found alarm: " + JSON.stringify(event.alarm[i]) + ", created: " + event.aalarm);
+					break;
 				} else {
 					event.aalarm = event.alarm[i].alarmTrigger.value;
 					//log_icalDebug("Found alarm: " + JSON.stringify(event.alarm[i]) + ", created: " + event.aalarm);
@@ -1109,7 +1155,7 @@ var iCal = (function () {
 		} else {
 			text.push("VERSION:2.0");
 		}
-		text.push("PRODID:MOBO.SYNCML.0.0.3");
+		//text.push("PRODID:MOBO.SYNCML.0.0.3");
 		text.push("METHOD:PUBLISH");
 		text.push("BEGIN:VEVENT");
 		for (field in event) {
@@ -1190,14 +1236,7 @@ var iCal = (function () {
 		//lines "should not" be longer than 75 chars in icalendar spec.
 		if (calendarVersion !== 1) { //vcalendar spec read like this is optional. But breaks are only allowed in whitespaces. => ignore that.
 			for (i = 0; i < text.length; i += 1) {
-				line = text[i];
-				offset = 0;
-				while (line.length > 75) {
-					//leave a bit room while splitting.
-					text.splice(i + offset, 1, line.substr(0, 70), " " + line.substr(70)); //take out last element and add two new ones.
-					offset += 1;
-					line = text[i];
-				}
+				text[i] = fold(text[i]);
 			}
 		}
 		result = text.join("\r\n");
@@ -1266,6 +1305,7 @@ var iCal = (function () {
 						}
 					}
 				}
+				log_icalDebug("Parsing finished, event: " + JSON.stringify(event));
 
 				event = tryToFillParentId(event);
 
