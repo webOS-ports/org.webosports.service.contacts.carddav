@@ -3,8 +3,9 @@
 	o urlschemes improved to allow multiple keys, will allow support for hosted owncloud systems
 	o changed upsync logic to be more robust.
 	o a lot of fixes in vCard processing which should allow contact upsync in future.
+	o fixes for iCloud compability
 
-2013-XX-XX: Achim Königs <garfonso@mobo.info>
+2014-03-02: Achim Königs <garfonso@mobo.info>
 
 0.2.2:
 	o Added messages to enyo-app, that it is not to be run manually, at this point in time
