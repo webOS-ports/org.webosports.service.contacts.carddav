@@ -8,9 +8,9 @@ var UrlSchemes = {
 	//	   if a replacement is required more than once, change function!
 	urlSchemes: [
 		{
-			keys:			  ["DISABLEDicloud.com"],
-			calendar:	      "https://p02-caldav.icloud.com:443",
-			contact:		  "https://p02-contacts.icloud.com:443",
+			keys:			  ["icloud.com"],
+			//calendar:	      "https://p02-caldav.icloud.com:443",
+			//contact:		  "https://p02-contacts.icloud.com:443",
 			checkCredentials: "https://p02-contacts.icloud.com:443"
 		},
 		{
@@ -67,11 +67,13 @@ var UrlSchemes = {
 					debug("Found URL for scheme ", scheme);
 					prefix = url.substring(0, index + scheme.keys[j].length);
 					debug("Prefix: ", prefix);
-					newURL = scheme[type].replace("%URL_PREFIX%", prefix);
-					newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
-					debug("Returning new URL: ", newURL);
-					this.cache[url][type] = newURL;
-					return newURL;
+					if (scheme[type]) {
+						newURL = scheme[type].replace("%URL_PREFIX%", prefix);
+						newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
+						debug("Returning new URL: ", newURL);
+						this.cache[url][type] = newURL;
+						return newURL;
+					}
 				}
 			}
 		}
