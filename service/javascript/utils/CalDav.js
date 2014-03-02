@@ -322,7 +322,8 @@ var CalDav = (function () {
 				Prefer: "return-minimal", //don't really know why that is.
 				"Content-Type": "application/xml; charset=utf-8", //necessary
 				Connection: "keep-alive",
-				Authorization: params.authToken
+				Authorization: params.authToken,
+				"User-Agent": "org.webosports.cdav-connector"
 			}
 		};
 		parseURLIntoOptions(params.path, options);
@@ -525,49 +526,6 @@ var CalDav = (function () {
 			var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = { subFolders: {} }, folderCB,
 				tryFolders = [], principals = [];
 
-			function principalCB(index) {
-				var result = future.result, principal, folder, i;
-				if (result.returnValue === true) {
-					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
-					if (principal) {
-						principal = getValue(getValue(principal, "href"), "$t");
-						log_calDavDebug("Got principal: " + principal);
-						if (principal) {
-							if (principal.indexOf("http") === 0) {
-								principals.push(principal);
-							} else {
-								principals.push(options.prefix + principal); //try to find homes in principal folder, later.
-							}
-							generateMoreTestPaths(principals[principals.length - 1], principals);
-						}
-					}
-				} else {
-					//error, stop, return failure.
-					log("Error in getPrincipal: " + JSON.stringify(result));
-					//future.result = result;
-				}
-
-				if (index < tryFolders.length) {
-					parseURLIntoOptions(tryFolders[index], options);
-					future.nest(sendRequest(options, data));
-					future.then(principalCB.bind(this, index + 1));
-				} else {
-					if (principals.length === 0) {
-						log("Could not get any principal at all.");
-					}
-
-					//prepare home folder search:
-					options.headers.Depth = 0;
-					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><c:calendar-home-set/></d:prop></d:propfind>";
-
-					//reorder array, so that principal folders are tried first:
-					tryFolders = principals.concat(tryFolders);
-
-					parseURLIntoOptions(tryFolders[0], options);
-					future.nest(sendRequest(options, data));
-				}
-			}
-
 			function getHomeCB(addressbook, index) {
 				var result = future.result, home;
 				if (result.returnValue === true) {
@@ -577,7 +535,7 @@ var CalDav = (function () {
 						log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
 					} else {
 						log_calDavDebug("Original home: " + home);
-						if (home.indexOf(http) === 0) {
+						if (home.indexOf("http") === 0) {
 							log_calDavDebug("Home already complete?");
 						} else {
 							log("Augmenting home...");
@@ -627,6 +585,51 @@ var CalDav = (function () {
 				}
 			}
 
+			function principalCB(index) {
+				var result = future.result, principal, folder, i;
+				if (result.returnValue === true) {
+					principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
+					if (principal) {
+						principal = getValue(getValue(principal, "href"), "$t");
+						log_calDavDebug("Got principal: " + principal);
+						if (principal) {
+							if (principal.indexOf("http") === 0) {
+								principals.push(principal);
+							} else {
+								principals.push(options.prefix + principal); //try to find homes in principal folder, later.
+							}
+							log_calDavDebug("Pushed: " + principals[principals.length - 1]);
+							generateMoreTestPaths(principals[principals.length - 1], principals);
+						}
+					}
+				} else {
+					//error, stop, return failure.
+					log("Error in getPrincipal: " + JSON.stringify(result));
+					//future.result = result;
+				}
+
+				if (index < tryFolders.length) {
+					parseURLIntoOptions(tryFolders[index], options);
+					future.nest(sendRequest(options, data));
+					future.then(principalCB.bind(this, index + 1));
+				} else {
+					if (principals.length === 0) {
+						log("Could not get any principal at all.");
+					}
+
+					//prepare home folder search:
+					options.headers.Depth = 0;
+					data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><c:calendar-home-set/></d:prop></d:propfind>";
+
+					//reorder array, so that principal folders are tried first:
+					tryFolders = principals.concat(tryFolders);
+
+					parseURLIntoOptions(tryFolders[0], options);
+					future.nest(sendRequest(options, data));
+					future.then(getHomeCB.bind(this, false, 1));
+				}
+			}
+
 			//some folders to probe for:
 			tryFolders.push(params.originalUrl); //push original URL to test-for-home-folders.
 			generateMoreTestPaths(tryFolders[0], tryFolders);
@@ -641,8 +644,6 @@ var CalDav = (function () {
 			data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 			future.nest(sendRequest(options, data));
 			future.then(principalCB.bind(this, 1));
-
-			future.then(getHomeCB.bind(this, false, 1));
 
 			folderCB = function () {
 				var result = future.result, i, f, fresult = [], key;
