@@ -1,0 +1,11 @@
+.accounts-toolbar-btn {
+    width: 300px;
+}
+
+.accounts-footer-shadow {
+    position: absolute;
+    z-index: 100
+    height: 3px;
+    width: 100%;
+    pointer-events: none;
+}

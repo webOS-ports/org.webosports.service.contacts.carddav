@@ -11,23 +11,49 @@ function debug(msg) {
 
 enyo.kind({
 	name: "Main.CrossAppLaunch",
-	kind: "Scroller",
+	width: "100%",
+	kind: "VFlexBox",
+	className: "enyo-bg",
 	components: [
 		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
 			method: "checkCredentials", onSuccess: "credentialsOK", onFailure: "credentialsWrong" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
-		{ kind: "PageHeader", content: "WebOs Ports CardDav Credentials Validator" },
-		{ style: "margin:30px;", components: [
+		{ kind: "PageHeader", content: "Sign In", pack: "center" },
+		{ kind: "Scroller", flex: 1, style: "margin:30px;", components: [
 			{ name: "alert", style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;" },
-			{ kind: "RowGroup", caption: "Text captured from Cross-App Source - App A", components: [
-				{ kind: "Input", hint: "Servername", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase" },
-				{ kind: "Input", hint: "URL", value: "", name: "txtURL", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase", inputType: "url" },
-				{ kind: "Input", hint: "Username", value: "", name: "txtUsername", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase", inputType: "email" },
-				{ kind: "PasswordInput", hint: "Password", value: "", name: "txtPassword", tabIndex: "0", spellcheck: false, autocorrect: false, autoCapitalize: "lowercase" },
+			{ kind: "RowGroup", caption: "Connection settings", components: [
+				{kind: "InputBox", components: [
+					{kind: "Input", hint: "Name", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false,
+					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
+						{content: "Name"}
+					]},
+				]},
+				{kind: "InputBox", components: [
+					{kind: "Input", hint: "URL", value: "https://", name: "txtURL", tabIndex: "0", spellcheck: false,
+					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "url", components: [
+						{content: "URL"}
+					]},
+				]},
+				{kind: "InputBox", components: [
+					{kind: "Input", hint: "Username", value: "", name: "txtUsername", tabIndex: "0", spellcheck: false,
+					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "email", components: [
+						{content: "Username"}
+					]},
+				]},
+				{kind: "InputBox", components: [
+					{kind: "PasswordInput", hint: "Password", value: "", name: "txtPassword", tabIndex: "0", spellcheck: false,
+					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
+						{content: "Password"}
+					]},
+				]},
 				{ kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
 			]}
 		]},
-		{kind: "CrossAppResult"}
+		{kind: "CrossAppResult", name: "crossAppResult" },
+		{className: "accounts-footer-shadow", tabIndex: -1},
+		{kind: "Toolbar", className: "enyo-toolbar-light", components: [
+			{ name: "doneButton", kind: "Button", caption: "Back", onclick: "doBack", className: "accounts-toolbar-btn"},
+		]}
 	],
 	create: function () {
 		this.inherited(arguments);
@@ -159,5 +185,8 @@ enyo.kind({
         }
 
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
+	},
+	doBack: function() {
+		this.$.crossAppResult.sendResult({returnValue: false});
 	}
 });
