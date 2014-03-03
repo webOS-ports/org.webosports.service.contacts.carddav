@@ -542,6 +542,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     if (!result.more) {
 				        debug("Sync for folder " + folder.name + " finished.");
 					    this.client.transport.syncKey[kindName].folderIndex = nextIndex;
+						result.more = nextIndex < folders.length;
                     }
 
                     //save ctag to fastly determine if sync is necessary at all
@@ -922,7 +923,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * the future returns when all downloads are finished.
 	 */
 	_downloadData: function (kindName, entries, entriesIndex) {
-		var future = new Future(), resultEntries, fi;
+		var future = new Future(), resultEntries, fi, needEtags;
 
 		if (entriesIndex < entries.length && entriesIndex < 10) {
 			if (entries[entriesIndex].doDelete) { //no need to download for deleted entry, skip.
@@ -976,6 +977,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} //end update
 		} else { //entriesIndex >= entries.length => finished.
 			log(entriesIndex + " items received and converted.");
+			needEtags = entries.length > 0;
             resultEntries = entries.splice(0, entriesIndex);
 
             fi = this.client.transport.syncKey[kindName].folderIndex;
@@ -987,7 +989,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
             log(entries.length + " items for next run.");
 			future.result = {
-				more: true, //force download of etags, necessary if entries where left from last sync.
+				more: needEtags, //force download of etags, necessary if entries where left from last sync.
 				entries: resultEntries
 			};
 		}
