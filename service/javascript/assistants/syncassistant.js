@@ -520,6 +520,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (folder.entries &&
                     folder.entries.length > 0) {
                 //trigger download directly.
+				folder.forceEtags = true;
                 future.result = {needsUpdate: true};
             } else {
                 this.params.ctag = this.client.transport.syncKey[kindName].folders[index].ctag || 0;
@@ -977,7 +978,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} //end update
 		} else { //entriesIndex >= entries.length => finished.
 			log(entriesIndex + " items received and converted.");
-			needEtags = entries.length > 0;
             resultEntries = entries.splice(0, entriesIndex);
 
             fi = this.client.transport.syncKey[kindName].folderIndex;
@@ -987,9 +987,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 this.client.transport.syncKey[kindName].folders[fi].entries = undefined;
             }
 
+			//force download of etags, necessary if entries where left from last sync.
+			needEtags = entries.length > 0 || this.client.transport.syncKey[kindName].folders[fi].forceEtags;
+			delete this.client.transport.syncKey[kindName].folders[fi].forceEtags;
             log(entries.length + " items for next run.");
 			future.result = {
-				more: needEtags, //force download of etags, necessary if entries where left from last sync.
+				more: needEtags,
 				entries: resultEntries
 			};
 		}
