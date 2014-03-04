@@ -1076,8 +1076,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				}
 			} else {
 				debug("Upload of " + rid + " failed. Save failure for later.");
-                batch[index].local.uploadFailed = 1;
-            }
+				batch[index].local.uploadFailed = 1;
+			}
 
 			//save remote id for local <=> remote mapping
 			remoteIds[index] = rid;
