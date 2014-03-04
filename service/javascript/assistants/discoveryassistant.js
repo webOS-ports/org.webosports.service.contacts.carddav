@@ -57,7 +57,7 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
 };
 
 DiscoveryAssistant.prototype.processAccount = function (args, config) {
-	var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome;
+	var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome, key, additionalConfig;
 
 	if (config) {
 		debug("Got config object: " + JSON.stringify(config));
@@ -79,6 +79,17 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 			log("No url for " + JSON.stringify(config) + " found in db or agruments. Can't process this account.");
 			outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
 			return outerFuture;
+		}
+
+		additionalConfig = UrlSchemes.resolveURL(config.url, config.username, "additionalConfig");
+		debug("AdditionalConfig: ", additionalConfig);
+		if (additionalConfig) {
+			for (key in additionalConfig) {
+				if (additionalConfig.hasOwnProperty(key)) {
+					debug("Copying " + key + " from UrlSchemes into config object.");
+					config[key] = additionalConfig[key];
+				}
+			}
 		}
 
 		params = {

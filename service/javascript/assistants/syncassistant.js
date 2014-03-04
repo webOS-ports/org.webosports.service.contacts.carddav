@@ -12,9 +12,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			return undefined;
 		}
 
-		for (i = uri.length - 1; i >= 0; i -= 1) {
-			if (uri.charAt(i) === '/') {
-				return uri.substring(i + 1);
+		if (this.client.config.preventDuplicateCalendarEntries) {
+			for (i = uri.length - 1; i >= 0; i -= 1) {
+				if (uri.charAt(i) === '/') {
+					return uri.substring(i + 1);
+				}
 			}
 		}
 		return uri; //fallback
@@ -153,7 +155,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
 					to.name = from.name;
 					to.syncSource = "cdav";
-					to.remoteId = from.uri;
+					to.remoteId = from.remoteId || from.uri;
 					to.uri = from.uri;
 
 					return true; //notify of changes.

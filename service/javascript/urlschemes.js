@@ -36,7 +36,10 @@ var UrlSchemes = {
 			keys:			  ["/egroupware"],
 			calendar:	      "%URL_PREFIX%/groupdav.php/%USERNAME%/",
 			contact:		  "%URL_PREFIX%/groupdav.php/%USERNAME%/",
-			checkCredentials: "%URL_PREFIX%/groupdav.php"
+			checkCredentials: "%URL_PREFIX%/groupdav.php",
+			additionalConfig: {
+				preventDuplicateCalendarEntries: true
+			}
 		}
 	],
 
@@ -68,11 +71,16 @@ var UrlSchemes = {
 					prefix = url.substring(0, index + scheme.keys[j].length);
 					debug("Prefix: ", prefix);
 					if (scheme[type]) {
-						newURL = scheme[type].replace("%URL_PREFIX%", prefix);
-						newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
-						debug("Returning new URL: ", newURL);
-						this.cache[url][type] = newURL;
-						return newURL;
+						if (typeof scheme[type] === "string") {
+							newURL = scheme[type].replace("%URL_PREFIX%", prefix);
+							newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
+							debug("Returning new URL: ", newURL);
+							this.cache[url][type] = newURL;
+							return newURL;
+						} else {
+							this.cache[url][type] = scheme[type];
+							return scheme[type];
+						}
 					}
 				}
 			}
