@@ -15,9 +15,11 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		url = args.config.url;
 	}
 
+	if (args.accountId) {
+		debug("Have account id => this is change credentials call, get config object from db.");
 		future.nest(searchAccountConfig(args));
 	} else {
-		future.result = {returnValue: true, obj: { config: {url: args.url}}};
+		future.result = {returnValue: true,  config: {url: url}};
 	}
 
 	//build result and send it back to UI.
@@ -120,7 +122,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (this.config) {
 			this.config.accountId = args.accountId || this.config.accountId;
 			this.config.name = args.name || this.config.name;
-			this.config.username = args.username || this.config.username;
+			this.config.username = args.username || args.user || this.config.username;
 			this.config.url = args.url || this.config.url;
 
 			if (this.config._id && this.config._kind) {
