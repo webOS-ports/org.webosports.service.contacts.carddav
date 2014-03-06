@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global debug, Base64, CalDav, DB, searchAccountConfig, Future, log, KeyStore, UrlSchemes */
+/*global debug, Base64, CalDav, DB, searchAccountConfig, Future, log, KeyStore, UrlSchemes, Transport */
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () {};
@@ -49,8 +49,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 				path = this.config.url;
 			} else {
 				log("No URL. Can't check credentials!");
-				outerfuture.result = {success: false, returnValue: false};
-				return outerfuture;
+				throw new Transport.AuthenticationError();
 			}
 		}
 
@@ -62,7 +61,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	});
 
 	future.then(this, function credentialsCheckCB() {
-		var result = future.result, authToken, msg;
+		var result = future.result, authToken, msg, exception;
 		// Check if we are getting a good return code for success
 		if (result.returnValue === true) {
 			// Pass back credentials and config (username/password/url);
@@ -85,23 +84,30 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			debug("Password rejected");
             switch (result.returnCode) {
             case 404:
-                msg = "URL wrong, document not found.";
-                break;
+                msg = "URL wrong, document not found. - URL: " + result.uri;
+				exception = new Transport.BadRequestError(msg);
+				break;
             case 403:
-                msg = "Access forbidden, probably server or URL issue.";
-                break;
+                msg = "Access forbidden, probably server or URL issue. - URL: " + result.uri;
+				exception = new Transport.BadRequestError(msg);
+				break;
             case 401:
-                msg = "Credentials are wrong.";
-                break;
+                msg = "Credentials are wrong. - URL: " + result.uri;
+				exception = new Transport.AuthenticationError(msg);
+				break;
             case 405:
-                msg = "Method not allowed, probably URL is no caldav/carddav URL. Please look up configuration of your server or report back to developers.";
-                break;
+                msg = "Method not allowed, probably URL is no caldav/carddav URL. Please look up configuration of your server or report back to developers. - URL: " + result.uri;
+				exception = new Transport.BadRequestError(msg);
+				break;
             default:
-                msg = "Connection issue: " + result.returnCode + ". Maybe try again later or check url.";
-                break;
+                msg = "Connection issue: " + result.returnCode + ". Maybe try again later or check url. - URL: " + result.uri;
+				exception = new Transport.TimeoutError(msg);
+				break;
             }
-            msg += " - URL: " + result.uri;
-			outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.ur};
+			outerfuture.setException(exception);
+			log("Error in CheckCredentials:", exception.toString());
+			outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.uri};
+			throw exception;
 		}
 	});
 
