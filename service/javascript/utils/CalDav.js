@@ -236,7 +236,11 @@ var CalDav = (function () {
 
 			if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
 				log_calDavDebug("Location: ", res.headers.location);
-                //check if redirected to identical location
+				if (res.headers.location.indexOf("http") < 0) {
+					res.headers.location = options.prefix + res.headers.location;
+				}
+
+				//check if redirected to identical location
                 if (res.headers.location === options.prefix + options.path || //if strings really are identical
                     //or we have default port and string without port is identical:
                         (
