@@ -87,11 +87,9 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		}
 
 		additionalConfig = UrlSchemes.resolveURL(config.url, config.username, "additionalConfig");
-		debug("AdditionalConfig: ", additionalConfig);
 		if (additionalConfig) {
 			for (key in additionalConfig) {
 				if (additionalConfig.hasOwnProperty(key)) {
-					debug("Copying " + key + " from UrlSchemes into config object.");
 					config[key] = additionalConfig[key];
 				}
 			}
