@@ -49,7 +49,9 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
                     log("No " + type + " folders from known home, trying usual discovery.");
                     future.result = { returnValue: false };
                 }
-            }
+            } else {
+				future.result = { returnValue: false };
+			}
         });
     } else {
         log("Could not resolve " + type + " home from known URL schemes.");
