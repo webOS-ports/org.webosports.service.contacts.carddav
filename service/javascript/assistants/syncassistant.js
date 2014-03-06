@@ -85,7 +85,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 
 		uri = obj.local.uri;
-		if (!obj.local.uri) {
+		if (!uri) {
 
 			//get the URL of a addressbook or calendar.
 			if (obj.local.calendarId) {
@@ -122,6 +122,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				remoteId = this.getNewRemoteObject();
 			}
 
+			//we assume that getNewRemoteObject() was called before and did not create a full URI remote id.
 			uri = prefix + remoteId;
 		} else {
 			remoteId = obj.local.remoteId;
@@ -131,8 +132,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 
 		obj.remote.uri = uri;
-		obj.remote.remoteId = remoteId;
-		obj.local.remoteId = remoteId;
+		if (this.client.config.preventDuplicateCalendarEntries) {
+			obj.remote.remoteId = remoteId;
+			obj.local.remoteId = remoteId;
+		} else {
+			obj.remote.remoteId = uri;
+			obj.local.remoteId = uri;
+		}
 		obj.local.uri = uri;
 		obj.local.uId = remoteId;
 	},
