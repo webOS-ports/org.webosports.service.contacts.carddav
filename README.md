@@ -15,3 +15,8 @@ Roadmap would look roughly like this:
 
 No timeline is given for this. Pull requests are always welcome.
 
+
+
+
+Icon source:
+https://github.com/intridea/authbuttons
