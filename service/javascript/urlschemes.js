@@ -66,6 +66,10 @@ var UrlSchemes = {
 						} else {
 							return scheme[type];
 						}
+					} else {
+						if (type === "additionalConfig") {
+							return undefined;
+						}
 					}
 				}
 			}
