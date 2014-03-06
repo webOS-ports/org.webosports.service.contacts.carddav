@@ -43,24 +43,11 @@ var UrlSchemes = {
 		}
 	],
 
-	cache: {
-
-	},
-
 	resolveURL: function (url, username, type) {
 		"use strict";
 		var i, j, scheme, index, prefix, newURL;
 		url = url.toLowerCase();
 		debug("Resolving " + url);
-
-		if (this.cache[url] &&  this.cache[url][type]) {
-			debug("Returning cached url ", this.cache[url][type]);
-			return this.cache[url][type];
-		}
-
-		if (!this.cache[url]) {
-			this.cache[url] = {};
-		}
 
 		for (i = 0; i < this.urlSchemes.length; i += 1) {
 			scheme = this.urlSchemes[i];
@@ -75,10 +62,8 @@ var UrlSchemes = {
 							newURL = scheme[type].replace("%URL_PREFIX%", prefix);
 							newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
 							debug("Returning new URL: ", newURL);
-							this.cache[url][type] = newURL;
 							return newURL;
 						} else {
-							this.cache[url][type] = scheme[type];
 							return scheme[type];
 						}
 					}
@@ -86,7 +71,6 @@ var UrlSchemes = {
 			}
 		}
 
-		this.cache[url][type] = url; //prevent looking up same URL all the time.
 		return url;
 	}
 };
