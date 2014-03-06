@@ -15,9 +15,9 @@ var UrlSchemes = {
 		},
 		{
 			keys:			  ["google."],
-			calendar:	      "https://www.google.com:443/calendar/dav/%USERNAME%/user/",
-			contact:		  "https://www.google.com:443/carddav/v1/principals/%USERNAME/lists/",
-			checkCredentials: "https://www.google.com:443/calendar/dav/%USERNAME%/user"
+			calendar:	      "https://apidata.googleusercontent.com/caldav/v2/%USERNAME%/events",
+			contact:           "https://www.google.com:443/carddav/v1/principals/%USERNAME%/lists/",
+			checkCredentials: "https://www.google.com:443/.well-known/carddav"
 		},
 		{
 			keys:	          ["DISABLEDyahoo."],
