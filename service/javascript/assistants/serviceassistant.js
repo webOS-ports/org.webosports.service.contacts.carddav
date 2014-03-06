@@ -147,12 +147,13 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 								this.userAuth = {"user": username, "password": password, "authToken": authToken};
 								KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
 									debug("------------->Saved Key" + JSON.stringify(putKey.result));
+									future.result = { returnValue: true }; //continue with future execution.
 								});
 							} else {
 								debug("---->No config, can't do anything.");
+								future.result = { returnValue: false }; //continue with future execution.
 							}
 						}
-						future.result = { returnValue: true }; //continue with future execution.
 						return true;
 					});
 				}
