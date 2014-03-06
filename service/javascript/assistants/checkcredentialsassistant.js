@@ -5,14 +5,16 @@
 var checkCredentialsAssistant = function () {};
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
-	var args = this.controller.args, base64Auth, future = new Future();
-	//debug("Account args =" + JSON.stringify(args));
+	var args = this.controller.args, base64Auth, future = new Future(), url = args.url;
+	//debug("Account args =", args);
 
 	// Base64 encode username and password
 	base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
 
-	if (!args.url) {
-		debug("No URL supplied. Maybe we got called to change credentials?");
+	if (args && args.config && !url) {
+		url = args.config.url;
+	}
+
 		future.nest(searchAccountConfig(args));
 	} else {
 		future.result = {returnValue: true, obj: { config: {url: args.url}}};
@@ -26,13 +28,13 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 				common: {
 					password: args.password,
 					username: args.username,
-					url: args.url
+					url: url
 				}
 			},
 			config: {
 				password: args.password,
 				username: args.username,
-				url: args.url
+				url: url
 			}
 		};
 	}
@@ -42,8 +44,8 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (result.returnValue === true) {
 			this.config = result.config;
 		}
-		if (args.url) {
-			path = args.url;
+		if (url) {
+			path = url;
 		} else {
 			if (this.config && this.config.url) {
 				path = this.config.url;
