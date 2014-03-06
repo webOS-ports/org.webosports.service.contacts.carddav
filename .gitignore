@@ -1,0 +1,10 @@
+logs
+buildpackage.bat
+buildpackage-enyo.bat
+buildpackage-upsync.bat
+buildpackage-enyo-upsync.bat
+distribute.cmd
+
+service/javascript/kinds_upsync.js
+
+*.ipk
