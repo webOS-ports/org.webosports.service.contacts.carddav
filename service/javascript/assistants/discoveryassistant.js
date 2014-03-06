@@ -10,6 +10,9 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 	var future = new Future(), args = this.controller.args;
 
 	if (this.client && this.client.config) {
+		if (!this.client.config.username) {
+			this.client.config.username = this.client.userAuth.user;
+		}
 		future.nest(this.processAccount(args, this.client.config));
 	} else {
 		log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
