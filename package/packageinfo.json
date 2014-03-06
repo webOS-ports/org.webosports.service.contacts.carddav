@@ -10,6 +10,7 @@
 		"org.webosports.cdav.service"
 	],
 	"accounts": [
-		"org.webosports.cdav.account"
+		"org.webosports.cdav.account",
+		"org.webosports.cdav.account.google.contacts"
 	]
 }
