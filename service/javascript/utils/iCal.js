@@ -507,6 +507,10 @@ var iCal = (function () {
 			alarm.trigger = lObj.line; //save complete trigger string.
 			//TODO: try to repair some deficiencies of webOs here... for example related end could be easily repaired if dtend and dtstart are known.
 			alarm.alarmTrigger = { value: lObj.value, valueType: lObj.parameters.value || "DURATION" }; //decode string a bit for webOs.
+			if (alarm.alarmTrigger.value === "P" || alarm.alarmTrigger.value === "-P") { //fix issue in webOS 2.1.1 with alarm 0 min before start.
+				alarm.alarmTrigger.value = "-PT0M";
+			}
+
 			if (alarm.alarmTrigger.valueType === "DATE-TIME") {
 				//docs say webos wants "DATETIME" not "DATE-TIME" like iCal... :(
 				alarm.alarmTrigger.valueType = "DATETIME";

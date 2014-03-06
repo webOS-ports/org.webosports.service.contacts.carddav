@@ -12,9 +12,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			return undefined;
 		}
 
-		for (i = uri.length - 1; i >= 0; i -= 1) {
-			if (uri.charAt(i) === '/') {
-				return uri.substring(i + 1);
+		if (this.client.config.preventDuplicateCalendarEntries) {
+			for (i = uri.length - 1; i >= 0; i -= 1) {
+				if (uri.charAt(i) === '/') {
+					return uri.substring(i + 1);
+				}
 			}
 		}
 		return uri; //fallback
@@ -83,7 +85,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 
 		uri = obj.local.uri;
-		if (!obj.local.uri) {
+		if (!uri) {
 
 			//get the URL of a addressbook or calendar.
 			if (obj.local.calendarId) {
@@ -120,6 +122,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				remoteId = this.getNewRemoteObject();
 			}
 
+			//we assume that getNewRemoteObject() was called before and did not create a full URI remote id.
 			uri = prefix + remoteId;
 		} else {
 			remoteId = obj.local.remoteId;
@@ -129,8 +132,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 
 		obj.remote.uri = uri;
-		obj.remote.remoteId = remoteId;
-		obj.local.remoteId = remoteId;
+		if (this.client.config.preventDuplicateCalendarEntries) {
+			obj.remote.remoteId = remoteId;
+			obj.local.remoteId = remoteId;
+		} else {
+			obj.remote.remoteId = uri;
+			obj.local.remoteId = uri;
+		}
 		obj.local.uri = uri;
 		obj.local.uId = remoteId;
 	},
@@ -153,7 +161,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
 					to.name = from.name;
 					to.syncSource = "cdav";
-					to.remoteId = from.uri;
+					to.remoteId = from.remoteId || from.uri;
 					to.uri = from.uri;
 
 					return true; //notify of changes.
@@ -520,6 +528,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (folder.entries &&
                     folder.entries.length > 0) {
                 //trigger download directly.
+				folder.forceEtags = true;
                 future.result = {needsUpdate: true};
             } else {
                 this.params.ctag = this.client.transport.syncKey[kindName].folders[index].ctag || 0;
@@ -542,6 +551,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     if (!result.more) {
 				        debug("Sync for folder " + folder.name + " finished.");
 					    this.client.transport.syncKey[kindName].folderIndex = nextIndex;
+						result.more = nextIndex < folders.length;
                     }
 
                     //save ctag to fastly determine if sync is necessary at all
@@ -922,7 +932,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	 * the future returns when all downloads are finished.
 	 */
 	_downloadData: function (kindName, entries, entriesIndex) {
-		var future = new Future(), resultEntries, fi;
+		var future = new Future(), resultEntries, fi, needEtags;
 
 		if (entriesIndex < entries.length && entriesIndex < 10) {
 			if (entries[entriesIndex].doDelete) { //no need to download for deleted entry, skip.
@@ -985,9 +995,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 this.client.transport.syncKey[kindName].folders[fi].entries = undefined;
             }
 
+			//force download of etags, necessary if entries where left from last sync.
+			needEtags = entries.length > 0 || this.client.transport.syncKey[kindName].folders[fi].forceEtags;
+			delete this.client.transport.syncKey[kindName].folders[fi].forceEtags;
             log(entries.length + " items for next run.");
 			future.result = {
-				more: true, //force download of etags, necessary if entries where left from last sync.
+				more: needEtags,
 				entries: resultEntries
 			};
 		}
@@ -1071,8 +1084,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				}
 			} else {
 				debug("Upload of " + rid + " failed. Save failure for later.");
-                batch[index].local.uploadFailed = 1;
-            }
+				batch[index].local.uploadFailed = 1;
+			}
 
 			//save remote id for local <=> remote mapping
 			remoteIds[index] = rid;

@@ -236,7 +236,11 @@ var CalDav = (function () {
 
 			if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
 				log_calDavDebug("Location: ", res.headers.location);
-                //check if redirected to identical location
+				if (res.headers.location.indexOf("http") < 0) {
+					res.headers.location = options.prefix + res.headers.location;
+				}
+
+				//check if redirected to identical location
                 if (res.headers.location === options.prefix + options.path || //if strings really are identical
                     //or we have default port and string without port is identical:
                         (
@@ -331,7 +335,7 @@ var CalDav = (function () {
 	}
 
 	function generateMoreTestPaths(folder, tryFolders) {
-		var newFolders = [], i, j, duplicate, tmp,
+		var newFolders = [folder], i, j, duplicate, tmp,
 			replacePart = function (data, searchString, replacement, caseInsensitive) {
 				if (data.indexOf(searchString) >= 0) {
 					return data.replace(searchString, replacement);
@@ -593,13 +597,11 @@ var CalDav = (function () {
 						principal = getValue(getValue(principal, "href"), "$t");
 						log_calDavDebug("Got principal: " + principal);
 						if (principal) {
-							if (principal.indexOf("http") === 0) {
-								principals.push(principal);
-							} else {
-								principals.push(options.prefix + principal); //try to find homes in principal folder, later.
+							if (principal.indexOf("http") < 0) {
+								principal = options.prefix + principal;
 							}
-							log_calDavDebug("Pushed: " + principals[principals.length - 1]);
-							generateMoreTestPaths(principals[principals.length - 1], principals);
+							log_calDavDebug("Adding: " + principal);
+							generateMoreTestPaths(principal, principals);
 						}
 					}
 				} else {
@@ -631,8 +633,8 @@ var CalDav = (function () {
 			}
 
 			//some folders to probe for:
-			tryFolders.push(params.originalUrl); //push original URL to test-for-home-folders.
-			generateMoreTestPaths(tryFolders[0], tryFolders);
+			//push original URL to test-for-home-folders.
+			generateMoreTestPaths(params.originalUrl, tryFolders);
 			parseURLIntoOptions(params.originalUrl, options); //set prefix for the well-known tries.
 			generateMoreTestPaths(options.prefix + "/.well-known/caldav", tryFolders);
 			generateMoreTestPaths(options.prefix + "/.well-known/carddav", tryFolders);

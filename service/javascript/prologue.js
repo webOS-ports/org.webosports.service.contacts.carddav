@@ -94,14 +94,14 @@ var logBase = function () {
 
 var log = logBase;
 
-var log_icalDebug = dummy;
+/* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
+var debug = dummy;
 
-var log_calDavDebug = dummy;
+var log_icalDebug = debug;
+
+var log_calDavDebug = debug;
 
 var log_calDavParsingDebug = dummy;
-
-/* Simple debug function to print out to console error, error because other stuff does not show up in sys logs.. */
-var debug = logBase;
 
 process.on("uncaughtException", function (e) {
 	log("Uncaought error:", e);

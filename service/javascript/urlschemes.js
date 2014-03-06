@@ -15,9 +15,9 @@ var UrlSchemes = {
 		},
 		{
 			keys:			  ["google."],
-			calendar:	      "https://www.google.com:443/calendar/dav/%USERNAME%/user/",
-			contact:		  "https://www.google.com:443/carddav/v1/principals/%USERNAME/lists/",
-			checkCredentials: "https://www.google.com:443/calendar/dav/%USERNAME%/user"
+			calendar:	      "https://apidata.googleusercontent.com/caldav/v2/%USERNAME%/events",
+			contact:           "https://www.google.com:443/carddav/v1/principals/%USERNAME%/lists/",
+			checkCredentials: "https://www.google.com:443/.well-known/carddav"
 		},
 		{
 			keys:	          ["DISABLEDyahoo."],
@@ -36,28 +36,18 @@ var UrlSchemes = {
 			keys:			  ["/egroupware"],
 			calendar:	      "%URL_PREFIX%/groupdav.php/%USERNAME%/",
 			contact:		  "%URL_PREFIX%/groupdav.php/%USERNAME%/",
-			checkCredentials: "%URL_PREFIX%/groupdav.php"
+			checkCredentials: "%URL_PREFIX%/groupdav.php",
+			additionalConfig: {
+				preventDuplicateCalendarEntries: true
+			}
 		}
 	],
-
-	cache: {
-
-	},
 
 	resolveURL: function (url, username, type) {
 		"use strict";
 		var i, j, scheme, index, prefix, newURL;
 		url = url.toLowerCase();
 		debug("Resolving " + url);
-
-		if (this.cache[url] &&  this.cache[url][type]) {
-			debug("Returning cached url ", this.cache[url][type]);
-			return this.cache[url][type];
-		}
-
-		if (!this.cache[url]) {
-			this.cache[url] = {};
-		}
 
 		for (i = 0; i < this.urlSchemes.length; i += 1) {
 			scheme = this.urlSchemes[i];
@@ -68,17 +58,23 @@ var UrlSchemes = {
 					prefix = url.substring(0, index + scheme.keys[j].length);
 					debug("Prefix: ", prefix);
 					if (scheme[type]) {
-						newURL = scheme[type].replace("%URL_PREFIX%", prefix);
-						newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
-						debug("Returning new URL: ", newURL);
-						this.cache[url][type] = newURL;
-						return newURL;
+						if (typeof scheme[type] === "string") {
+							newURL = scheme[type].replace("%URL_PREFIX%", prefix);
+							newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
+							debug("Returning new URL: ", newURL);
+							return newURL;
+						} else {
+							return scheme[type];
+						}
+					} else {
+						if (type === "additionalConfig") {
+							return undefined;
+						}
 					}
 				}
 			}
 		}
 
-		this.cache[url][type] = url; //prevent looking up same URL all the time.
 		return url;
 	}
 };

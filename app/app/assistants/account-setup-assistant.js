@@ -102,7 +102,8 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		name: this.account.name
 	});
 	credFuture.then(this, function (f) {
-		if (f.result.success) {
+		var exception = f.exception, result = f.result;
+		if (result && result.success) {
 			debug("Check credentials came back successful");
 
 			this.accountSettings = {};
@@ -135,8 +136,8 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 			//Pop back to Account Creation Dialog
 			this.popScene();
 		} else {
-			log("CheckCredentials came back, but failed, message: " + f.result.reason);
-			this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (f.result.reason ? " Message: " + f.result.reason : ""));
+			log("CheckCredentials came back, but failed, message: " + result.reason);
+			this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (result.reason ? " Message: " + result.reason : ""));
 		}
 	});
 };

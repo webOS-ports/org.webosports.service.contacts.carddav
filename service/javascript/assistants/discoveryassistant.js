@@ -10,6 +10,9 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 	var future = new Future(), args = this.controller.args;
 
 	if (this.client && this.client.config) {
+		if (!this.client.config.username) {
+			this.client.config.username = this.client.userAuth.user;
+		}
 		future.nest(this.processAccount(args, this.client.config));
 	} else {
 		log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
@@ -46,7 +49,9 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
                     log("No " + type + " folders from known home, trying usual discovery.");
                     future.result = { returnValue: false };
                 }
-            }
+            } else {
+				future.result = { returnValue: false };
+			}
         });
     } else {
         log("Could not resolve " + type + " home from known URL schemes.");
@@ -57,7 +62,7 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
 };
 
 DiscoveryAssistant.prototype.processAccount = function (args, config) {
-	var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome;
+	var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome, key, additionalConfig;
 
 	if (config) {
 		debug("Got config object: " + JSON.stringify(config));
@@ -79,6 +84,15 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 			log("No url for " + JSON.stringify(config) + " found in db or agruments. Can't process this account.");
 			outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
 			return outerFuture;
+		}
+
+		additionalConfig = UrlSchemes.resolveURL(config.url, config.username, "additionalConfig");
+		if (additionalConfig) {
+			for (key in additionalConfig) {
+				if (additionalConfig.hasOwnProperty(key)) {
+					config[key] = additionalConfig[key];
+				}
+			}
 		}
 
 		params = {

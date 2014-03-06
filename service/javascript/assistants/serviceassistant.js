@@ -27,15 +27,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			//this seems necessary for super class constructor during checkCredentials calls.
 			this.accountId = launchArgs.accountId || "";
 
+			if (!this.config) {
+				this.config = {};
+			}
+
+			this.config.url = launchArgs.url || this.config.url;
+
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
 			if (launchArgs.config) {
-				if (!this.config) {
-					this.config = {};
-				}
-
 				this.config.name =	  launchArgs.config.name || this.config.name;
 				this.config.url  =	  launchArgs.config.url  || this.config.url;
-				this.config.username =  launchArgs.config.username || this.config.username;
+				this.config.username =  launchArgs.config.username || launchArgs.username || this.config.username;
 				this.config.accountId = this.accountId || this.config.accountId;
 
 				if (launchArgs.config.credentials) {
@@ -104,7 +106,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				//these two endpoints don't require stored auth data (passed in as default)
 				//onEnabled also did not supply creds.. hm. Will this cause problems?
 				if (launchConfig.name === "onDelete" || launchConfig.name === "checkCredentials") {
-					this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: launchArgs.url};
+					this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: this.config.url};
 					future.result = {}; //do continue future execution
 				} else {
 					if (!this.accountId) {
@@ -123,17 +125,35 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 							});
 						} else { //no key found - check for username / password and save
 							debug("------------->No Key Found - Putting Key Data and storing globally");
+
+							//somehow this is VERY inconsistent!
+							var username = launchArgs.username || launchArgs.user,
+								password = launchArgs.password,
+								authToken;
+							if (launchArgs.config) {
+								username = launchArgs.config.user || username;
+								username = launchArgs.config.username || username;
+								password = launchArgs.config.password || password;
+							}
+
 							if (launchArgs.config && launchArgs.config.credentials) {
-								var authToken = "Basic " + Base64.encode(launchArgs.config.credentials.user + ":" + launchArgs.config.credentials.password);
-								this.userAuth = {"user": launchArgs.config.credentials.user, "password": launchArgs.config.credentials.password, "authToken": authToken};
+								username = launchArgs.config.credentials.user || username;
+								username = launchArgs.config.credentials.username || username;
+								password = launchArgs.config.credentials.password || password;
+							}
+
+							if (username && password) {
+								authToken = "Basic " + Base64.encode(username + ":" + password);
+								this.userAuth = {"user": username, "password": password, "authToken": authToken};
 								KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
 									debug("------------->Saved Key" + JSON.stringify(putKey.result));
+									future.result = { returnValue: true }; //continue with future execution.
 								});
 							} else {
 								debug("---->No config, can't do anything.");
+								future.result = { returnValue: false }; //continue with future execution.
 							}
 						}
-						future.result = { returnValue: true }; //continue with future execution.
 						return true;
 					});
 				}

@@ -1,21 +1,25 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global debug, Base64, CalDav, DB, searchAccountConfig, Future, log, KeyStore, UrlSchemes */
+/*global debug, Base64, CalDav, DB, searchAccountConfig, Future, log, KeyStore, UrlSchemes, Transport */
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () {};
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
-	var args = this.controller.args, base64Auth, future = new Future();
-	//debug("Account args =" + JSON.stringify(args));
+	var args = this.controller.args, base64Auth, future = new Future(), url = args.url;
+	//debug("Account args =", args);
 
 	// Base64 encode username and password
 	base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
 
-	if (!args.url) {
-		debug("No URL supplied. Maybe we got called to change credentials?");
+	if (args && args.config && !url) {
+		url = args.config.url;
+	}
+
+	if (args.accountId) {
+		debug("Have account id => this is change credentials call, get config object from db.");
 		future.nest(searchAccountConfig(args));
 	} else {
-		future.result = {returnValue: true, obj: { config: {url: args.url}}};
+		future.result = {returnValue: true,  config: {url: url}};
 	}
 
 	//build result and send it back to UI.
@@ -26,13 +30,13 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 				common: {
 					password: args.password,
 					username: args.username,
-					url: args.url
+					url: url
 				}
 			},
 			config: {
 				password: args.password,
 				username: args.username,
-				url: args.url
+				url: url
 			}
 		};
 	}
@@ -42,15 +46,14 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (result.returnValue === true) {
 			this.config = result.config;
 		}
-		if (args.url) {
-			path = args.url;
+		if (url) {
+			path = url;
 		} else {
 			if (this.config && this.config.url) {
 				path = this.config.url;
 			} else {
 				log("No URL. Can't check credentials!");
-				outerfuture.result = {success: false, returnValue: false};
-				return outerfuture;
+				throw new Transport.AuthenticationError();
 			}
 		}
 
@@ -62,7 +65,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	});
 
 	future.then(this, function credentialsCheckCB() {
-		var result = future.result, authToken, msg;
+		var result = future.result, authToken, msg, exception;
 		// Check if we are getting a good return code for success
 		if (result.returnValue === true) {
 			// Pass back credentials and config (username/password/url);
@@ -85,23 +88,30 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			debug("Password rejected");
             switch (result.returnCode) {
             case 404:
-                msg = "URL wrong, document not found.";
-                break;
+                msg = "URL wrong, document not found. - URL: " + result.uri;
+				exception = new Transport.BadRequestError(msg);
+				break;
             case 403:
-                msg = "Access forbidden, probably server or URL issue.";
-                break;
+                msg = "Access forbidden, probably server or URL issue. - URL: " + result.uri;
+				exception = new Transport.BadRequestError(msg);
+				break;
             case 401:
-                msg = "Credentials are wrong.";
-                break;
+                msg = "Credentials are wrong. - URL: " + result.uri;
+				exception = new Transport.AuthenticationError(msg);
+				break;
             case 405:
-                msg = "Method not allowed, probably URL is no caldav/carddav URL. Please look up configuration of your server or report back to developers.";
-                break;
+                msg = "Method not allowed, probably URL is no caldav/carddav URL. Please look up configuration of your server or report back to developers. - URL: " + result.uri;
+				exception = new Transport.BadRequestError(msg);
+				break;
             default:
-                msg = "Connection issue: " + result.returnCode + ". Maybe try again later or check url.";
-                break;
+                msg = "Connection issue: " + result.returnCode + ". Maybe try again later or check url. - URL: " + result.uri;
+				exception = new Transport.TimeoutError(msg);
+				break;
             }
-            msg += " - URL: " + result.uri;
-			outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.ur};
+			outerfuture.setException(exception);
+			log("Error in CheckCredentials:", exception.toString());
+			outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.uri};
+			throw exception;
 		}
 	});
 
@@ -112,7 +122,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (this.config) {
 			this.config.accountId = args.accountId || this.config.accountId;
 			this.config.name = args.name || this.config.name;
-			this.config.username = args.username || this.config.username;
+			this.config.username = args.username || args.user || this.config.username;
 			this.config.url = args.url || this.config.url;
 
 			if (this.config._id && this.config._kind) {
