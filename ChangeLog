@@ -1,9 +1,16 @@
+0.2.4:
+	o fixes for iCloud compability
+	o made egroupware calenderevents no duplicates hack optional and activate it when egroupware is detected (TODO: implement something to add this manually)
+	o prevented possible endless loops if server returns corrupted ctags or etags.
+	o made stuff more robust.
+
+2014-XX-XX: Achim Königs <garfonso@mobo.info>
+
 0.2.3:
 	o fixed issues with some calendar events
 	o urlschemes improved to allow multiple keys, will allow support for hosted owncloud systems
 	o changed upsync logic to be more robust.
 	o a lot of fixes in vCard processing which should allow contact upsync in future.
-	o fixes for iCloud compability
 
 2014-03-02: Achim Königs <garfonso@mobo.info>
 
