@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.webosports.cdav.service
+Exec=/usr/bin/run-js-service -n /usr/palm/services/org.webosports.cdav.service
