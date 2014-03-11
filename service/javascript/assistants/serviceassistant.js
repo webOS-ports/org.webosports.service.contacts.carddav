@@ -115,21 +115,22 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 					future.nest(KeyStore.checkKey(this.accountId));
 					future.then(this, function () {
-						debug("------------->Checked Key" + JSON.stringify(future.result));
+                        var result = future.result, username, password, authToken;
+						debug("------------->Checked Key" + JSON.stringify(result));
 
-						if (future.result.value) {  //found key
+						if (result.value) {  //found key
 							debug("------------->Existing Key Found");
 							KeyStore.getKey(this.accountId).then(this, function (getKey) {
 								log("------------->Got Key"); //+JSON.stringify(getKey.result));
 								this.userAuth = {"user": getKey.result.credentials.user, "password": getKey.result.credentials.password, "authToken": getKey.result.credentials.authToken};
+                                future.result = {returnValue: true};
 							});
 						} else { //no key found - check for username / password and save
 							debug("------------->No Key Found - Putting Key Data and storing globally");
 
 							//somehow this is VERY inconsistent!
-							var username = launchArgs.username || launchArgs.user,
-								password = launchArgs.password,
-								authToken;
+							username = launchArgs.username || launchArgs.user;
+							password = launchArgs.password;
 							if (launchArgs.config) {
 								username = launchArgs.config.user || username;
 								username = launchArgs.config.username || username;
@@ -154,7 +155,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 								future.result = { returnValue: false }; //continue with future execution.
 							}
 						}
-						return true;
 					});
 				}
 			});
