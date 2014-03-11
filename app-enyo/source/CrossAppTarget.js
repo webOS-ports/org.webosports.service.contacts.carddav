@@ -24,27 +24,27 @@ enyo.kind({
 			{ kind: "RowGroup", caption: "Connection settings", components: [
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "Name", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
 						{content: "Name"}
-					]},
+					]}
 				]},
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "URL", value: "https://", name: "txtURL", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "url", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "url", components: [
 						{content: "URL"}
-					]},
+					]}
 				]},
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "Username", value: "", name: "txtUsername", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "email", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "email", components: [
 						{content: "Username"}
-					]},
+					]}
 				]},
 				{kind: "InputBox", components: [
 					{kind: "PasswordInput", hint: "Password", value: "", name: "txtPassword", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
 						{content: "Password"}
-					]},
+					]}
 				]},
 				{ kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
 			]}
@@ -52,7 +52,7 @@ enyo.kind({
 		{kind: "CrossAppResult", name: "crossAppResult" },
 		{className: "accounts-footer-shadow", tabIndex: -1},
 		{kind: "Toolbar", className: "enyo-toolbar-light", components: [
-			{ name: "doneButton", kind: "Button", caption: "Back", onclick: "doBack", className: "accounts-toolbar-btn"},
+			{ name: "doneButton", kind: "Button", caption: "Back", onclick: "doBack", className: "accounts-toolbar-btn"}
 		]}
 	],
 	create: function () {
@@ -186,7 +186,7 @@ enyo.kind({
 
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
 	},
-	doBack: function() {
+	doBack: function () {
 		this.$.crossAppResult.sendResult({returnValue: false});
 	}
 });
