@@ -104,6 +104,7 @@ var log_calDavDebug = debug;
 var log_calDavParsingDebug = dummy;
 
 process.on("uncaughtException", function (e) {
-	log("Uncaought error:", e);
+	log("Uncaought error:" + e.stack);
 	//throw e;
 });
+

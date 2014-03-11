@@ -8,13 +8,19 @@ var UrlSchemes = {
 	//	   if a replacement is required more than once, change function!
 	urlSchemes: [
 		{
+			//contact & calendar hostname vary for each user, it seems.
 			keys:			  ["icloud.com"],
-			//calendar:	      "https://p02-caldav.icloud.com:443",
-			//contact:		  "https://p02-contacts.icloud.com:443",
 			checkCredentials: "https://p02-contacts.icloud.com:443"
 		},
 		{
 			keys:			  ["google."],
+			//calendar does not yet work, requires OAuth2,
+			//will require new validator and own account, so
+			//there will be two google accounts until google supports
+			//OAuth2 for contacts also. => ok, it seems like this already
+			//exists: https://developers.google.com/google-apps/carddav/
+			//so change the google account template and create custom UI for OAuth2
+			//try to keep OAuth2 UI general.. probably others use it, too, in the future.
 			calendar:	      "https://apidata.googleusercontent.com/caldav/v2/%USERNAME%/events",
 			contact:           "https://www.google.com:443/carddav/v1/principals/%USERNAME%/lists/",
 			checkCredentials: "https://www.google.com:443/.well-known/carddav"

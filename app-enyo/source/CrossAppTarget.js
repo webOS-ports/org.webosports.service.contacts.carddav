@@ -1,5 +1,5 @@
 /*jslint sloppy: true */
-/*global enyo, $L, console, setTimeout */
+/*global enyo, $L, console, setTimeout, PalmSystem */
 
 function log(msg) {
 	console.error(msg);
@@ -24,27 +24,27 @@ enyo.kind({
 			{ kind: "RowGroup", caption: "Connection settings", components: [
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "Name", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
 						{content: "Name"}
-					]},
+					]}
 				]},
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "URL", value: "https://", name: "txtURL", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "url", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "url", components: [
 						{content: "URL"}
-					]},
+					]}
 				]},
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "Username", value: "", name: "txtUsername", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "email", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "email", components: [
 						{content: "Username"}
-					]},
+					]}
 				]},
 				{kind: "InputBox", components: [
 					{kind: "PasswordInput", hint: "Password", value: "", name: "txtPassword", tabIndex: "0", spellcheck: false,
-					 className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
+						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
 						{content: "Password"}
-					]},
+					]}
 				]},
 				{ kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
 			]}
@@ -52,13 +52,23 @@ enyo.kind({
 		{kind: "CrossAppResult", name: "crossAppResult" },
 		{className: "accounts-footer-shadow", tabIndex: -1},
 		{kind: "Toolbar", className: "enyo-toolbar-light", components: [
-			{ name: "doneButton", kind: "Button", caption: "Back", onclick: "doBack", className: "accounts-toolbar-btn"},
+			{ name: "doneButton", kind: "Button", caption: "Back", onclick: "doBack", className: "accounts-toolbar-btn"}
 		]}
 	],
 	create: function () {
 		this.inherited(arguments);
 		console.error(">>>>>>>>>>>>>>>>>>>> create");
 		console.error("Parameters: " + JSON.stringify(arguments));
+
+		if (PalmSystem.launchParams) {
+			console.error("Params from PalmSystem: " + PalmSystem.launchParams);
+			this.params = JSON.parse(PalmSystem.launchParams);
+		}
+
+		if (enyo.windowParams) {
+			console.error("Params from enyo: " + JSON.stringify(enyo.windowParams));
+			this.params = enyo.windowParams;
+		}
 
 		console.error("<<<<<<<<<<<<<<<<<<<< create");
 	},
@@ -128,6 +138,63 @@ enyo.kind({
 
 			this.accountSettings = {};
 			var i, template = this.params.template;
+			if (!template) {
+				template = {
+					"templateId": "org.webosports.cdav.account",
+					"loc_name": "C+DAV Connector",
+					"readPermissions": [
+						"org.webosports.cdav.service",
+						"com.palm.service.contacts",
+						"com.palm.service.contacts.linker",
+						"com.palm.app.contacts"
+					],
+					"writePermissions": [
+						"org.webosports.cdav.service",
+						"com.palm.app.accounts",
+						"com.palm.app.contacts"
+					],
+					"validator": {
+						"address": "palm://org.webosports.cdav.service/checkCredentials",
+						"customUI": {
+							"appId": "org.webosports.cdav.app",
+							"name": "index.html"
+						}
+					},
+					"onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
+					"loc_usernameLabel": "Username",
+					"icon": {
+						"loc_32x32": "images/webos-ports32.png"
+					},
+					"capabilityProviders": [
+						{
+							"capability": "CONTACTS",
+							"id": "org.webosports.cdav.contact",
+							"onCreate": "palm://org.webosports.cdav.service/onContactsCreate",
+							"onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
+							"onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
+							"sync": "palm://org.webosports.cdav.service/sync",
+							"loc_name": "CardDAV Contacts",
+							"dbkinds": {
+								"contactset": "org.webosports.cdav.contactset:1",
+								"contact": "org.webosports.cdav.contact:1"
+							}
+						},
+						{
+							"capability": "CALENDAR",
+							"id": "org.webosports.cdav.calendar",
+							"onCreate": "palm://org.webosports.cdav.service/onCalendarCreate",
+							"onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
+							"onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
+							"sync": "palm://org.webosports.cdav.service/sync",
+							"loc_name": "CalDav Calendar",
+							"dbkinds": {
+								"calendar": "org.webosports.cdav.calendar:1",
+								"calendarevent": "org.webosports.cdav.calendarevent:1"
+							}
+						}
+					]
+				};
+			}
 			template.config = this.account;
 			delete template.username;
 			delete template.password;
@@ -179,14 +246,18 @@ enyo.kind({
                 this.$.alert.setContent($L("No parameters received. This needs to be called from Account Manager."));
             }.bind(this), 500);
 		} else {
+			if (event.params.template) {
+				this.params = event.params;
+				console.error("Params: " + JSON.stringify(this.params));
+			} else {
+				console.error("Skipping params, because they don't contain template information.");
+			}
 
-            this.params = event.params;
-            console.error("Params: " + JSON.stringify(this.params));
         }
 
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
 	},
-	doBack: function() {
+	doBack: function () {
 		this.$.crossAppResult.sendResult({returnValue: false});
 	}
 });
