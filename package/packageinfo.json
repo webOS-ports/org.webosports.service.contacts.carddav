@@ -11,6 +11,7 @@
 	],
 	"accounts": [
 		"org.webosports.cdav.account",
-		"org.webosports.cdav.account.google.contacts"
+		"org.webosports.cdav.account.google.contacts",
+        "org.webosports.cdav.account.icloud"
 	]
 }
