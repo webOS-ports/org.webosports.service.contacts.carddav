@@ -102,43 +102,48 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		name: this.account.name
 	});
 	credFuture.then(this, function (f) {
-		var exception = f.exception, result = f.result;
-		if (result && result.success) {
-			debug("Check credentials came back successful");
+        try {
+            var exception = f.exception, result = f.result, template;
+            if (result && result.success) {
+                debug("Check credentials came back successful");
 
-			this.accountSettings = {};
-			var template = this.params.initialTemplate;
-			template.config = this.account;
-			delete template.username;
-			delete template.password;
+                this.accountSettings = {};
+                template = this.params.initialTemplate;
+                template.config = this.account;
+                delete template.username;
+                delete template.password;
 
-			for (i = 0; i < template.capabilityProviders.length; i += 1) {
-				if (template.capabilityProviders[i].capability === "CONTACTS") {
-					template.capabilityProviders[i].enabled = true;
-					template.capabilityProviders[i].loc_name = this.account.name + " Contacts";
-					break;
-				}
-			}
+                for (i = 0; i < template.capabilityProviders.length; i += 1) {
+                    if (template.capabilityProviders[i].capability === "CONTACTS") {
+                        template.capabilityProviders[i].enabled = true;
+                        template.capabilityProviders[i].loc_name = this.account.name + " Contacts";
+                        break;
+                    }
+                }
 
-			template.loc_name = this.account.name;
-			this.accountSettings = {
-				template: this.params.initialTemplate,
-				username: this.account.credentials.user,
-				alias: this.account.name,
-				defaultResult: {
-					result: {
-						returnValue: true,
-						credentials: this.account.credentials,
-						config: this.account
-					}
-				}
-			};
-			//Pop back to Account Creation Dialog
-			this.popScene();
-		} else {
-			log("CheckCredentials came back, but failed, message: " + result.reason);
-			this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (result.reason ? " Message: " + result.reason : ""));
-		}
+                template.loc_name = this.account.name;
+                this.accountSettings = {
+                    template: this.params.initialTemplate,
+                    username: this.account.credentials.user,
+                    alias: this.account.name,
+                    defaultResult: {
+                        result: {
+                            returnValue: true,
+                            credentials: this.account.credentials,
+                            config: this.account
+                        }
+                    }
+                };
+                //Pop back to Account Creation Dialog
+                this.popScene();
+            } else {
+                log("CheckCredentials came back, but failed, message: " + result.reason);
+                this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (result.reason ? " Message: " + result.reason : ""));
+            }
+        } catch (e) {
+            log("Future exception: " + JSON.stringify(e));
+            this.showLoginError("Credentials", "Credentials were wrong or could not be checked. " + e.innerError);
+        }
 	});
 };
 
