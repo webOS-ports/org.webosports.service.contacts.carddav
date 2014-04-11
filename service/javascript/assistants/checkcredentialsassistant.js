@@ -42,7 +42,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	}
 
 	future.then(this, function gotConfigObject() {
-		var result = future.result, path;
+		var result = future.result, path, newPath;
 		if (result.returnValue === true) {
 			this.config = result.config;
 		}
@@ -58,7 +58,10 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		}
 
         //try to augment URL for known servers:
-        path = UrlSchemes.resolveURL(path, args.username, "checkCredentials");
+        newPath = UrlSchemes.resolveURL(path, args.username, "checkCredentials");
+        if (newPath) {
+            path = newPath;
+        }
 
 		// Test basic authentication. If this fails username and or password is wrong
 		future.nest(CalDav.checkCredentials({authToken: base64Auth, path: path}));

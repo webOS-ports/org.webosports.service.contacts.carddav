@@ -34,7 +34,7 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
     var future = new Future(), home;
 
     home = UrlSchemes.resolveURL(params.originalUrl, username, type);
-    if (home !== params.originalUrl) {
+    if (home) {
         log("Could resolve " + type + " home from known URL schemes, get folders from there");
         params.path = home;
         future.nest(CalDav.getFolders(params, type));

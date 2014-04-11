@@ -51,9 +51,9 @@ var UrlSchemes = {
 
 	resolveURL: function (url, username, type) {
 		"use strict";
-		var i, j, scheme, index, prefix, newURL;
+		var i, j, scheme, index, prefix, newURL, orgURL = url;
 		url = url.toLowerCase();
-		debug("Resolving " + url);
+		debug("Resolving " + orgURL);
 
 		for (i = 0; i < this.urlSchemes.length; i += 1) {
 			scheme = this.urlSchemes[i];
@@ -72,15 +72,11 @@ var UrlSchemes = {
 						} else {
 							return scheme[type];
 						}
-					} else {
-						if (type === "additionalConfig") {
-							return undefined;
-						}
 					}
 				}
 			}
 		}
 
-		return url;
+		return false;
 	}
 };
