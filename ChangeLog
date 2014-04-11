@@ -1,6 +1,8 @@
 0.2.6:
-	o ...
-2014-04-XX: Achim Königs <garfonso@mobo.info>
+	o fixed possible issue with deleting multiple calendars/addressbooks
+    o fixed issue with folder uris on some servers.
+    o added workaround for wrong URIs returned by SOGo server
+2014-04-11: Achim Königs <garfonso@mobo.info>
 
 0.2.5:
 	o fixed issues with case in URLs.
