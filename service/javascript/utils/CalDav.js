@@ -162,6 +162,9 @@ var CalDav = (function () {
 
 	function parseURLIntoOptions(inUrl, options) {
 		var parsedUrl = url.parse(inUrl);
+        if (!parsedUrl.hostname) {
+            parsedUrl = url.parse(inUrl.replace(":/", "://")); //somehow SOGo returns uri with only one / => this breaks URL parsing.
+        }
 		options.path = parsedUrl.pathname || "/";
 		if (!options.headers) {
 			options.headers = {};
