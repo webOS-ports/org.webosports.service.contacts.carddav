@@ -57,17 +57,17 @@ var UrlSchemes = {
 
 	resolveURL: function (url, username, type) {
 		"use strict";
-		var i, j, scheme, index, prefix, newURL, orgURL = url;
-		url = url.toLowerCase();
-		debug("Resolving " + orgURL);
+		var i, j, scheme, index, prefix, newURL, searchUrl;
+		searchUrl = url.toLowerCase();
+		debug("Resolving " + url);
 
 		for (i = 0; i < this.urlSchemes.length; i += 1) {
 			scheme = this.urlSchemes[i];
 			for (j = 0; j < scheme.keys.length; j += 1) {
-				index = url.indexOf(scheme.keys[j]);
+				index = searchUrl.indexOf(scheme.keys[j].toLowerCase());
 				if (index >= 0) {
 					debug("Found URL for scheme ", scheme);
-					prefix = url.substring(0, index + scheme.keys[j].length);
+					prefix = url.substring(0, index + scheme.keys[j].length); //create prefix from original URL to keep case.
 					debug("Prefix: ", prefix);
 					if (scheme[type]) {
 						if (typeof scheme[type] === "string") {
