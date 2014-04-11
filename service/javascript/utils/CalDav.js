@@ -337,10 +337,12 @@ var CalDav = (function () {
 	function generateMoreTestPaths(folder, tryFolders) {
 		var newFolders = [folder], i, j, duplicate, tmp,
 			replacePart = function (data, searchString, replacement, caseInsensitive) {
+                var tmpStr;
 				if (data.indexOf(searchString) >= 0) {
 					return data.replace(searchString, replacement);
 				} else if (data.toLowerCase().indexOf(searchString) >= 0) {
-					return data.toLowerCase().replace(searchString, replacement); //could theoretically screw up path.
+                    tmpStr = data.substr(data.toLowerCase().indexOf(searchString), searchString.length);
+					return data.replace(tmpStr, replacement); //could theoretically screw up path.
 				}
 				return false;
 			},
