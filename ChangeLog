@@ -1,10 +1,17 @@
+0.2.5:
+	o ...
+2014-04-10: Achim Königs <garfonso@mobo.info>
+
 0.2.4:
 	o fixes for iCloud compability
 	o made egroupware calenderevents no duplicates hack optional and activate it when egroupware is detected (TODO: implement something to add this manually)
 	o prevented possible endless loops if server returns corrupted ctags or etags.
 	o made stuff more robust.
+    o added google account template to prevent username issue.
+    o added icloud account template to prevent username issue.
+    o made sync more memory efficient on big datasets.
 
-2014-XX-XX: Achim Königs <garfonso@mobo.info>
+2014-04-10: Achim Königs <garfonso@mobo.info>
 
 0.2.3:
 	o fixed issues with some calendar events
