@@ -783,7 +783,9 @@ var CalDav = (function () {
 						}
 
 						if (!filter || folder.resource === filter) {
-							folder.uri = options.prefix + folder.uri;
+                            if (folder.uri.toLowerCase().indexOf("http") !== 0) {
+				                folder.uri = options.prefix + folder.uri;
+                            }
 							folder.remoteId = folder.uri;
 							folders.push(folder);
 						}
