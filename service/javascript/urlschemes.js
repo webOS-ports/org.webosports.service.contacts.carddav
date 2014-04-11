@@ -46,6 +46,12 @@ var UrlSchemes = {
 			additionalConfig: {
 				preventDuplicateCalendarEntries: true
 			}
+		},
+		{
+			keys:			  ["/SOGo"],
+			calendar:	      "%URL_PREFIX%/dav/%USERNAME%/Calendar/",
+			contact:		  "%URL_PREFIX%/dav/%USERNAME%/Contacts/",
+			checkCredentials: "%URL_PREFIX%/dav/%USERNAME%/"
 		}
 	],
 
