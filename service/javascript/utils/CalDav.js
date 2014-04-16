@@ -162,6 +162,9 @@ var CalDav = (function () {
 
 	function parseURLIntoOptions(inUrl, options) {
 		var parsedUrl = url.parse(inUrl);
+        if (!parsedUrl.hostname) {
+            parsedUrl = url.parse(inUrl.replace(":/", "://")); //somehow SOGo returns uri with only one / => this breaks URL parsing.
+        }
 		options.path = parsedUrl.pathname || "/";
 		if (!options.headers) {
 			options.headers = {};
@@ -337,10 +340,12 @@ var CalDav = (function () {
 	function generateMoreTestPaths(folder, tryFolders) {
 		var newFolders = [folder], i, j, duplicate, tmp,
 			replacePart = function (data, searchString, replacement, caseInsensitive) {
+                var tmpStr;
 				if (data.indexOf(searchString) >= 0) {
 					return data.replace(searchString, replacement);
 				} else if (data.toLowerCase().indexOf(searchString) >= 0) {
-					return data.toLowerCase().replace(searchString, replacement); //could theoretically screw up path.
+                    tmpStr = data.substr(data.toLowerCase().indexOf(searchString), searchString.length);
+					return data.replace(tmpStr, replacement); //could theoretically screw up path.
 				}
 				return false;
 			},
@@ -781,7 +786,9 @@ var CalDav = (function () {
 						}
 
 						if (!filter || folder.resource === filter) {
-							folder.uri = options.prefix + folder.uri;
+                            if (folder.uri.toLowerCase().indexOf("http") !== 0) {
+				                folder.uri = options.prefix + folder.uri;
+                            }
 							folder.remoteId = folder.uri;
 							folders.push(folder);
 						}

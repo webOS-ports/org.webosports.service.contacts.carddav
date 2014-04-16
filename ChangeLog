@@ -1,6 +1,13 @@
+0.2.6:
+	o fixed possible issue with deleting multiple calendars/addressbooks
+    o fixed issue with folder uris on some servers.
+    o added workaround for wrong URIs returned by SOGo server
+2014-04-11: Achim Königs <garfonso@mobo.info>
+
 0.2.5:
-	o ...
-2014-04-10: Achim Königs <garfonso@mobo.info>
+	o fixed issues with case in URLs.
+    o changed url resolving logic a bit. Method now returns false on failure, not original URL.
+2014-04-11: Achim Königs <garfonso@mobo.info>
 
 0.2.4:
 	o fixes for iCloud compability

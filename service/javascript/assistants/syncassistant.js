@@ -621,7 +621,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.nest(DB.merge(
                     {
                         from: Kinds.objects[subKind].id,
-                        where: [{prop: "calendarId", op: "=", val: folder.collectionId}]
+                        where: [{prop: "calendarId", op: "=", val: id}]
                     },
                     {
                         "_del": true,
