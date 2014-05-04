@@ -1,12 +1,12 @@
 /*jslint sloppy: true, nomen: true */
-/*global debug, Future, DB, log, Kinds*/
+/*global Future, DB, Log, Kinds*/
 
 //prevents the creation of multiple transport objects on webOS 2.2.4
 var createLocks = {};
 var lockCreateAssistant = function (accountId) {
-	debug("Locking account " + accountId + " for creation.");
+	Log.debug("Locking account " + accountId + " for creation.");
 	if (createLocks[accountId]) {
-		debug("Already locked: " + JSON.stringify(createLocks));
+		Log.debug("Already locked: " + JSON.stringify(createLocks));
 		return false;
 	} else {
 		createLocks[accountId] = true;
@@ -16,10 +16,10 @@ var lockCreateAssistant = function (accountId) {
 
 var unlockCreateAssistant = function (accountId) {
 	if (createLocks[accountId]) {
-		debug("Unlocking account " + accountId + " for creation.");
+		Log.debug("Unlocking account " + accountId + " for creation.");
 		delete createLocks[accountId];
 	} else {
-		debug("Tried unlocking account " + accountId + ", but was not locked.");
+		Log.debug("Tried unlocking account " + accountId + ", but was not locked.");
 	}
 };
 
@@ -48,12 +48,12 @@ var getTransportObjByAccountId = function (args, kind) {
 			}
 
 			if (!found) {
-				log("No transport object for account " + args.accountId);
+				Log.log("No transport object for account " + args.accountId);
 				future.result = {returnValue: false, success: false};
 			}
 		} else {
-			log("Could not get DB object: " + JSON.stringify(result));
-			log(JSON.stringify(future.error));
+			Log.log("Could not get DB object: ", result);
+            Log.log(future.error);
 			future.result = {returnValue: false, success: false};
 		}
 	});
@@ -65,7 +65,7 @@ var getTransportObjByAccountId = function (args, kind) {
 var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 	var future = new Future(), outerFuture = new Future();
 	if (!param) { //exit condition.
-		log("Could not find any information about account " + config.accountId + " in config db.");
+		Log.log("Could not find any information about account " + config.accountId + " in config db.");
 		outerFuture.result = {returnValue: false }; //continue execution.
 		return outerFuture;
 	}
@@ -89,18 +89,18 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 						//log("Found config with " + param + ": " + JSON.stringify(config));
 
 						if (result.results.length > 1) {
-							log("WARNING: Found multiple results for account!!");
+							Log.log("WARNING: Found multiple results for account!!");
 						}
 					} else {
 						//log("No config object for " + param + " = " + config[param]);
 						outerFuture.nest(searchAccountConfigInConfigDB(config, next, nextNext)); //try next one.
 					}
 				} else {
-					log("Could not find with param " + param + ". Reason: " + result.message);
+					Log.log("Could not find with param " + param + ". Reason: " + result.message);
 					outerFuture.nest(searchAccountConfigInConfigDB(config, next, nextNext)); //try next one.
 				}
 			} catch (e) {
-				log("Got exception while find with param " + param + ". Message: " + e.message);
+				Log.log("Got exception while find with param " + param + ". Message: " + e.message);
 				outerFuture.nest(searchAccountConfigInConfigDB(config, next, nextNext)); //try next one.
 			}
 		});
@@ -118,7 +118,7 @@ var searchAccountConfig = function (args) {
 	var outerFuture = new Future(), future = new Future();
 
 	if (createLocks[args.accountId]) {
-		log("Account " + args.accountId + " already locked for account creation. Not searching for config object.");
+		Log.log("Account " + args.accountId + " already locked for account creation. Not searching for config object.");
 		outerFuture.result = {returnValue: true, config: args };
 		return outerFuture;
 	}
@@ -131,7 +131,7 @@ var searchAccountConfig = function (args) {
 			//log("Found config in config db: " + JSON.stringify(result.config));
 			outerFuture.result = { returnValue: true, config: result.config };
 		} else {
-			log("Did not find object in config db.");
+			Log.log("Did not find object in config db.");
 			outerFuture.result = { returnValue: false };
 		}
 	});

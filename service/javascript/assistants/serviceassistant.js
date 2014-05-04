@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global log, debug, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",
@@ -17,12 +17,12 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 		kinds: {},
 
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
-			log("\n\n**************************START SERVICEASSISTANT*****************************");
+			Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
 			//for testing only - will expose credentials to log file if left open
-			//debug("\n------------------->accountId:", accountid);
-			//debug("\n------------------->launchConfig", launchConfig);
-			//debug("\n------------------->launchArgs", launchArgs);
-			log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
+			//Log.debug("\n------------------->accountId:", accountid);
+			//Log.debug("\n------------------->launchConfig", launchConfig);
+			//Log.debug("\n------------------->launchArgs", launchArgs);
+			Log.log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
 
 			//this seems necessary for super class constructor during checkCredentials calls.
 			this.accountId = launchArgs.accountId || "";
@@ -46,13 +46,13 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			}
 
 			if (launchConfig.name.indexOf("Calendar") >= 0) {
-				log("Setting Kinds to Calendar.");
+				Log.log("Setting Kinds to Calendar.");
 				this.kinds = KindsCalendar;
 			} else if (launchConfig.name.indexOf("Contacts") >= 0) {
-				log("Setting Kinds to Contacts");
+				Log.log("Setting Kinds to Contacts");
 				this.kinds = KindsContacts;
 			} else {
-				log("Setting general kinds...");
+				Log.log("Setting general kinds...");
 				this.kinds = Kinds;
 			}
 
@@ -68,7 +68,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				//search recursively, first by accountId, then account name then username.
 				future.nest(searchAccountConfig(this.config));
 			} else {
-				log("No accountId, continue execution without config lookup.");
+				Log.log("No accountId, continue execution without config lookup.");
 				future.result = { returnValue: false };
 			}
 
@@ -84,9 +84,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			future.then(this, function () {
 				var result = future.result;
 				if (!result.iCal) {
-					debug("iCal init not ok.");
+					Log.debug("iCal init not ok.");
 				} else {
-                    debug("iCal initialized");
+                    Log.debug("iCal initialized");
                 }
 				future.nest(vCard.initialize());
 			});
@@ -94,15 +94,15 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			future.then(this, function () {
 				var result = future.result;
 				if (!result.vCard) {
-					debug("vCard init not ok.");
+					Log.debug("vCard init not ok.");
 				} else {
-                    debug("vCard initialized");
+                    Log.debug("vCard initialized");
                 }
 				future.result = { returnValue: true };
 			});
 
 			future.then(this, function getCredentials() {
-                debug("Getting credentials.");
+                Log.debug("Getting credentials.");
 				//these two endpoints don't require stored auth data (passed in as default)
 				//onEnabled also did not supply creds.. hm. Will this cause problems?
 				if (launchConfig.name === "onDelete" || launchConfig.name === "checkCredentials") {
@@ -116,17 +116,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					future.nest(KeyStore.checkKey(this.accountId));
 					future.then(this, function () {
                         var result = future.result, username, password, authToken;
-						debug("------------->Checked Key" + JSON.stringify(result));
+						Log.debug("------------->Checked Key" + JSON.stringify(result));
 
 						if (result.value) {  //found key
-							debug("------------->Existing Key Found");
+							Log.debug("------------->Existing Key Found");
 							KeyStore.getKey(this.accountId).then(this, function (getKey) {
-								log("------------->Got Key"); //+JSON.stringify(getKey.result));
+								Log.log("------------->Got Key"); //+JSON.stringify(getKey.result));
 								this.userAuth = {"user": getKey.result.credentials.user, "password": getKey.result.credentials.password, "authToken": getKey.result.credentials.authToken};
                                 future.result = {returnValue: true};
 							});
 						} else { //no key found - check for username / password and save
-							debug("------------->No Key Found - Putting Key Data and storing globally");
+							Log.debug("------------->No Key Found - Putting Key Data and storing globally");
 
 							//somehow this is VERY inconsistent!
 							username = launchArgs.username || launchArgs.user;
@@ -147,11 +147,11 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 								authToken = "Basic " + Base64.encode(username + ":" + password);
 								this.userAuth = {"user": username, "password": password, "authToken": authToken};
 								KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
-									debug("------------->Saved Key" + JSON.stringify(putKey.result));
+									Log.debug("------------->Saved Key" + JSON.stringify(putKey.result));
 									future.result = { returnValue: true }; //continue with future execution.
 								});
 							} else {
-								debug("---->No config, can't do anything.");
+								Log.debug("---->No config, can't do anything.");
 								future.result = { returnValue: false }; //continue with future execution.
 							}
 						}
@@ -169,7 +169,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 		},
 
 		getSyncInterval: function () {
-			log("*********************************** getSyncInterval ********************************");
+			Log.log("*********************************** getSyncInterval ********************************");
 			return new Future("20m");  //default sync interval
 		},
 

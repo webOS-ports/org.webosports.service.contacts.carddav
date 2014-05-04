@@ -3,7 +3,7 @@ KeyStore - used to handle storage of authentication data
 within key manager.
 **************************************************/
 /*jslint nomen: true, sloppy: true */
-/*global Future, PalmCall, log, Base64 */
+/*global Future, PalmCall, Log, Base64 */
 //this is taken from MojoSyncFramework example in PalmSDK. What License is this under??
 var KeyStore = (function () {
 	var keyStoreFuture = new Future(null),
@@ -94,7 +94,7 @@ var KeyStore = (function () {
 	};
 
 	_hasCredentials = function (accountId) {
-		log("------>made API call has credentials");
+		Log.log("------>made API call has credentials");
 		var future = PalmCall.call(KEYMGR_URI, "keyInfo", {
 			keyname: accountId
 		});

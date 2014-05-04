@@ -1,4 +1,4 @@
-/*global debug */
+/*global Log */
 
 var UrlSchemes = {
 	//known url schemes.
@@ -59,21 +59,21 @@ var UrlSchemes = {
 		"use strict";
 		var i, j, scheme, index, prefix, newURL, searchUrl;
 		searchUrl = url.toLowerCase();
-		debug("Resolving " + url);
+		Log.debug("Resolving ", url);
 
 		for (i = 0; i < this.urlSchemes.length; i += 1) {
 			scheme = this.urlSchemes[i];
 			for (j = 0; j < scheme.keys.length; j += 1) {
 				index = searchUrl.indexOf(scheme.keys[j].toLowerCase());
 				if (index >= 0) {
-					debug("Found URL for scheme ", scheme);
+					Log.debug("Found URL for scheme ", scheme);
 					prefix = url.substring(0, index + scheme.keys[j].length); //create prefix from original URL to keep case.
-					debug("Prefix: ", prefix);
+					Log.debug("Prefix: ", prefix);
 					if (scheme[type]) {
 						if (typeof scheme[type] === "string") {
 							newURL = scheme[type].replace("%URL_PREFIX%", prefix);
 							newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
-							debug("Returning new URL: ", newURL);
+							Log.debug("Returning new URL: ", newURL);
 							return newURL;
 						} else {
 							return scheme[type];

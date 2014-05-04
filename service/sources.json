@@ -60,9 +60,6 @@
 		"source": "javascript/utils/keymanager.js"
 	},
 	{
-		"source": "javascript/utils/CalDav.js"
-	},
-	{
 		"source": "javascript/utils/iCal.js"
 	},
 	{
