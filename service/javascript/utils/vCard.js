@@ -1,6 +1,6 @@
 //JSLint stuff:
 /*jslint sloppy: true, nomen: true, regexp: true */
-/*global Contacts, fs, log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer, log_icalDebug, fold */
+/*global Contacts, fs, Log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer, fold */
 
 var vCard = (function () {
 	var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
@@ -30,7 +30,7 @@ var vCard = (function () {
 		startIndex = line.indexOf("TYPE=");
 		if (startIndex >= 0) {
 			startIndex += 5;
-			log_icalDebug("StartIndex: " + startIndex);
+			Log.log_icalDebug("StartIndex:", startIndex);
 
 			endIndex = line.indexOf(";", startIndex);
 			endIndex2 = line.indexOf(":", startIndex);
@@ -48,13 +48,13 @@ var vCard = (function () {
 		} else {
 			type = ".jpg";
 		}
-		log_icalDebug("Read Photo Type: " + type + " from " + startIndex);
+		Log.log_icalDebug("Read Photo Type:", type, "from", startIndex);
 		return type;
 	}
 
 	function createPhotoBlob(photos) {
 		var future = new Future(), blob = "", photo, i, photoType;
-		log_icalDebug("Creating photo blob...");
+		Log.log_icalDebug("Creating photo blob...");
 
 		for (i = 0; i < photos.length; i += 1) {
 			//Select smaller photo?
@@ -67,7 +67,7 @@ var vCard = (function () {
 			photo = photos[0];
 		}
 
-		log_icalDebug("Photo: " + JSON.stringify(photo));
+		Log.log_icalDebug("Photo:", photo);
 
 		//if we got a photo, build blob.
 		if (photo) {
@@ -76,20 +76,20 @@ var vCard = (function () {
 
 			fs.readFile(photo.localPath, function (err, data) {
 				if (err) {
-					log("Could not read file " + photo.localPath + ": " + JSON.stringify(err));
+					Log.log("Could not read file", photo.localPath, ":", err);
 					future.result = {blob: ""};
 				} else {
-					log_icalDebug("Photo read...");
+					Log.log_icalDebug("Photo read...");
 					blob = "PHOTO;ENCODING=b;TYPE=" + photoType + ":" + data.toString("base64");
 					blob = fold(blob) + "\r\n";
-					log_icalDebug("Blob: \n" + blob);
+					Log.log_icalDebug("Blob: \n", blob);
 
 					future.result = {blob: blob};
 				}
 			});
 
 		} else {
-			log_icalDebug("Urgs...??");
+			Log.log_icalDebug("Urgs...??");
 			future.result = {blob: blob};
 		}
 
@@ -124,7 +124,7 @@ var vCard = (function () {
 				if (!exists) {
 					fs.mkdir(tmpPath, 0777, function (error) {
 						if (error) {
-							log("Could not create tmp-path, error: " + JSON.stringify(error));
+							Log.log("Could not create tmp-path, error:", error);
 						}
 						tmp = true;
 						finished();
@@ -140,7 +140,7 @@ var vCard = (function () {
 				if (!exists) {
 					fs.mkdir(photoPath, 0777, function (error) {
 						if (error) {
-							log("Could not create photo-path, error: " + JSON.stringify(error));
+							Log.log("Could not create photo-path, error:", error);
 						}
 						photo = true;
 						finished();
@@ -175,12 +175,12 @@ var vCard = (function () {
 			vCardIndex += 1;
 
 			if (!input.vCard) {
-				log("Empty vCard received.");
+				Log.log("Empty vCard received.");
 				return new Future({returnValue: false});
 			}
 
-			log("Writing vCard to file " + filename);
-			log_icalDebug("vCard data: " + input.vCard);
+			Log.log("Writing vCard to file", filename);
+			Log.log_icalDebug("vCard data:", input.vCard);
 
 			if (input.vCard.indexOf("VERSION:3.0") > -1) {
 				version = "3.0";
@@ -197,7 +197,7 @@ var vCard = (function () {
 				//log("CurrentLine: " + currentLine);
 				//check for start of photo mode
 				if (currentLine.indexOf("PHOTO") > -1) {
-					log("got photo...");
+					Log.log("got photo...");
 					photoData = currentLine.substring(currentLine.indexOf(":") + 1);
 
 					photoType = extractPhotoType(currentLine);
@@ -212,16 +212,16 @@ var vCard = (function () {
 					//currentLine = unquote(currentLine);
 					data.push(currentLine);
 				} else {
-					log_icalDebug("Skipping empty line " + currentLine);
+					Log.log_icalDebug("Skipping empty line", currentLine);
 				}
 			}
 			input.vCard = data.join("\r\n");
-			log_icalDebug("vCard data cleaned up: " + input.vCard);
+			Log.log_icalDebug("vCard data cleaned up:", input.vCard);
 			fs.writeFile(filename, input.vCard, "utf-8", function (err) {
 				if (err) {
-					log("Could not write vCard to file: " + filename + " Error: " + JSON.stringify(err));
+					Log.log("Could not write vCard to file:", filename, "Error:", err);
 				} else {
-					log("Saved vCard to " + filename);
+					Log.log("Saved vCard to", filename);
 					//setup importer
 					vCardImporter = new Contacts.vCardImporter({filePath: filename, importToAccountId: input.account.accountId, version: version});
 					//do import:
@@ -244,20 +244,20 @@ var vCard = (function () {
 							delete obj.accountId;
 							delete obj.syncSource;
 
-							log("Contact: " + JSON.stringify(obj));
+							Log.log("Contact:", obj);
 							//cleanUpEmptyFields(obj);
-							//log("Contact after cleanup: " + JSON.stringify(obj));
+							//Log.log("Contact after cleanup:", obj);
 							fs.unlink(filename);
 
-							log("PhotoData Length: " + photoData.length);
+							Log.log("PhotoData Length:", photoData.length);
 							if (photoData.length > 0) { //got a photo!! :)
-								log("Writing photo!");
+								Log.log("Writing photo!");
 								buff = new Buffer(photoData, 'base64');
 								filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photoType;
-								log("writing photo to: " + filename);
+								Log.log("writing photo to:", filename);
 								fs.writeFile(filename, buff, function (err) {
 									if (err) {
-										log("Could not write photo to file: " + filename + " Error: " + JSON.stringify(err));
+										Log.log("Could not write photo to file:", filename, "Error:", err);
 									}
 								});
 								obj.photos.push({localPath: filename, primary: false, type: "type_big"});
@@ -266,7 +266,7 @@ var vCard = (function () {
 
 							resFuture.result = {returnValue: true, result: obj};
 						} else {
-							log("No result from conversion: ", f.result);
+							Log.log("No result from conversion: ", f.result);
 							fs.unlink(filename);
 							resFuture.result = {returnValue: false, result: {}};
 						}
@@ -288,18 +288,18 @@ var vCard = (function () {
 
 			vCardIndex += 1;
 
-			log("Got contact: " + JSON.stringify(input.contact));
+			Log.log("Got contact:", input.contact);
 			Contacts.Utils.defineConstant("kind", input.kind, Contacts.Person);
-			log("Get contact " + contactId + " transfer it to version " + version + " vCard.");
+			Log.log("Get contact", contactId, "transfer it to version", version, "vCard.");
 			vCardExporter.exportOne(contactId, false).then(function (future) {
-				log("webOS saved vCard to " + filename);
-				log("result: " + JSON.stringify(future.result));
+				Log.log("webOS saved vCard to ", filename);
+				Log.log("result: ", future.result);
 				fs.readFile(filename, "utf-8", function (err, data) {
 					if (err) {
-						log("Could not read back vCard from " + filename + ": " + JSON.stringify(err));
+						Log.log("Could not read back vCard from", filename, ":", err);
 						resFuture.result = { returnValue: false };
 					} else {
-						log("Read vCard from " + filename + ": " + data);
+						Log.log("Read vCard from " + filename + ": " + data);
 
 						data = applyHacks(data, input.server);
 						data = data.replace(/\nTYPE=:/g, "URL:"); //repair borked up URL thing on webOS 3.X. Omitting type here..
@@ -311,7 +311,7 @@ var vCard = (function () {
 								note.replace(/[^\r]\n/g, "\r\n");
 							}
 							note = fold(quote(note));
-							log("Having note: " + note);
+							Log.log("Having note:", note);
 							data = data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
 						}
 
@@ -326,7 +326,7 @@ var vCard = (function () {
 								resFuture.result = { returnValue: true, result: data};
 							});
 						} else {
-							log("Modified data: " + data);
+							Log.log("Modified data:", data);
 							resFuture.result = { returnValue: true, result: data };
 						}
 					}
@@ -339,22 +339,22 @@ var vCard = (function () {
 
 		cleanUp: function (account) {
 			var future = new Future();
-			log("Contact cleanup called for " + tmpPath);
+			Log.log("Contact cleanup called for", tmpPath);
 			fs.readdir(tmpPath, function (err, files) {
 				var i, name = (account.name || "nameless") + "_", filename;
 				for (i = 0; i < files.length; i += 1) {
 					filename = files[i];
-					log("Filename: " + filename);
+					Log.log("Filename:", filename);
 					if (filename.indexOf(name) === 0) {
-						log("Deleting " + filename);
+						Log.log("Deleting", filename);
 						fs.unlink(tmpPath + filename);
 					} else {
-						log("Not deleting file " + filename + " in temp path. Match results: " + filename.indexOf(name));
+						Log.log("Not deleting file", filename, "in temp path. Match results:", filename.indexOf(name));
 					}
 				}
 				future.result = { returnValue: true };
 			});
-			log("Returninig future");
+			Log.log("Returninig future");
 			return future;
 		}
 	}; //end of public interface

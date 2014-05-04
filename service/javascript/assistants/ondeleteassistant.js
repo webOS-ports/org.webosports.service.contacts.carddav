@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Class, Sync, Future, log, Kinds, lockCreateAssistant, debug, DB */
+/*global Class, Future, Log, Sync, DB */
 
 var OnDelete = Class.create(Sync.DeleteAccountCommand, {
 	run: function run(outerFuture) {
@@ -10,7 +10,7 @@ var OnDelete = Class.create(Sync.DeleteAccountCommand, {
 
 			future.then(this, function dbCB() {
 				var result = future.result;
-				debug("Delete config object: " + JSON.stringify(result));
+				Log.debug("Delete config object:", result);
 				this.$super(run)(outerFuture);
 			});
 		} else {

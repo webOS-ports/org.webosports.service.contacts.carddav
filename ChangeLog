@@ -1,3 +1,14 @@
+0.2.8:
+	o fixed issue with iCloud folder parsing.
+    o fixed possible endless loop with sync-on-edit.
+2014-05-04: Achim Königs <garfonso@mobo.info>
+
+0.2.7:
+	o fixed error display in mojo validator app.
+	o added url scheme for SOGo server
+	o reworked url resolving to reduce case manipulation as much as possible
+2014-04-11: Achim Königs <garfonso@mobo.info>
+
 0.2.6:
 	o fixed possible issue with deleting multiple calendars/addressbooks
     o fixed issue with folder uris on some servers.

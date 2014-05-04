@@ -1,6 +1,6 @@
 //JSLint things:
 /*jslint nomen: true, continue: true */
-/*global log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, log_icalDebug, fold */
+/*global Log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, fold */
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.
@@ -223,10 +223,10 @@ var iCal = (function () {
 			}
 
 			offset *= sign;
-			log_icalDebug("Converted duration " + duration + " into offset " + offset);
+			Log.log_icalDebug("Converted duration " + duration + " into offset " + offset);
 			return offset;
 		} else {
-			log("iCal.js======> DURATION DID NOT MATCH: ", duration);
+			Log.log("iCal.js======> DURATION DID NOT MATCH: ", duration);
 			return 0;
 		}
 	}
@@ -367,7 +367,7 @@ var iCal = (function () {
 		parts = rs.split(" ");
 		rrule.freq = transFreq[rs.charAt(0)]; //first char determines interval.
 		if (!rrule.freq) { //if we could not read frequency, most probably other things are broken, too.
-			log("Could not read frequency. Malformed RRULE string: " + rs);
+			Log.log("Could not read frequency. Malformed RRULE string: " + rs);
 			return undefined;
 		}
 		if (rs.charAt(1) === "D") {
@@ -417,7 +417,7 @@ var iCal = (function () {
 						}
 						partialRules.push({ord: ordNum});
 					} else {
-						log("Something went wrong, could not interpret part " + part + " of rrule string " + rs);
+						Log.log("Something went wrong, could not interpret part " + part + " of rrule string " + rs);
 					}
 				}
 			}
@@ -467,7 +467,7 @@ var iCal = (function () {
 				break;
 			default:
 				if (kv[0].charAt(0) !== "D" && kv[0].charAt(0) !== "W" && kv[0].charAt(0) !== "M" && kv[0].charAt(0) !== "Y") { //no complaint about vCalendar rules.
-					log("rrule Parameter " + kv[0] + " not supported. Will skip " + params[i]);
+					Log.log("rrule Parameter " + kv[0] + " not supported. Will skip " + params[i]);
 				}
 				break;
 			}
@@ -515,12 +515,12 @@ var iCal = (function () {
 				//docs say webos wants "DATETIME" not "DATE-TIME" like iCal... :(
 				alarm.alarmTrigger.valueType = "DATETIME";
 			}
-			//log_icalDebug("Parsed trigger " + lObj.line + " to " + JSON.stringify(alarm.alarmTrigger));
+			//log_icalDebug("Parsed trigger", lObj.line, "to", alarm.alarmTrigger);
 		} else if (lObj.key === "END") {
 			if (lObj.value !== "VALARM") {
 				throw ({name: "SyntaxError", message: "BEGIN:VALARM was not followed by END:VALARM. Something is very wrong here."});
 			}
-			//log_icalDebug("Build alarm: " + JSON.stringify(alarm));
+			//log_icalDebug("Build alarm:", alarm);
 			return undefined;
 		} else {
 			alarm[lObj.key.toLowerCase()] = lObj.value;
@@ -538,14 +538,14 @@ var iCal = (function () {
 			break;
 		case "END":
 			delete obj.mode;
-			//log_icalDebug(JSON.stringify(obj));
+			//Log.log_icalDebug(obj);
 			break;
 		case "DTSTART":
 			obj.dtstart = lObj.value;
 			break;
 		default:
 			if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM") {
-				log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+				Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
 			}
 			break;
 		}
@@ -584,7 +584,7 @@ var iCal = (function () {
 			}
 		default:
 			if (lObj.key !== "X-LIC-LOCATION") {
-				log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+				Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
 			}
 			break;
 		}
@@ -769,7 +769,7 @@ var iCal = (function () {
 			future = TZManager.loadTimezones([event.tzId, localTzId]);
 			future.then(afterTZ);
 			future.onError(function (f) {
-				log("Error in TZManager.loadTimezones-future: " + f.exeption);
+				Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
 				future.result = { returnValue: false };
 			});
 		}
@@ -797,7 +797,7 @@ var iCal = (function () {
 				future = TZManager.loadTimezones([event.tzId, localTzId], [year]);
 				future.then(afterTZ);
 				future.onError(function (f) {
-					log("Error in TZManager.loadTimezones-future: " + f.exeption);
+					Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
 					future.result = { returnValue: false };
 				});
 			} else {
@@ -871,7 +871,7 @@ var iCal = (function () {
 				break;
 			default:
 				if (lObj.key !== "PRODID" && lObj.key !== "METHOD" && lObj.key !== "END") {
-					log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+					Log.log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
 				}
 				break;
 			}
@@ -883,7 +883,7 @@ var iCal = (function () {
 		var i, j, revent, ts,	thisTS;
 		//try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
 		if (event.exdates && event.exdates.length > 0) {
-			//log_icalDebug("Event has exdates: " + JSON.stringify(event.exdates) + " remembering it as recurring.");
+			//Log.log_icalDebug("Event has exdates:", event.exdates, "remembering it as recurring.");
 			event.recurringId = recurringEvents.length; //save index for recurring event to add ids later.
 			recurringEvents.push(event);
 		}
@@ -893,7 +893,7 @@ var iCal = (function () {
 			thisTS = event.recurrenceId; //from webOs-docs recurrenceId is DATETIME not webOs-timestamp.
 			for (i = 0; i < recurringEvents.length; i += 1) {
 				revent = recurringEvents[i];
-				//log_icalDebug("Checking if event is exception for " + JSON.stringify(revent.exdates));
+				//Log.log_icalDebug("Checking if event is exception for", revent.exdates);
 				for (j = 0; j < revent.exdates.length; j += 1) {
 					ts = revent.exdates[j];
 					//log_icalDebug("Matching TS: " + ts + " = " + thisTS);
@@ -901,10 +901,10 @@ var iCal = (function () {
 						event.parentDtstart = revent.dtstart;
 						event.parentId = revent._id;
 						if (!event.parentId) {
-							log("Need to add parentId later, because it does not exist, yet. Saving this element as child for parent " + i);
+							Log.log("Need to add parentId later, because it does not exist, yet. Saving this element as child for parent " + i);
 							event.parentLocalId = i;
 						} else {
-							log_icalDebug("Found parent event with eventId " + revent._id + " ts: " + ts + " this ts " + event.recurrenceId);
+							Log.log_icalDebug("Found parent event with eventId " + revent._id + " ts: " + ts + " this ts " + event.recurrenceId);
 						}
 						event.relatedTo = revent.uId;
 						return event;
@@ -913,7 +913,7 @@ var iCal = (function () {
 			}
 		}
 		if (event.recurrenceId) {
-			log("Did not find parent event. :(");
+			Log.log("Did not find parent event. :(");
 		}
 		return event;
 	}
@@ -947,7 +947,7 @@ var iCal = (function () {
 
 		if (!event.dtend && event.duration) {
 			event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
-			log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
+			Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
 			delete event.duration;
 		}
 
@@ -1005,20 +1005,20 @@ var iCal = (function () {
 				tsStruct = iCalTimeToWebOsTime(event.alarm[i].alarmTrigger.value, {tzId: event.tzId});
 				val = tsStruct.ts;
 				val -= tsStruct.offset;
-				log_icalDebug("Hacking alarm, got alarm TS: " + val);
-				log_icalDebug("Value: " + event.alarm[i].alarmTrigger.value);
-				log_icalDebug("Val: " + val);
+				Log.log_icalDebug("Hacking alarm, got alarm TS: " + val);
+				Log.log_icalDebug("Value: " + event.alarm[i].alarmTrigger.value);
+				Log.log_icalDebug("Val: " + val);
 				start = event.dtstart;
-				log_icalDebug("Start is: " + start);
-				log_icalDebug("start: " + start);
+				Log.log_icalDebug("Start is: " + start);
+				Log.log_icalDebug("start: " + start);
 				date = new Date(start);
-				log_icalDebug("Date: " + date);
+				Log.log_icalDebug("Date: " + date);
 				diff = (val - start) / 60000; //now minutes.
-				log_icalDebug("Diff: " + diff);
-				log_icalDebug("Diff is " + diff);
+				Log.log_icalDebug("Diff: " + diff);
+				Log.log_icalDebug("Diff is " + diff);
 				if (event.allDay) {
 					diff += date.getTimezoneOffset(); //remedy allday hack.
-					log_icalDebug("localized: " + diff);
+					Log.log_icalDebug("localized: " + diff);
 				}
 				if (diff < 0) {
 					val = "-PT";
@@ -1026,23 +1026,23 @@ var iCal = (function () {
 				} else {
 					val = "PT";
 				}
-				log_icalDebug("Diff after < 0: " + diff + " val: " + val);
+				Log.log_icalDebug("Diff after < 0: " + diff + " val: " + val);
 				if (diff / 10080 >= 1) { //we have weeks.
 					val += (diff / 10080).toFixed() + "W";
 				} else if (diff / 1440 >= 1) { //we have days. :)
 					val += (diff / 1440).toFixed() + "D";
-					log_icalDebug("Day: " + val);
+					Log.log_icalDebug("Day: " + val);
 				} else if (diff / 60 >= 1) {
 					val += (diff / 60).toFixed() + "H";
-					log_icalDebug("Hour: " + val);
+					Log.log_icalDebug("Hour: " + val);
 				} else {
 					val += diff + "M";
-					log_icalDebug("Minutes: " + val + ", diff: " + diff);
+					Log.log_icalDebug("Minutes: " + val + ", diff: " + diff);
 				}
-				log_icalDebug("Val is: " + val);
+				Log.log_icalDebug("Val is: " + val);
 				event.alarm[i].alarmTrigger.value = val;
 				event.alarm[i].alarmTrigger.valueType = "DURATION";
-				log_icalDebug("Hacked alarm to " + JSON.stringify(event.alarm[i]));
+				Log.log_icalDebug("Hacked alarm to ", event.alarm[i]);
 			}
 		}
 
@@ -1070,21 +1070,21 @@ var iCal = (function () {
 	function prepareXVCalendar(event) {
 		var i, ts, alarmValue, parts, date, sign;
 
-		log_icalDebug("Converting to x-vcalendar: " + JSON.stringify(event));
+		Log.log_icalDebug("Converting to x-vcalendar:", event);
 		for (i = 0; event.alarm && i < event.alarm.length; i += 1) {
 			if (event.alarm[i].alarmTrigger.value !== "none") {
 				if (event.alarm[i].alarmTrigger.valueType === "DURATION") {
-					log_icalDebug("Got duration-alarm " + event.alarm[i].alarmTrigger.value + " and converting it to aalarm.");
+					Log.log_icalDebug("Got duration-alarm " + event.alarm[i].alarmTrigger.value + " and converting it to aalarm.");
 					ts = event.dtstart;
 					alarmValue = event.alarm[i].alarmTrigger.value;
 					ts += convertDurationIntoMicroseconds(alarmValue);
 
 					event.aalarm = webOsTimeToICal(ts, false, event.tzId || localTzId);
-					log_icalDebug("Found alarm: " + JSON.stringify(event.alarm[i]) + ", created: " + event.aalarm);
+					Log.log_icalDebug("Found alarm:", event.alarm[i], ", created:", event.aalarm);
 					break;
 				} else {
 					event.aalarm = event.alarm[i].alarmTrigger.value;
-					//log_icalDebug("Found alarm: " + JSON.stringify(event.alarm[i]) + ", created: " + event.aalarm);
+					//Log.log_icalDebug("Found alarm:", event.alarm[i]), ", created:", event.aalarm);
 				}
 			}
 		}
@@ -1152,7 +1152,7 @@ var iCal = (function () {
 		/*if (!event.tzId) {
 			event.tzId = localTzId;
 		}*/
-		log_icalDebug("Generating iCal for event " + JSON.stringify(event));
+		Log.log_icalDebug("Generating iCal for event", event);
 		text.push("BEGIN:VCALENDAR");
 		if (calendarVersion === 1) {
 			text.push("VERSION:1.0");
@@ -1223,7 +1223,7 @@ var iCal = (function () {
 								field !== "eventDisplayRevset" && field !== "parentDtstart" && field !== "calendarId" &&
 								field !== "transp" && field !== "accountId" && field !== "dtstamp" && field !== "created" &&
 								field !== "lastModified" && field !== "tz" && event[field] !== "") {
-							log("Unknown field " + field + " in event object with value " + JSON.stringify(event[field]));
+							Log.log_icalDebug("Unknown field", field, "in event object with value", event[field]);
 						}
 						break;
 					}
@@ -1244,7 +1244,7 @@ var iCal = (function () {
 			}
 		}
 		result = text.join("\r\n");
-		log_icalDebug("Resulting iCal: " + result);
+		Log.log_icalDebug("Resulting iCal: " + result);
 		return result;
 	}
 
@@ -1267,7 +1267,7 @@ var iCal = (function () {
 					}
 				} catch (e) {
 					outerFuture.result = {returnValue: false, result: event};
-					log(e);
+					Log.log(e);
 				}
 			};
 
@@ -1309,7 +1309,7 @@ var iCal = (function () {
 						}
 					}
 				}
-				log_icalDebug("Parsing finished, event: " + JSON.stringify(event));
+				Log.log_icalDebug("Parsing finished, event:", event);
 
 				event = tryToFillParentId(event);
 
@@ -1335,7 +1335,7 @@ var iCal = (function () {
 				} //else, wait for TZManager to load up tz information.
 			} catch (e) {
 				outerFuture.result = {returnValue: false, result: event};
-				log(e);
+				Log.log(e);
 			}
 
 			return outerFuture;
@@ -1361,19 +1361,17 @@ var iCal = (function () {
 					//for timezone mangling.
 					future = TZManager.loadTimezones([event.tzId, localTzId], years);
 					future.then(this, function (future) {
-						//log_icalDebug("loadTimezones returned: ");
-						//log_icalDebug(JSON.stringify(future.result));
+						//Log.log_icalDebug("loadTimezones returned:", future.result);
 						try {
 							calendarVersion = 2; //TODO: can we get that from server?
 							result = generateICalIntern(event);
 							outerFuture.result = { returnValue: true, result: result};
 						} catch (e) {
-							log("Error in generateICal (intern): ");
-							log(JSON.stringify(e));
+							Log.log("Error in generateICal (intern): ", e);
 						}
 					});
 					future.onError(function (f) {
-						log("Error in TZManager.loadTimezones-future: " + f.exeption);
+						Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
 						future.result = { returnValue: false };
 					});
 				} else {
@@ -1381,8 +1379,7 @@ var iCal = (function () {
 					outerFuture.result = { returnValue: true, result: result};
 				}
 			} catch (e) {
-				log("Error in generateICal: ");
-				log(JSON.stringify(e));
+				Log.log("Error in generateICal:", e);
 			}
 
 			return outerFuture;
@@ -1392,13 +1389,13 @@ var iCal = (function () {
 			var future = new Future();
 
 			if (!this.haveSystemTime) {
-				log_icalDebug("iCal: need systemTime!");
+				Log.log_icalDebug("iCal: need systemTime!");
 				future.nest(PalmCall.call("palm://com.palm.systemservice", "time/getSystemTime", { "subscribe": false}));
 				future.then(this, function palmCallReturn() {
 					var result = future.result;
 					if (result.timezone) {
 						localTzId = result.timezone;
-						log_icalDebug("Got local timezone: " + localTzId);
+						Log.log_icalDebug("Got local timezone: " + localTzId);
 					}
 					this.haveSystemTime = true;
 					future.result = { returnValue: true };
@@ -1409,11 +1406,11 @@ var iCal = (function () {
 
 			future.then(this, function initializeTZManager() {
 				if (!this.TZManagerInitialized) {
-					log_icalDebug("iCal: init TZManager");
+					Log.log_icalDebug("iCal: init TZManager");
 					future.nest(TZManager.setup());
 					future.then(this, function tzManagerReturn() {
 						var result = future.result;
-						log_icalDebug("TZManager initialized");
+						Log.log_icalDebug("TZManager initialized");
 						this.TZManagerInitialized = true;
 						future.result = { returnValue: true };
 					});
@@ -1423,16 +1420,16 @@ var iCal = (function () {
 			});
 
 			future.then(this, function endInit() {
-				log_icalDebug("iCal init checking " + this.haveSystemTime + " - " + this.TZManagerInitialized);
+				Log.log_icalDebug("iCal init checking " + this.haveSystemTime + " - " + this.TZManagerInitialized);
 				var result = future.result;
 				if (this.haveSystemTime && this.TZManagerInitialized) {
-					log_icalDebug("iCal init finished");
+					Log.log_icalDebug("iCal init finished");
 				}
 				future.result = { iCal: true};
 			});
 
 			future.onError(function () {
-				log("Error in iCal.initialize: " + future.exeption);
+				Log.log("Error in iCal.initialize:", future.exeption);
 				future.result = { returnValue: false };
 			});
 
