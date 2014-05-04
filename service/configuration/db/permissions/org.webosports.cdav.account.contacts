@@ -1,13 +1,13 @@
 [
-	{
-		"type": "db.kind",
-		"object": "org.webosports.cdav.account.contacts:1",
-		"caller": "org.webosports.cdav.*",
-		"operations": {
-			"read": "allow",
-			"create": "allow",
-			"delete": "allow",
-			"update": "allow"
-		}
-	}
+    {
+        "type": "db.kind",
+        "object": "org.webosports.cdav.account.contacts:1",
+        "caller": "org.webosports.cdav.*",
+        "operations": {
+            "read": "allow",
+            "create": "allow",
+            "delete": "allow",
+            "update": "allow"
+        }
+    }
 ]

@@ -23,13 +23,13 @@ var xml = IMPORTS["foundations.xml"];
 
 //now add some node.js imports:
 if (typeof require === "undefined") {
-	require = IMPORTS.require;
+    require = IMPORTS.require;
 }
 var querystring = require('querystring');
 var fs = require('fs'); //required for own node modules and current vCard converter.
 var path = require('path'); //required for vCard converter.
 var http = require('http'); //required for own httpClient. Not using AjaxCall, because
-							//it is broken in 2.2.4 and can't handle custom ports, only 80 and 443
+                            //it is broken in 2.2.4 and can't handle custom ports, only 80 and 443
 var url = require('url');   //required to parse urls
 
 
@@ -42,7 +42,7 @@ var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
 console.error("--------->Loaded Libraries OK1");
 
 process.on("uncaughtException", function (e) {
-	Log.log("Uncaought error:" + e.stack);
-	//throw e;
+    Log.log("Uncaought error:" + e.stack);
+    //throw e;
 });
 

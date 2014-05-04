@@ -1,86 +1,86 @@
 {
-	"id": "org.webosports.cdav.service",
-	"description": "CardDAV Contact Service",
-	"engine": "node",
-	"activityTimeout": 30,
-	"services": [
-		{
-			"name": "org.webosports.cdav.service",
-			"description": "CardDAV Contact",
-			"globalized": false,
-			"assistant": "ServiceAssistant",
-			"commands": [
-				{
-					"name": "checkCredentials",
-					"assistant": "checkCredentialsAssistant",
-					"public": true
-				},
-				{
-					"name": "onCredentialsChanged",
-					"assistant": "OnCredentialsChanged",
-					"public": true
-				},
-				{
-					"name": "onContactsCreate",
-					"assistant": "OnContactsCreate",
-					"public": true
-				},
-				{
-					"name": "onCalendarCreate",
-					"assistant": "OnCreate",
-					"public": true
-				},
-				{
-					"name": "onContactsEnabled",
-					"assistant": "OnContactsEnabled",
-					"public": true
-				},
-				{
-					"name": "onCalendarEnabled",
-					"assistant": "OnCalendarEnabled",
-					"public": true
-				},
-				{
-					"name": "onCalendarDelete",
-					"assistant": "OnDelete",
-					"public": true
-				},
-				{
-					"name": "onContactsDelete",
-					"assistant": "OnDelete",
-					"public": true
-				},
-				{
-					"name": "doContactsSync",
-					"assistant": "ContactsSync",
-					"public": true
-				},
-				{
-					"name": "doCalendarSync",
-					"assistant": "CalendarSync",
-					"public": true
-				},
-				{
-					"name": "sync",
-					"assistant": "SyncAll",
-					"public": true
-				},
-				{
-					"name": "discovery",
-					"assistant": "DiscoveryAssistant",
-					"public": true
-				},
-				{
-					"name": "triggerSlowSync",
-					"assistant": "TriggerSlowSyncAssistant",
-					"public": true
-				},
-				{
-					"name": "resources",
-					"assistant": "Resources",
-					"public": false
-				}
-			]
-		}
-	]
+    "id": "org.webosports.cdav.service",
+    "description": "CardDAV Contact Service",
+    "engine": "node",
+    "activityTimeout": 30,
+    "services": [
+        {
+            "name": "org.webosports.cdav.service",
+            "description": "CardDAV Contact",
+            "globalized": false,
+            "assistant": "ServiceAssistant",
+            "commands": [
+                {
+                    "name": "checkCredentials",
+                    "assistant": "checkCredentialsAssistant",
+                    "public": true
+                },
+                {
+                    "name": "onCredentialsChanged",
+                    "assistant": "OnCredentialsChanged",
+                    "public": true
+                },
+                {
+                    "name": "onContactsCreate",
+                    "assistant": "OnContactsCreate",
+                    "public": true
+                },
+                {
+                    "name": "onCalendarCreate",
+                    "assistant": "OnCreate",
+                    "public": true
+                },
+                {
+                    "name": "onContactsEnabled",
+                    "assistant": "OnContactsEnabled",
+                    "public": true
+                },
+                {
+                    "name": "onCalendarEnabled",
+                    "assistant": "OnCalendarEnabled",
+                    "public": true
+                },
+                {
+                    "name": "onCalendarDelete",
+                    "assistant": "OnDelete",
+                    "public": true
+                },
+                {
+                    "name": "onContactsDelete",
+                    "assistant": "OnDelete",
+                    "public": true
+                },
+                {
+                    "name": "doContactsSync",
+                    "assistant": "ContactsSync",
+                    "public": true
+                },
+                {
+                    "name": "doCalendarSync",
+                    "assistant": "CalendarSync",
+                    "public": true
+                },
+                {
+                    "name": "sync",
+                    "assistant": "SyncAll",
+                    "public": true
+                },
+                {
+                    "name": "discovery",
+                    "assistant": "DiscoveryAssistant",
+                    "public": true
+                },
+                {
+                    "name": "triggerSlowSync",
+                    "assistant": "TriggerSlowSyncAssistant",
+                    "public": true
+                },
+                {
+                    "name": "resources",
+                    "assistant": "Resources",
+                    "public": false
+                }
+            ]
+        }
+    ]
 }
