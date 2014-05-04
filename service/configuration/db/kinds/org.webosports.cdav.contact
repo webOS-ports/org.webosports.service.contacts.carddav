@@ -1,68 +1,68 @@
 {
-	"id": "org.webosports.cdav.contact:1",
-	"sync": false,
-	"owner": "org.webosports.cdav.service",
-	"extends": [
-		"com.palm.contact:1"
-	],
-	"indexes": [
-		{
-			"name": "accountId",
-			"props": [
-				{
-					"name": "accountId"
-				}
-			]
-		},
-		{
-			"name": "accountId_remoteId",
-			"props": [
-				{
-					"name": "accountId"
-				},
-				{
-					"name": "remoteId"
-				}
-			]
-		},
-		{
-			"name": "accountId_deleted",
-			"incDel": true,
-			"props": [
-				{
-					"name": "accountId"
-				}
-			]
-		},
-		{
-			"name": "accountIdRevision",
-			"incDel": true,
-			"props": [
-				{
-					"name": "accountId"
-				},
-				{
-					"name": "_rev"
-				}
-			]
-		},
-		{
-			"name": "calendarId",
-			"incDel": false,
-			"props": [
-				{
-					"name": "calendarId"
-				}
-			]
-		},
-		{
-			"name": "revNumber",
-			"incDel": true,
-			"props": [
-				{
-					"name": "_rev"
-				}
-			]
-		}
-	]
+    "id": "org.webosports.cdav.contact:1",
+    "sync": false,
+    "owner": "org.webosports.cdav.service",
+    "extends": [
+        "com.palm.contact:1"
+    ],
+    "indexes": [
+        {
+            "name": "accountId",
+            "props": [
+                {
+                    "name": "accountId"
+                }
+            ]
+        },
+        {
+            "name": "accountId_remoteId",
+            "props": [
+                {
+                    "name": "accountId"
+                },
+                {
+                    "name": "remoteId"
+                }
+            ]
+        },
+        {
+            "name": "accountId_deleted",
+            "incDel": true,
+            "props": [
+                {
+                    "name": "accountId"
+                }
+            ]
+        },
+        {
+            "name": "accountIdRevision",
+            "incDel": true,
+            "props": [
+                {
+                    "name": "accountId"
+                },
+                {
+                    "name": "_rev"
+                }
+            ]
+        },
+        {
+            "name": "calendarId",
+            "incDel": false,
+            "props": [
+                {
+                    "name": "calendarId"
+                }
+            ]
+        },
+        {
+            "name": "revNumber",
+            "incDel": true,
+            "props": [
+                {
+                    "name": "_rev"
+                }
+            ]
+        }
+    ]
 }

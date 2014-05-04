@@ -1,89 +1,89 @@
 [
-	{
-		"library": {
-			"name": "foundations",
-			"version": "1.0"
-		}
-	},
-	{
-		"library": {
-			"name": "foundations.xml",
-			"version": "1.0"
-		}
-	},
-	{
-		"library": {
-			"name": "mojoservice.transport",
-			"version": "1.0"
-		}
-	},
-	{
-		"library": {
-			"name": "mojoservice.transport.sync",
-			"version": "1.0"
-		}
-	},
-	{
-		"library": {
-			"name": "contacts",
-			"version": "1.0"
-		}
-	},
-	{
-		"library": {
-			"name": "calendar",
-			"version": "1.0"
-		}
-	},
-	{
-		"library": {
-			"name": "globalization",
-			"version": "1.0"
-		}
-	},
-	{
-		"source": "javascript/prologue.js"
-	},
-	{
-		"source": "javascript/kinds.js"
-	},
+    {
+        "library": {
+            "name": "foundations",
+            "version": "1.0"
+        }
+    },
+    {
+        "library": {
+            "name": "foundations.xml",
+            "version": "1.0"
+        }
+    },
+    {
+        "library": {
+            "name": "mojoservice.transport",
+            "version": "1.0"
+        }
+    },
+    {
+        "library": {
+            "name": "mojoservice.transport.sync",
+            "version": "1.0"
+        }
+    },
+    {
+        "library": {
+            "name": "contacts",
+            "version": "1.0"
+        }
+    },
+    {
+        "library": {
+            "name": "calendar",
+            "version": "1.0"
+        }
+    },
+    {
+        "library": {
+            "name": "globalization",
+            "version": "1.0"
+        }
+    },
+    {
+        "source": "javascript/prologue.js"
+    },
+    {
+        "source": "javascript/kinds.js"
+    },
     {
         "source": "javascript/urlschemes.js"
     },
-	{
-		"source": "javascript/utils/accountConfigUtils.js"
-	},
-	{
-		"source": "javascript/utils/encodingStuff.js"
-	},
-	{
-		"source": "javascript/utils/keymanager.js"
-	},
-	{
-		"source": "javascript/utils/iCal.js"
-	},
-	{
-		"source": "javascript/utils/vCard.js"
-	},
-	{
-		"source": "javascript/assistants/checkcredentialsassistant.js"
-	},
-	{
-		"source": "javascript/assistants/discoveryassistant.js"
-	},
-	{
-		"source": "javascript/assistants/oncreateassistant.js"
-	},
-	{
-		"source": "javascript/assistants/ondeleteassistant.js"
-	},
-	{
-		"source": "javascript/assistants/syncassistant.js"
-	},
-	{
-		"source": "javascript/assistants/serviceassistant.js"
-	},
-	{
-		"source": "javascript/assistants/triggerslowsyncassistant.js"
-	}
+    {
+        "source": "javascript/utils/accountConfigUtils.js"
+    },
+    {
+        "source": "javascript/utils/encodingStuff.js"
+    },
+    {
+        "source": "javascript/utils/keymanager.js"
+    },
+    {
+        "source": "javascript/utils/iCal.js"
+    },
+    {
+        "source": "javascript/utils/vCard.js"
+    },
+    {
+        "source": "javascript/assistants/checkcredentialsassistant.js"
+    },
+    {
+        "source": "javascript/assistants/discoveryassistant.js"
+    },
+    {
+        "source": "javascript/assistants/oncreateassistant.js"
+    },
+    {
+        "source": "javascript/assistants/ondeleteassistant.js"
+    },
+    {
+        "source": "javascript/assistants/syncassistant.js"
+    },
+    {
+        "source": "javascript/assistants/serviceassistant.js"
+    },
+    {
+        "source": "javascript/assistants/triggerslowsyncassistant.js"
+    }
 ]

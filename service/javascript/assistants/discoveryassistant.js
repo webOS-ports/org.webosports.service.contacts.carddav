@@ -7,27 +7,27 @@ var DiscoveryAssistant = function () {};
 //accountId, name and username will be used to search for config object.
 //url will be updated in DB. If no object in DB, yet, URL is required.
 DiscoveryAssistant.prototype.run = function (outerFuture) {
-	var future = new Future(), args = this.controller.args;
+    var future = new Future(), args = this.controller.args;
 
-	if (this.client && this.client.config) {
-		if (!this.client.config.username) {
-			this.client.config.username = this.client.userAuth.user;
-		}
-		future.nest(this.processAccount(args, this.client.config));
-	} else {
-		Log.log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
-		future.nest(this.processAccount(args, {
-			_kind: Kinds.accountConfig.id,
-			accountId: args.accountId
-		}));
-	}
+    if (this.client && this.client.config) {
+        if (!this.client.config.username) {
+            this.client.config.username = this.client.userAuth.user;
+        }
+        future.nest(this.processAccount(args, this.client.config));
+    } else {
+        Log.log("No config object was found by serviceAssistant! Trying to create new one with command line arguments.");
+        future.nest(this.processAccount(args, {
+            _kind: Kinds.accountConfig.id,
+            accountId: args.accountId
+        }));
+    }
 
-	future.then(this, function discoveryFinished() {
-		var result = future.result || {returnValue: false};
-		Log.log("Discovery finished.");
-		outerFuture.result = result;
-	});
-	return outerFuture;
+    future.then(this, function discoveryFinished() {
+        var result = future.result || {returnValue: false};
+        Log.log("Discovery finished.");
+        outerFuture.result = result;
+    });
+    return outerFuture;
 };
 
 DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
@@ -50,8 +50,8 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
                     future.result = { returnValue: false };
                 }
             } else {
-				future.result = { returnValue: false };
-			}
+                future.result = { returnValue: false };
+            }
         });
     } else {
         Log.log("Could not resolve", type, "home from known URL schemes.");
@@ -62,44 +62,44 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
 };
 
 DiscoveryAssistant.prototype.processAccount = function (args, config) {
-	var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome, key, additionalConfig;
+    var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome, key, additionalConfig;
 
-	if (config) {
-		Log.debug("Got config object:", config);
+    if (config) {
+        Log.debug("Got config object:", config);
 
-		if (args.accountId) {
-			config.accountId = args.accountId;
-		}
-		if (args.username) {
-			config.username = args.username;
-		}
-		if (args.name) {
-			config.name = args.name;
-		}
-		if (args.url) {
-			config.url = args.url;
-		}
+        if (args.accountId) {
+            config.accountId = args.accountId;
+        }
+        if (args.username) {
+            config.username = args.username;
+        }
+        if (args.name) {
+            config.name = args.name;
+        }
+        if (args.url) {
+            config.url = args.url;
+        }
 
-		if (!config.url) {
-			Log.log("No url for", config, " found in db or agruments. Can't process this account.");
-			outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
-			return outerFuture;
-		}
+        if (!config.url) {
+            Log.log("No url for", config, " found in db or agruments. Can't process this account.");
+            outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
+            return outerFuture;
+        }
 
-		additionalConfig = UrlSchemes.resolveURL(config.url, config.username, "additionalConfig");
-		if (additionalConfig) {
-			for (key in additionalConfig) {
-				if (additionalConfig.hasOwnProperty(key)) {
-					config[key] = additionalConfig[key];
-				}
-			}
-		}
+        additionalConfig = UrlSchemes.resolveURL(config.url, config.username, "additionalConfig");
+        if (additionalConfig) {
+            for (key in additionalConfig) {
+                if (additionalConfig.hasOwnProperty(key)) {
+                    config[key] = additionalConfig[key];
+                }
+            }
+        }
 
-		params = {
-			path: config.url,
-			authToken: this.client.userAuth.authToken,
-			originalUrl: config.url
-		};
+        params = {
+            path: config.url,
+            authToken: this.client.userAuth.authToken,
+            originalUrl: config.url
+        };
 
         future.nest(this.resolveHome(params, config.username, "calendar"));
 
@@ -137,37 +137,37 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
             }
         });
 
-		future.then(this, function discoverCB() {
-			var result = future.result, i, f;
+        future.then(this, function discoverCB() {
+            var result = future.result, i, f;
 
-			if (result.returnValue === true) {
-				config[Kinds.objects.calendarevent.name] = {
-					homeFolder: result.calendarHome
-				};
-				config[Kinds.objects.contact.name] = {
-					homeFolder: result.contactHome
-				};
-			} else {
-				Log.log("Could not discover addressbook and calendar folders:", result);
+            if (result.returnValue === true) {
+                config[Kinds.objects.calendarevent.name] = {
+                    homeFolder: result.calendarHome
+                };
+                config[Kinds.objects.contact.name] = {
+                    homeFolder: result.contactHome
+                };
+            } else {
+                Log.log("Could not discover addressbook and calendar folders:", result);
 
-				Log.log("Setting home folders to original URL and hoping for the best.");
-				config[Kinds.objects.calendarevent.name] = {
-					homeFolder: config.url
-				};
-				config[Kinds.objects.contact.name] = {
-					homeFolder: config.url
-				};
-			}
+                Log.log("Setting home folders to original URL and hoping for the best.");
+                config[Kinds.objects.calendarevent.name] = {
+                    homeFolder: config.url
+                };
+                config[Kinds.objects.contact.name] = {
+                    homeFolder: config.url
+                };
+            }
 
-			future.nest(DB.merge([config]));
-		});
+            future.nest(DB.merge([config]));
+        });
 
-		future.then(this, function storeConfigCB() {
-			var result = future.result || future.exception;
-			Log.debug("Store config came back:", result);
-			outerFuture.result = {returnValue: result.returnValue, success: result.returnValue, config: config};
-		});
-	}
+        future.then(this, function storeConfigCB() {
+            var result = future.result || future.exception;
+            Log.debug("Store config came back:", result);
+            outerFuture.result = {returnValue: result.returnValue, success: result.returnValue, config: config};
+        });
+    }
 
-	return outerFuture;
+    return outerFuture;
 };

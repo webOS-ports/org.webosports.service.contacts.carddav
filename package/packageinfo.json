@@ -1,17 +1,17 @@
 {
-	"id": "org.webosports.cdav",
-	"package_format_version": 2,
-	"loc_name": "C+DAV synergy connector",
-	"version": "0.2.8",
-	"vendor": "WebOS Ports - Stefan Schmidt",
-	"vendorurl": "www.webos-ports.org",
-	"app": "org.webosports.cdav.app",
-	"services": [
-		"org.webosports.cdav.service"
-	],
-	"accounts": [
-		"org.webosports.cdav.account",
-		"org.webosports.cdav.account.google.contacts",
+    "id": "org.webosports.cdav",
+    "package_format_version": 2,
+    "loc_name": "C+DAV synergy connector",
+    "version": "0.2.8",
+    "vendor": "WebOS Ports - Stefan Schmidt",
+    "vendorurl": "www.webos-ports.org",
+    "app": "org.webosports.cdav.app",
+    "services": [
+        "org.webosports.cdav.service"
+    ],
+    "accounts": [
+        "org.webosports.cdav.account",
+        "org.webosports.cdav.account.google.contacts",
         "org.webosports.cdav.account.icloud"
-	]
+    ]
 }

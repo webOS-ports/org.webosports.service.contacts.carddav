@@ -132,12 +132,12 @@ MainAssistant.prototype.showMessage = function (title, message) {
 
 MainAssistant.prototype.deactivate = function (event) {
     "use strict";
-	/* remove any event handlers you added in activate and do any other cleanup that should happen before
-	   this scene is popped or another scene is pushed on top */
+    /* remove any event handlers you added in activate and do any other cleanup that should happen before
+       this scene is popped or another scene is pushed on top */
 };
 
 MainAssistant.prototype.cleanup = function (event) {
     "use strict";
-	/* this function should do any cleanup needed before the scene is destroyed as
-	   a result of being popped off the scene stack */
+    /* this function should do any cleanup needed before the scene is destroyed as
+       a result of being popped off the scene stack */
 };

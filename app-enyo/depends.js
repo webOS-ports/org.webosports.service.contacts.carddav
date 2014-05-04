@@ -1,4 +1,4 @@
 enyo.depends(
-	"source/CrossAppTarget.js",
-	"source/accounts.css"
+    "source/CrossAppTarget.js",
+    "source/accounts.css"
 );
