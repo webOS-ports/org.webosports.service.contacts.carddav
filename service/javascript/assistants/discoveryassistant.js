@@ -101,6 +101,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
             originalUrl: config.url
         };
 
+        params.cardDav = false;
         future.nest(this.resolveHome(params, config.username, "calendar"));
 
         future.then(this, function calendarResolveCB() {
@@ -111,6 +112,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
                 calendarHome = false;
             }
 
+            params.cardDav = true;
             future.nest(this.resolveHome(params, config.username, "contact"));
         });
 
