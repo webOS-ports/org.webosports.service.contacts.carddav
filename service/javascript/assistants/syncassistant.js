@@ -516,8 +516,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         }
 
         this.params.path = folder.uri;
-        if (kindName === Kinds.objects.contact.name) {
+        if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
             this.params.cardDav = true;
+        } else {
+            this.params.cardDav = false;
         }
 
         this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
