@@ -616,6 +616,10 @@ var CalDav = (function () {
             var future = new Future(), options = preProcessOptions(params);
             options.method = "GET";
             options.path = obj.uri;
+            options.headers["Content-Type"] = "text/calendar; charset=utf-8";
+            if (params.cardDav) {
+                options.headers["Content-Type"] = "text/vcard; charset=utf-8";
+            }
 
             future.nest(sendRequest(options, ""));
 
