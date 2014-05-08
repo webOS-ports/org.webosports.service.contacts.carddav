@@ -26,10 +26,10 @@ var UrlSchemes = {
             checkCredentials: "https://www.google.com:443/.well-known/carddav"
         },
         {
-            keys:              ["DISABLEDyahoo."],
-            calendar:          "https://caldav.calendar.yahoo.com",
-            contact:          "https://carddav.address.yahoo.com",
-            checkCredentials: "https://carddav.address.yahoo.com"
+            keys:              ["yahoo."],
+            calendar:          "https://caldav.calendar.yahoo.com/dav/%USERNAME%/Calendar/",
+            contact:          "https://carddav.address.yahoo.com/dav/%USERNAME%/",
+            checkCredentials: "https://carddav.address.yahoo.com/principals/users/%USERNAME%/"
         },
         {
             keys:              ["/owncloud", "cloudu.de"],
