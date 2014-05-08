@@ -1,3 +1,14 @@
+0.2.9:
+	o fixed issue carddav/caldav namespaces which lead to issues during discovery and sync for some servers
+    o fixed issue with empty / VTODO calendar entries which could make the service stuck in sync mode
+    o fixed content type for vcard/vcalendar downloads
+    o enabled URL scheme for yahoo
+    o fixed issue that sometimes error state was forgotten on a failed sync
+    o changed contet type of xml requests to text/xml.
+    o added yahoo account
+    o fixed possible hang in checkCredentials.
+2014-05-08: Achim Königs <garfonso@mobo.info>
+
 0.2.8:
 	o fixed issue with iCloud folder parsing.
     o fixed possible endless loop with sync-on-edit.
