@@ -550,20 +550,28 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.then(this, function updateCB() {
                     var result = future.result;
 
-                    if (!result.more) {
-                        Log.debug("Sync for folder", folder.name, "finished.");
-                        this.client.transport.syncKey[kindName].folderIndex = nextIndex;
-                        result.more = nextIndex < folders.length;
+                    if (!result.error) {
+                        if (!result.more) {
+                            Log.debug("Sync for folder", folder.name, "finished.");
+                            this.client.transport.syncKey[kindName].folderIndex = nextIndex;
+                            result.more = nextIndex < folders.length;
+                        }
+
+                        //save ctag to fastly determine if sync is necessary at all
+                        this.client.transport.syncKey[kindName].folders[index].ctag = ctag;
+
+                        //this is required here to let next getRemoteChanges not run into error-case.
+                        this.client.transport.syncKey[kindName].error = false;
+                        delete this.collectionIds; //reset this for orphaned checks.
+
+                        future.result = result;
+                    } else {
+                        Log.log("Error in _doUpdate, returning empty set.");
+                        future.result = {
+                            more: false,
+                            entries: []
+                        };
                     }
-
-                    //save ctag to fastly determine if sync is necessary at all
-                    this.client.transport.syncKey[kindName].folders[index].ctag = ctag;
-
-                    //this is required here to let next getRemoteChanges not run into error-case.
-                    this.client.transport.syncKey[kindName].error = false;
-                    delete this.collectionIds; //reset this for orphaned checks.
-
-                    future.result = result;
                 });
             } else {
                 //we don't need an update, tell sync engine that we are finished.
@@ -773,8 +781,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 Log.log("Something in getting etags went wrong:", future.exception);
                 Log.log("Aborting with no downsync.");
                 future.result = {
-                    entries: [],
-                    more: false
+                    error: true
                 };
             } else {
                 Log.debug("Folder:", this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].uri);
