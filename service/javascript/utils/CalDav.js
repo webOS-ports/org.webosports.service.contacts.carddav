@@ -470,7 +470,7 @@ var CalDav = (function () {
             headers: {
                 //Depth: 0, //used for DAV reports.
                 Prefer: "return-minimal", //don't really know why that is.
-                "Content-Type": "application/xml; charset=utf-8", //necessary
+                "Content-Type": "text/xml; charset=utf-8", //necessary
                 Connection: "keep-alive",
                 Authorization: params.authToken,
                 "User-Agent": "org.webosports.cdav-connector"
