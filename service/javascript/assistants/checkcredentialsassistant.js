@@ -53,6 +53,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
                 path = this.config.url;
             } else {
                 Log.log("No URL. Can't check credentials!");
+                outerfuture.result = {returnValue: false, success: false, reason: "Could not determine URL..."};
                 throw new Transport.AuthenticationError();
             }
         }

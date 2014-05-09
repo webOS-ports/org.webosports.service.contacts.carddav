@@ -1,6 +1,6 @@
 {
     "id": "org.webosports.cdav.app",
-    "version": "0.2.8",
+    "version": "0.2.9",
     "vendor": "WebOS Ports - Stefan Schmidt",
     "type": "web",
     "main": "index.html",

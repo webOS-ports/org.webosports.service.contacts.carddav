@@ -827,7 +827,9 @@ var iCal = (function () {
                     event.tzMode = true;
                 } else if (lObj.value === "VTODO" || lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
                     event.ignoreMode = lObj.value;
-                } //will ignore begins of VEVENT, VTIMEZONE and VCALENDAR.
+                } else if (lObj.value === "VEVENT") {
+                    event.value = true;
+                } //will ignore begins of VTIMEZONE and VCALENDAR.
                 break;
             case "ORGANIZER":
                 //organizer is a full attendee again. Problem: This might cause duplicate attendees!
@@ -1310,6 +1312,14 @@ var iCal = (function () {
                     }
                 }
                 Log.log_icalDebug("Parsing finished, event:", event);
+
+                if (!event.valid) {
+                    Log.log("VCALENDAR Object did not contain VEVENT.");
+                    outerFuture.result = {returnValue: false};
+                    if (callback) {
+                        callback(false);
+                    }
+                }
 
                 event = tryToFillParentId(event);
 
