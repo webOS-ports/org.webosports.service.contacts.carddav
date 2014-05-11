@@ -423,6 +423,7 @@ var CalDav = (function () {
             Log.log_calDavDebug('STATUS: ', res.statusCode);
             Log.log_calDavDebug('HEADERS: ', res.headers);
             res.setEncoding('utf8');
+            res.setTimeout(30000);
             res.on('data', function dataCB(chunk) {
                 lastSend = Date.now();
                 body += chunk;
