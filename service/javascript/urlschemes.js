@@ -21,7 +21,6 @@ var UrlSchemes = {
             //exists: https://developers.google.com/google-apps/carddav/
             //so change the google account template and create custom UI for OAuth2
             //try to keep OAuth2 UI general.. probably others use it, too, in the future.
-            calendar:          "https://apidata.googleusercontent.com/caldav/v2/%USERNAME%/events",
             contact:           "https://www.google.com:443/carddav/v1/principals/%USERNAME%/lists/",
             checkCredentials:  "https://www.google.com:443/.well-known/carddav"
         },
