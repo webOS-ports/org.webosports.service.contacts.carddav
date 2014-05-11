@@ -481,7 +481,6 @@ var CalDav = (function () {
         var options = {
             method: "PROPFIND",
             headers: {
-                //Depth: 0, //used for DAV reports.
                 Prefer: "return-minimal", //don't really know why that is.
                 "Content-Type": "text/xml; charset=utf-8", //necessary
                 Connection: "keep-alive",
@@ -548,6 +547,7 @@ var CalDav = (function () {
         checkCredentials: function (params) {
             var options = preProcessOptions(params), future = new Future(), data;
 
+            options.headers.Depth = 0;
             options.method = "PROPFIND";
             data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 
@@ -739,6 +739,7 @@ var CalDav = (function () {
 
                 if (!addressbook) {
                     data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
+                    options.headers.Depth = 0;
                     folders.calendarHome = home;
                     parseURLIntoOptions(tryFolders[0], options);
                     future.nest(sendRequest(options, data));
@@ -808,6 +809,7 @@ var CalDav = (function () {
             options.method = "PROPFIND";
             options.parse = true;
             parseURLIntoOptions(tryFolders[0], options);
+            options.headers.Depth = 0;
             data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
             future.nest(sendRequest(options, data));
             future.then(principalCB.bind(this, 1));
