@@ -74,13 +74,10 @@ enyo.kind({
 
         debug("Got response: " + JSON.stringify(inResponse));
         var start = inResponse.indexOf("code=") + 5,
-            url = "https://accounts.google.com/o/oauth2/token",
             code;
         if (start >= 5) {
             code = inResponse.substring(start);
             debug("Got code: " + code);
-
-            url += "?code=" + this.code + "&client_id=" + CLIENT_ID + "&client_secret=" + CLIENT_SECRET + "&redirect_uri=urn%3Aietf%3Awg%3Aoauth%3A2.0%3Aoob&grant_type=authorization_code";
 
             this.doing = true;
             this.$.getAccessToken.call({
