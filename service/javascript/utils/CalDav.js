@@ -364,11 +364,11 @@ var CalDav = (function () {
 
         function endCB(res) {
             var result, newPath, redirectOptions;
+            Log.debug("Answer received."); //does this also happen on timeout??
             if (received) {
                 Log.log_calDavDebug(options.path, " was already received... exiting without callbacks.");
             }
             received = true;
-            Log.debug("Answer received."); //thoes this also happen on timeout??
             clearTimeout(timeoutID);
             Log.log_calDavDebug("Body: " + body);
 
@@ -427,7 +427,16 @@ var CalDav = (function () {
                 lastSend = Date.now();
                 body += chunk;
             });
-            res.on('end', endCB.bind(this, res));
+            res.on('end', endCB.bind(this, res)); //sometimes this does not happen. One reason are empty responses..
+            res.on('timeout', function () {
+                Log.log("Timeout while receiving.");
+                endCB(res);
+            });
+            res.on('error', function (error) {
+                Log.log("Error while receiving:", error);
+                endCB(res);
+            });
+            res.on('close', endCB.bind(this, res));
         }
 
         function doSendRequest() {
@@ -444,6 +453,10 @@ var CalDav = (function () {
                 Log.log('problem with request: ' + e.message);
                 lastSend = 0; //let's trigger retry.
                 //future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
+            });
+
+            req.on('end', function (incomming) {
+                Log.log('Other side did hang up?', incomming);
             });
 
             // write data to request body
