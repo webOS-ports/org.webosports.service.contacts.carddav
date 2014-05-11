@@ -180,6 +180,4 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 });
 
 //these endpoints are delegated to the sync framework to handle - use the serviceassistant code above to intercept
-var OnContactsEnabled = Sync.EnabledAccountCommand;
-var OnCalendarEnabled = Sync.EnabledAccountCommand;
 var OnCredentialsChanged = Sync.CredentialsChangedCommand;

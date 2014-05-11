@@ -32,12 +32,12 @@
                 },
                 {
                     "name": "onContactsEnabled",
-                    "assistant": "OnContactsEnabled",
+                    "assistant": "OnEnabled",
                     "public": true
                 },
                 {
                     "name": "onCalendarEnabled",
-                    "assistant": "OnCalendarEnabled",
+                    "assistant": "OnEnabled",
                     "public": true
                 },
                 {
