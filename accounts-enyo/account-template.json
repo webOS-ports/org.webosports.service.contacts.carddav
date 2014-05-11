@@ -16,7 +16,7 @@
         "address": "palm://org.webosports.cdav.service/checkCredentials",
         "customUI": {
             "appId": "org.webosports.cdav.app",
-            "name": "index.html"
+            "name": "CrossAppTarget/index.html"
         }
     },
     "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
