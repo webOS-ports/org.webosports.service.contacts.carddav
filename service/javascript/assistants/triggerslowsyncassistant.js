@@ -60,7 +60,7 @@ TriggerSlowSyncAssistant.prototype.processAccount = function (objs, index) {
         });
     } else {
         Log.log("All", index, "objects processed.");
-        future.result = { returnValue: true };
+        future.result = { returnValue: true, success: true };
     }
 
     return future;

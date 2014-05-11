@@ -1482,7 +1482,7 @@ SyncAll.prototype.run = function (outerfuture) {
 
     errorOut = function (msg) {
         Log.log(msg);
-        outerfuture.result = { returnValue: false, message: msg };
+        outerfuture.result = { returnValue: false, success: false, message: msg };
         return outerfuture;
     };
 
@@ -1500,6 +1500,7 @@ SyncAll.prototype.run = function (outerfuture) {
 
                 //only be a success if all syncs ware a success.
                 innerResult.returnValue = innerResult.returnValue && result.returnValue;
+                innerResult.success = innerResult.returnValue; //this is done, because something tends to overwrite returnValue..
                 innerResult[name] = result;
                 outerfuture.result = innerResult;
             });
