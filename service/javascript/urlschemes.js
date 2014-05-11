@@ -31,14 +31,14 @@ var UrlSchemes = {
             checkCredentials:  "https://carddav.address.yahoo.com/principals/users/%USERNAME%/"
         },
         {
-            keys:              ["/owncloud", "cloudu.de"],
+            keys:              ["/owncloud/", "cloudu.de"],
             //issue: calendar/contact contain display name, which we don't know and can be different from username??
             calendar:          "%URL_PREFIX%/remote.php/caldav/calendars/%USERNAME%/",
             contact:           "%URL_PREFIX%/remote.php/carddav/addressbooks/%USERNAME%/",
             checkCredentials:  "%URL_PREFIX%/remote.php/caldav"
         },
         {
-            keys:              ["/egroupware"],
+            keys:              ["/egroupware/"],
             calendar:          "%URL_PREFIX%/groupdav.php/%USERNAME%/",
             contact:           "%URL_PREFIX%/groupdav.php/%USERNAME%/",
             checkCredentials:  "%URL_PREFIX%/groupdav.php",
@@ -47,7 +47,7 @@ var UrlSchemes = {
             }
         },
         {
-            keys:              ["/SOGo"],
+            keys:              ["/SOGo/"],
             calendar:          "%URL_PREFIX%/dav/%USERNAME%/Calendar/",
             contact:           "%URL_PREFIX%/dav/%USERNAME%/Contacts/",
             checkCredentials:  "%URL_PREFIX%/dav/%USERNAME%/"
