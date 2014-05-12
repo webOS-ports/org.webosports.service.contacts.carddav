@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, CalDav */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
     clientId: "",
@@ -107,7 +107,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 //onEnabled also did not supply creds.. hm. Will this cause problems?
                 if (launchConfig.name === "onDelete" || launchConfig.name === "checkCredentials") {
                     this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: this.config.url};
-                    future.result = {}; //do continue future execution
+                    future.result = {returnValue: true}; //do continue future execution
                 } else {
                     if (!this.accountId) {
                         throw "Need accountId for operation " + launchConfig.name;
@@ -121,9 +121,14 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                         if (result.value) {  //found key
                             Log.debug("------------->Existing Key Found");
                             KeyStore.getKey(this.accountId).then(this, function (getKey) {
-                                Log.log("------------->Got Key"); //+JSON.stringify(getKey.result));
-                                this.userAuth = {"user": getKey.result.credentials.user, "password": getKey.result.credentials.password, "authToken": getKey.result.credentials.authToken};
-                                future.result = {returnValue: true};
+                                Log.log("------------->Got Key"); //, getKey.result);
+                                this.userAuth = getKey.result.credentials;
+
+                                if (this.userAuth.oauth) {
+                                    future.nest(CalDav.refreshToken(this.userAuth));
+                                } else {
+                                    future.result = {returnValue: true};
+                                }
                             });
                         } else { //no key found - check for username / password and save
                             Log.debug("------------->No Key Found - Putting Key Data and storing globally");
@@ -146,14 +151,24 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                             if (username && password) {
                                 authToken = "Basic " + Base64.encode(username + ":" + password);
                                 this.userAuth = {"user": username, "password": password, "authToken": authToken};
-                                KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
-                                    Log.debug("------------->Saved Key" + JSON.stringify(putKey.result));
-                                    future.result = { returnValue: true }; //continue with future execution.
-                                });
+                            } else if (launchArgs.config && launchArgs.config.credentials) {
+                                Log.log("Saving oAuth2.0 credentials.");
+                                this.userAuth = launchArgs.config.credentials;
                             } else {
                                 Log.debug("---->No config, can't do anything.");
                                 future.result = { returnValue: false }; //continue with future execution.
                             }
+
+                            KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
+                                var result;
+                                try {
+                                    result = putKey.result;
+                                    Log.debug("------------->Saved Key", result);
+                                } catch (e) {
+                                    Log.log("---------> Error in Save Key:", e);
+                                }
+                                future.result = { returnValue: true }; //continue with future execution.
+                            });
                         }
                     });
                 }
@@ -180,6 +195,4 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 });
 
 //these endpoints are delegated to the sync framework to handle - use the serviceassistant code above to intercept
-var OnContactsEnabled = Sync.EnabledAccountCommand;
-var OnCalendarEnabled = Sync.EnabledAccountCommand;
 var OnCredentialsChanged = Sync.CredentialsChangedCommand;

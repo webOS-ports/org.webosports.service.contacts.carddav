@@ -12,7 +12,6 @@ var Calendar = IMPORTS.calendar;
 var Globalization = IMPORTS.globalization.Globalization;
 
 var Assert = Foundations.Assert;
-var AjaxCall = Foundations.Comms.AjaxCall;
 var Class = Foundations.Class;
 var DB = Foundations.Data.DB;
 var Future = Foundations.Control.Future;

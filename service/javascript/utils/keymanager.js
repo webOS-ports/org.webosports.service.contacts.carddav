@@ -40,7 +40,11 @@ var KeyStore = (function () {
         });
 
         future.then(function () {
-            future.getResult();
+            try {
+                future.getResult();
+            } catch (e) {
+                //ignore error?
+            }
             keydata = value;
 
             //console.log("------>made API _putCredentials call store - Data:" + JSON.stringify(keydata));

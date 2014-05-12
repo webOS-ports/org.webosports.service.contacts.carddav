@@ -364,11 +364,11 @@ var CalDav = (function () {
 
         function endCB(res) {
             var result, newPath, redirectOptions;
+            Log.debug("Answer received."); //does this also happen on timeout??
             if (received) {
                 Log.log_calDavDebug(options.path, " was already received... exiting without callbacks.");
             }
             received = true;
-            Log.debug("Answer received."); //thoes this also happen on timeout??
             clearTimeout(timeoutID);
             Log.log_calDavDebug("Body: " + body);
 
@@ -427,7 +427,16 @@ var CalDav = (function () {
                 lastSend = Date.now();
                 body += chunk;
             });
-            res.on('end', endCB.bind(this, res));
+            res.on('end', endCB.bind(this, res)); //sometimes this does not happen. One reason are empty responses..
+            res.on('timeout', function () {
+                Log.log("Timeout while receiving.");
+                endCB(res);
+            });
+            res.on('error', function (error) {
+                Log.log("Error while receiving:", error);
+                endCB(res);
+            });
+            res.on('close', endCB.bind(this, res));
         }
 
         function doSendRequest() {
@@ -444,6 +453,10 @@ var CalDav = (function () {
                 Log.log('problem with request: ' + e.message);
                 lastSend = 0; //let's trigger retry.
                 //future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
+            });
+
+            req.on('end', function (incomming) {
+                Log.log('Other side did hang up?', incomming);
             });
 
             // write data to request body
@@ -468,7 +481,6 @@ var CalDav = (function () {
         var options = {
             method: "PROPFIND",
             headers: {
-                //Depth: 0, //used for DAV reports.
                 Prefer: "return-minimal", //don't really know why that is.
                 "Content-Type": "text/xml; charset=utf-8", //necessary
                 Connection: "keep-alive",
@@ -535,6 +547,7 @@ var CalDav = (function () {
         checkCredentials: function (params) {
             var options = preProcessOptions(params), future = new Future(), data;
 
+            options.headers.Depth = 0;
             options.method = "PROPFIND";
             data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 
@@ -726,6 +739,7 @@ var CalDav = (function () {
 
                 if (!addressbook) {
                     data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
+                    options.headers.Depth = 0;
                     folders.calendarHome = home;
                     parseURLIntoOptions(tryFolders[0], options);
                     future.nest(sendRequest(options, data));
@@ -795,6 +809,7 @@ var CalDav = (function () {
             options.method = "PROPFIND";
             options.parse = true;
             parseURLIntoOptions(tryFolders[0], options);
+            options.headers.Depth = 0;
             data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
             future.nest(sendRequest(options, data));
             future.then(principalCB.bind(this, 1));
@@ -869,6 +884,42 @@ var CalDav = (function () {
 
         testFolderParsing: function (body) {
             return getFolderList(body);
+        },
+
+        //this is not *really* a caldav method... but CalDav.js has all the required stuff already.
+        refreshToken: function (credObj) {
+            var future = new Future(),
+                data = "client_id=" + credObj.client_id + "&client_secret=" + credObj.client_secret + "&refresh_token=" + credObj.refresh_token + "&grant_type=refresh_token",
+                options = { method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}};
+
+            Log.debug("Refreshing token from:", credObj);
+            //fill host and stuff.
+            parseURLIntoOptions(credObj.refresh_url, options);
+            Log.debug("Options:", options);
+
+            future.nest(sendRequest(options, data));
+
+            future.then(function () {
+                var result = future.result, obj;
+                if (result.returnValue === true) {
+                    try {
+                        obj = JSON.parse(result.body);
+                        credObj.access_token = obj.access_token || credObj.access_token;
+                        credObj.token_type = obj.token_type || credObj.token_type;
+                        credObj.authToken = credObj.token_type + " " + credObj.access_token;
+                        Log.log("Refresh of token successful.");
+                        future.result = {returnValue: true};
+                    } catch (e) {
+                        Log.log("Exception during processing refresh result:", e);
+                        future.result = {returnValue: false};
+                    }
+                } else {
+                    Log.log("Could not refresh_token: " + result.returnCode);
+                    future.result = {returnValue: false};
+                }
+            });
+
+            return future;
         }
     };
 }());

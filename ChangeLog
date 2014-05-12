@@ -1,5 +1,15 @@
+0.3.0:
+    o added enyo app and moved check-credentials-UI into sub folder.
+    o created enyo UI for google OAuth2.0 access
+    o created mojo UI for google OAuth2.0 access
+    o made service ready to work with OAuth2.0 tokens.
+    o added onenabled assistant to delete sync on edit activities on disabling.
+    o fixed issue with account creation.
+    o removed google.contacts account (you can still use it with general account and url www.google.com)
+2014-05-11: Achim Königs <garfonso@mobo.info>
+
 0.2.9:
-	o fixed issue carddav/caldav namespaces which lead to issues during discovery and sync for some servers
+    o fixed issue carddav/caldav namespaces which lead to issues during discovery and sync for some servers
     o fixed issue with empty / VTODO calendar entries which could make the service stuck in sync mode
     o fixed content type for vcard/vcalendar downloads
     o enabled URL scheme for yahoo
@@ -10,32 +20,32 @@
 2014-05-08: Achim Königs <garfonso@mobo.info>
 
 0.2.8:
-	o fixed issue with iCloud folder parsing.
+    o fixed issue with iCloud folder parsing.
     o fixed possible endless loop with sync-on-edit.
 2014-05-04: Achim Königs <garfonso@mobo.info>
 
 0.2.7:
-	o fixed error display in mojo validator app.
-	o added url scheme for SOGo server
-	o reworked url resolving to reduce case manipulation as much as possible
+    o fixed error display in mojo validator app.
+    o added url scheme for SOGo server
+    o reworked url resolving to reduce case manipulation as much as possible
 2014-04-11: Achim Königs <garfonso@mobo.info>
 
 0.2.6:
-	o fixed possible issue with deleting multiple calendars/addressbooks
+    o fixed possible issue with deleting multiple calendars/addressbooks
     o fixed issue with folder uris on some servers.
     o added workaround for wrong URIs returned by SOGo server
 2014-04-11: Achim Königs <garfonso@mobo.info>
 
 0.2.5:
-	o fixed issues with case in URLs.
+    o fixed issues with case in URLs.
     o changed url resolving logic a bit. Method now returns false on failure, not original URL.
 2014-04-11: Achim Königs <garfonso@mobo.info>
 
 0.2.4:
-	o fixes for iCloud compability
-	o made egroupware calenderevents no duplicates hack optional and activate it when egroupware is detected (TODO: implement something to add this manually)
-	o prevented possible endless loops if server returns corrupted ctags or etags.
-	o made stuff more robust.
+    o fixes for iCloud compability
+    o made egroupware calenderevents no duplicates hack optional and activate it when egroupware is detected (TODO: implement something to add this manually)
+    o prevented possible endless loops if server returns corrupted ctags or etags.
+    o made stuff more robust.
     o added google account template to prevent username issue.
     o added icloud account template to prevent username issue.
     o made sync more memory efficient on big datasets.
@@ -43,15 +53,15 @@
 2014-04-10: Achim Königs <garfonso@mobo.info>
 
 0.2.3:
-	o fixed issues with some calendar events
-	o urlschemes improved to allow multiple keys, will allow support for hosted owncloud systems
-	o changed upsync logic to be more robust.
-	o a lot of fixes in vCard processing which should allow contact upsync in future.
+    o fixed issues with some calendar events
+    o urlschemes improved to allow multiple keys, will allow support for hosted owncloud systems
+    o changed upsync logic to be more robust.
+    o a lot of fixes in vCard processing which should allow contact upsync in future.
 
 2014-03-02: Achim Königs <garfonso@mobo.info>
 
 0.2.2:
-	o Added messages to enyo-app, that it is not to be run manually, at this point in time
+    o Added messages to enyo-app, that it is not to be run manually, at this point in time
     o Added another stage to mojo-app to allow some recovering stuff like trigger slow sync.
     o Cleaned up auto discovery and added possible support for iCloud.
     o Changed host/port/protocol stuff in Caldav.js, now should work fine with multiple servers
@@ -60,30 +70,30 @@
     o Prevent local duplicates if upload (or download of etag) did not work.
     o Prevent endless loop during redirections to always the same URL.
     o Download 10 items at one time, which keeps memory footprint low  even for massive downsyncs.
-	o Changed back sync activity to "sync" which will sync contacts and calendar on periodic sync
-	o Overwrite "complete" in syncAssistant and allow installation of multiple "SyncOnEdit" activities.
+    o Changed back sync activity to "sync" which will sync contacts and calendar on periodic sync
+    o Overwrite "complete" in syncAssistant and allow installation of multiple "SyncOnEdit" activities.
 
 2014-01-04: Achim Königs <garfonso@mobo.info>
 
 0.2.1:
-	o Initial test versions send to some testers
-	o Fixed issues with periodic sync
-	o service assistants renamed, now single assistants for contacts and cards
-	o Fixed parsing issues with some caldav server
+    o Initial test versions send to some testers
+    o Fixed issues with periodic sync
+    o service assistants renamed, now single assistants for contacts and cards
+    o Fixed parsing issues with some caldav server
 
 2013-12-21: Achim Königs <garfonso@mobo.info>
 
 0.2.0:
-	o Addition of CardDAV as well as CalDAV support
-	o Use of mojo sync framework for regular syncs
-	o Code for two way sync but only downsync enabled by default
-	o Courtesy to Garfonso for this major push forward
+    o Addition of CardDAV as well as CalDAV support
+    o Use of mojo sync framework for regular syncs
+    o Code for two way sync but only downsync enabled by default
+    o Courtesy to Garfonso for this major push forward
 
 2013-XX-XX: Stefan Schmidt <stefan@datenfreihafen.org>
 
 0.1.0:
-	o Initial version (Not functional yet).
-	o Synergy account connector based on Plaxo example from HP documentation.
-	o Custom validator UI scene to allow an URL input field and maybe more options later.
+    o Initial version (Not functional yet).
+    o Synergy account connector based on Plaxo example from HP documentation.
+    o Custom validator UI scene to allow an URL input field and maybe more options later.
 
 2013-08-10: Stefan Schmidt <stefan@datenfreihafen.org>
