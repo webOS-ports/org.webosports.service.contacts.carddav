@@ -1,10 +1,10 @@
 {
     "id": "org.webosports.cdav.app",
     "version": "0.3.0",
-    "vendor": "WebOS Ports - Stefan Schmidt",
+    "vendor": "WebOS Ports",
     "type": "web",
     "main": "index.html",
-    "title": "C+DAV sync app",
-    "icon": "images/webos-ports.png",
+    "title": "C+DAV Sync App",
+    "icon": "images/lune-icon256.png",
     "uiRevision":2
 }
