@@ -424,6 +424,7 @@ var CalDav = (function () {
             Log.log_calDavDebug('HEADERS: ', res.headers);
             res.setEncoding('utf8');
             res.on('data', function dataCB(chunk) {
+                Log.log_calDavDebug("chunk...");
                 lastSend = Date.now();
                 body += chunk;
             });
@@ -437,6 +438,7 @@ var CalDav = (function () {
                 endCB(res);
             });
             res.on('close', endCB.bind(this, res));
+            res.resume(); //just a try ;)
         }
 
         function doSendRequest() {
@@ -450,17 +452,18 @@ var CalDav = (function () {
             req.on('response', responseCB);
 
             req.on('error', function (e) {
-                Log.log('problem with request: ' + e.message);
+                Log.log('problem with request: ', e);
                 lastSend = 0; //let's trigger retry.
                 //future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
             });
 
-            req.on('end', function (incomming) {
+            req.on('close', function (incomming) {
                 Log.log('Other side did hang up?', incomming);
             });
 
             // write data to request body
-            req.end(data, "utf8");
+            req.write(data, "utf8");
+            req.end();
         }
 
         timeoutID = setTimeout(checkTimeout, 1000);
@@ -469,8 +472,15 @@ var CalDav = (function () {
 
         httpClient.on("error", function (e) {
             Log.log("Error with http connection: ", e);
-            httpClientCache[options.prefix].connected = false;
-            lastSend = 0; //trigger retry.
+            //TODO: check for unrecoverable errors here, i.e. dns errors.
+            //if so do not retry but return:
+            if (false) {
+                clearTimeout(timeoutID);
+                future.result = { returnValue: false, msg: "No connection possible: " + e };
+            } else {
+                httpClientCache[options.prefix].connected = false;
+                lastSend = 0; //trigger retry.
+            }
         });
 
         doSendRequest();
