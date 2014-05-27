@@ -828,7 +828,7 @@ var iCal = (function () {
                 } else if (lObj.value === "VTODO" || lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
                     event.ignoreMode = lObj.value;
                 } else if (lObj.value === "VEVENT") {
-                    event.value = true;
+                    event.valid = true;
                 } //will ignore begins of VTIMEZONE and VCALENDAR.
                 break;
             case "ORGANIZER":
