@@ -10,7 +10,7 @@ var httpClient = (function () {
         proxyParts;
 
     //initialize proxy support:
-    if (process.env.http_proxy !== null) {
+    if (process.env.http_proxy) {
         Log.log_calDavDebug("http_proxy variable: ", process.env.http_proxy);
         proxyParts = process.env.http_proxy.match(/^(http:\/\/)?([A-Za-z0-9\.\-_]+)(:([0-9]+))?/i);
         Log.log_calDavDebug("proxy match: ", proxyParts);
