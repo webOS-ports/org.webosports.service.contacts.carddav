@@ -65,7 +65,6 @@ var httpClient = (function () {
 
         if (httpClientCache[key].connected) {
             Log.log_calDavDebug("Already connected");
-            httpClientCache[key].client.removeAllListeners("error"); //remove previous listeners.
         } else {
             if (haveProxy) {
                 Log.log_calDavDebug("Creatring connection to proxy ", proxyPort, proxyHost, false);
@@ -80,6 +79,17 @@ var httpClient = (function () {
         return httpClientCache[key].client;
     }
 
+    function addListenerOnlyOnce(emitter, type, callback) {
+        var listeners = emitter.listeners(type), i, strCB = callback.toString();
+        Log.log_calDavDebug("Having", listeners.length, "listeners for", type);
+        for (i = listeners.length - 1; i >= 0; i -= 1) {
+            if (listeners[i].toString() === strCB) {
+                listeners.splice(i, 1);
+            }
+        }
+        emitter.on(type, callback);
+    }
+
     function sendRequestImpl(options, data, retry) {
         var body = "",
             future = new Future(),
@@ -88,14 +98,9 @@ var httpClient = (function () {
             reqNum = globalReqNum,
             received = false,
             retrying = false,
-            lastSend = 0,
             dataBuffer = new Buffer(data, 'utf8');
 
         globalReqNum += 1;
-
-        if (retry === undefined) {
-            retry = 0;
-        }
 
         function checkRetry(error) {
             if (!received && !retrying) {
@@ -117,6 +122,26 @@ var httpClient = (function () {
                     Log.log_calDavDebug("Message", reqNum, "received, returning.");
                 }
             }
+        }
+
+        function timeoutCB() {
+            Log.log_calDavDebug("Timeout for", reqNum);
+            checkRetry("Timeout");
+        }
+
+        function errorCB(e) {
+            Log.log("Error in connection:", e);
+            checkRetry("Error:" + e.message);
+        }
+
+        function closeCB(e) {
+            Log.log_calDavDebug("res-close:", e);
+            checkRetry("Close");
+        }
+
+        function dataCB(chunk) {
+            Log.log_calDavDebug("res", reqNum, "-chunk:", chunk);
+            body += chunk;
         }
 
         function endCB(res) {
@@ -176,12 +201,8 @@ var httpClient = (function () {
             Log.log_calDavDebug('STATUS: ', res.statusCode, "for", reqNum);
             Log.log_calDavDebug('HEADERS: ', res.headers, "for", reqNum);
             res.setEncoding('utf8');
-            res.on('data', function dataCB(chunk) {
-                Log.log_calDavDebug("res", reqNum, "-chunk");
-                lastSend = Date.now();
-                body += chunk;
-            });
-            res.on('end', function (e) { //sometimes this does not happen. One reason are empty responses..?
+            addListenerOnlyOnce(res, "data", dataCB);
+            addListenerOnlyOnce(res, 'end', function (e) { //sometimes this does not happen. One reason are empty responses..?
                 Log.log_calDavDebug("res-end:", e);
                 endCB(res);
             });
@@ -194,24 +215,24 @@ var httpClient = (function () {
                 Log.log_calDavDebug("Set timeout on response to 60000");
                 con.setTimeout(60000);
                 con.setKeepAlive(true);
-                con.on('timeout', function (e) {
-                    Log.log("Timeout while receiving ", reqNum, ":", e);
-                    checkRetry("Timeout in response");
-                });
+                addListenerOnlyOnce(con, 'timeout', timeoutCB);
             } else {
                 Log.log_calDavDebug("No setTimeout method on response.");
             }
 
-            res.on('error', function (error) {
-                Log.log("Error while receiving", reqNum, ":", error);
-                checkRetry("Error in response: " + error);
-            });
-            res.on('close', function (e) {
-                Log.log_calDavDebug("res-close:", e);
-                endCB(res);
-            });
+            addListenerOnlyOnce(res, 'error', errorCB);
+            addListenerOnlyOnce(res, 'close', closeCB);
             res.resume(); //just a try ;)
         }
+
+        function connectCB(e) { Log.log_calDavDebug("request", reqNum, "-connected:", e); }
+        function secureCB(e) { Log.log_calDavDebug("request", reqNum, "-secure:", e); }
+        function dataCBCon(e) { Log.log_calDavDebug("request", reqNum, "-data:", e.length); }
+        function endCBCon(e) { Log.log_calDavDebug("request", reqNum, "-end:", e); }
+        function timeoutCBCon(e) { Log.log_calDavDebug("request", reqNum, "-timeout:", e); }
+        function drainCB(e) { Log.log_calDavDebug("request", reqNum, "-drain:", e); }
+        function errorCBCon(e) { Log.log_calDavDebug("request", reqNum, "-error:", e); }
+        function closeCBCon(e) { Log.log_calDavDebug("request", reqNum, "-close:", e); }
 
         function doSendRequest() {
             options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
@@ -219,24 +240,18 @@ var httpClient = (function () {
             Log.log_calDavDebug("Sending request", reqNum, "with data", data, " to server.");
             Log.log_calDavDebug("Options: ", options);
             Log.debug("Sending request", reqNum, " to " + options.prefix + options.path);
-            lastSend = Date.now();
 
             //make sure path includes domain if using proxy.
             if (haveProxy && options.path.indexOf("http") < 0) {
                 options.path = options.prefix + options.path;
             }
             req = httpClient.request(options.method, options.path, options.headers);
-            req.on('response', responseCB);
+            addListenerOnlyOnce(req, 'response', responseCB);
 
-            req.on('error', function (e) {
-                Log.log('problem with request', reqNum, ': ', e);
-                checkRetry(e.message);
-            });
+            addListenerOnlyOnce(req, "error", errorCB);
 
             try {
-                req.on('close', function (incomming) {
-                    Log.log('Other side did hang up on', reqNum, ":", incomming);
-                });
+                addListenerOnlyOnce(req, "close", closeCB);
 
                 var con = req;
                 if (!con.setTimeout) {
@@ -246,24 +261,21 @@ var httpClient = (function () {
                     Log.log_calDavDebug("Set timeout on request to 60000");
                     con.setTimeout(60000);
                     con.setKeepAlive(true);
-                    con.on("timeout", function (e) {
-                        Log.log("Request", reqNum, "timedout: ", e);
-                        checkRetry("Timeout in request.");
-                    });
+                    addListenerOnlyOnce(con, "timeout", timeoutCB);
                 } else {
                     Log.log_calDavDebug("No setTimeout method on request?");
                 }
 
                 //what does our socket do?
                 if (req.connection) {
-                    req.connection.on("connect", function (e) { Log.log_calDavDebug("request", reqNum, "-connected:", e); });
-                    req.connection.on("secure", function (e) { Log.log_calDavDebug("request", reqNum, "-secure:", e); });
-                    req.connection.on("data", function (e) { Log.log_calDavDebug("request", reqNum, "-data:", e.length); });
-                    req.connection.on("end", function (e) { Log.log_calDavDebug("request", reqNum, "-end:", e); });
-                    req.connection.on("timeout", function (e) { Log.log_calDavDebug("request", reqNum, "-timeout:", e); });
-                    req.connection.on("drain", function (e) { Log.log_calDavDebug("request", reqNum, "-drain:", e); });
-                    req.connection.on("error", function (e) { Log.log_calDavDebug("request", reqNum, "-error:", e); });
-                    req.connection.on("close", function (e) { Log.log_calDavDebug("request", reqNum, "-close:", e); });
+                    addListenerOnlyOnce(req.connection, "connect", connectCB);
+                    addListenerOnlyOnce(req.connection, "secure", secureCB);
+                    addListenerOnlyOnce(req.connection, "data", dataCBCon);
+                    addListenerOnlyOnce(req.connection, "end", endCBCon);
+                    addListenerOnlyOnce(req.connection, "timeout", timeoutCBCon);
+                    addListenerOnlyOnce(req.connection, "drain", drainCB);
+                    addListenerOnlyOnce(req.connection, "error", errorCBCon);
+                    addListenerOnlyOnce(req.connection, "close", closeCBCon);
                 }
             } catch (e) {
                 Log.log("Error during response setup:", e);
@@ -274,20 +286,9 @@ var httpClient = (function () {
             req.end();
         }
 
-        lastSend = Date.now();
         httpClient = getHttpClient(options);
 
-        httpClient.on("error", function (e) {
-            Log.log("Error with http connection on", reqNum, ": ", e);
-            //TODO: check for unrecoverable errors here, i.e. dns errors.
-            //if so do not retry but return:
-            if (false) {
-                future.result = { returnValue: false, msg: "No connection possible: " + JSON.stringify(e) };
-            } else {
-                httpClientCache[options.prefix].connected = false;
-                checkRetry("Connection error:" + JSON.stringify(e));
-            }
-        });
+        addListenerOnlyOnce(httpClient, "error", errorCB);
 
         doSendRequest();
         return future;
