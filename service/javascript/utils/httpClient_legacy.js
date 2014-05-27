@@ -7,7 +7,8 @@ var httpClient = (function () {
         proxyHost,
         proxyPort,
         haveProxy = false,
-        proxyParts;
+        proxyParts,
+        globalReqNum = 0;
 
     //initialize proxy support:
     if (process.env.http_proxy) {
@@ -84,10 +85,13 @@ var httpClient = (function () {
             future = new Future(),
             httpClient,
             req,
+            reqNum = globalReqNum,
             received = false,
             retrying = false,
             lastSend = 0,
             dataBuffer = new Buffer(data, 'utf8');
+
+        globalReqNum += 1;
 
         if (retry === undefined) {
             retry = 0;
@@ -95,23 +99,31 @@ var httpClient = (function () {
 
         function checkRetry(error) {
             if (!received && !retrying) {
+                Log.log("Message", reqNum, "had error:", error);
                 if (retry <= 5) {
+                    Log.log_calDavDebug("Trying to resend message", reqNum, ".");
                     retrying = true;
                     sendRequestImpl(options, data, retry + 1).then(function (f) {
                         future.result = f.result; //transfer future result.
                     });
                 } else {
+                    Log.log("Already tried message", reqNum, "5 times. Seems as if server won't answer? Sync seems broken.");
                     future.result = { returnValue: false, msg: error };
                 }
             } else {
+                if (retrying) {
+                    Log.log_calDavDebug("Already retrying message", reqNum, ", don't do this twice.");
+                } else {
+                    Log.log_calDavDebug("Message", reqNum, "received, returning.");
+                }
             }
         }
 
         function endCB(res) {
             var result;
-            Log.debug("Answer received."); //does this also happen on timeout??
+            Log.debug("Answer for", reqNum, " received."); //does this also happen on timeout??
             if (received) {
-                Log.log_calDavDebug(options.path, " was already received... exiting without callbacks.");
+                Log.log_calDavDebug(options.path, " =", reqNum, "was already received... exiting without callbacks.");
             }
             received = true;
             Log.log_calDavDebug("Body: " + body);
@@ -161,15 +173,16 @@ var httpClient = (function () {
         }
 
         function responseCB(res) {
-            Log.log_calDavDebug('STATUS: ', res.statusCode);
-            Log.log_calDavDebug('HEADERS: ', res.headers);
+            Log.log_calDavDebug('STATUS: ', res.statusCode, "for", reqNum);
+            Log.log_calDavDebug('HEADERS: ', res.headers, "for", reqNum);
             res.setEncoding('utf8');
             res.on('data', function dataCB(chunk) {
-                Log.log_calDavDebug("chunk...");
+                Log.log_calDavDebug("res", reqNum, "-chunk");
                 lastSend = Date.now();
                 body += chunk;
             });
-            res.on('end', function () { //sometimes this does not happen. One reason are empty responses..
+            res.on('end', function (e) { //sometimes this does not happen. One reason are empty responses..?
+                Log.log_calDavDebug("res-end:", e);
                 endCB(res);
             });
 
@@ -178,11 +191,11 @@ var httpClient = (function () {
                 con = res.connection;
             }
             if (con && con.setTimeout) {
-                Log.log_calDavDebug("Set timeout to 60000");
+                Log.log_calDavDebug("Set timeout on response to 60000");
                 con.setTimeout(60000);
                 con.setKeepAlive(true);
-                con.on('timeout', function () {
-                    Log.log("Timeout while receiving.");
+                con.on('timeout', function (e) {
+                    Log.log("Timeout while receiving ", reqNum, ":", e);
                     checkRetry("Timeout in response");
                 });
             } else {
@@ -190,10 +203,11 @@ var httpClient = (function () {
             }
 
             res.on('error', function (error) {
-                Log.log("Error while receiving:", error);
+                Log.log("Error while receiving", reqNum, ":", error);
                 checkRetry("Error in response: " + error);
             });
-            res.on('close', function () {
+            res.on('close', function (e) {
+                Log.log_calDavDebug("res-close:", e);
                 endCB(res);
             });
             res.resume(); //just a try ;)
@@ -202,9 +216,9 @@ var httpClient = (function () {
         function doSendRequest() {
             options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
 
-            Log.log_calDavDebug("Sending request ", data, " to server.");
+            Log.log_calDavDebug("Sending request", reqNum, "with data", data, " to server.");
             Log.log_calDavDebug("Options: ", options);
-            Log.debug("Sending request to " + options.prefix + options.path);
+            Log.debug("Sending request", reqNum, " to " + options.prefix + options.path);
             lastSend = Date.now();
 
             //make sure path includes domain if using proxy.
@@ -215,12 +229,13 @@ var httpClient = (function () {
             req.on('response', responseCB);
 
             req.on('error', function (e) {
+                Log.log('problem with request', reqNum, ': ', e);
                 checkRetry(e.message);
             });
 
             try {
                 req.on('close', function (incomming) {
-                    Log.log('Other side did hang up?', incomming);
+                    Log.log('Other side did hang up on', reqNum, ":", incomming);
                 });
 
                 var con = req;
@@ -228,10 +243,11 @@ var httpClient = (function () {
                     con = req.connection;
                 }
                 if (con && con.setTimeout) {
-                    Log.log_calDavDebug("Set timeout to 60000");
+                    Log.log_calDavDebug("Set timeout on request to 60000");
                     con.setTimeout(60000);
                     con.setKeepAlive(true);
                     con.on("timeout", function (e) {
+                        Log.log("Request", reqNum, "timedout: ", e);
                         checkRetry("Timeout in request.");
                     });
                 } else {
@@ -240,14 +256,14 @@ var httpClient = (function () {
 
                 //what does our socket do?
                 if (req.connection) {
-                    req.connection.on("connect", function (e) { Log.log_calDavDebug("request-connected:", e); });
-                    req.connection.on("secure", function (e) { Log.log_calDavDebug("request-secure:", e); });
-                    req.connection.on("data", function (e) { Log.log_calDavDebug("request-data:", e.length); });
-                    req.connection.on("end", function (e) { Log.log_calDavDebug("request-end:", e); });
-                    req.connection.on("timeout", function (e) { Log.log_calDavDebug("request-timeout:", e); });
-                    req.connection.on("drain", function (e) { Log.log_calDavDebug("request-drain:", e); });
-                    req.connection.on("error", function (e) { Log.log_calDavDebug("request-error:", e); });
-                    req.connection.on("close", function (e) { Log.log_calDavDebug("request-close:", e); });
+                    req.connection.on("connect", function (e) { Log.log_calDavDebug("request", reqNum, "-connected:", e); });
+                    req.connection.on("secure", function (e) { Log.log_calDavDebug("request", reqNum, "-secure:", e); });
+                    req.connection.on("data", function (e) { Log.log_calDavDebug("request", reqNum, "-data:", e.length); });
+                    req.connection.on("end", function (e) { Log.log_calDavDebug("request", reqNum, "-end:", e); });
+                    req.connection.on("timeout", function (e) { Log.log_calDavDebug("request", reqNum, "-timeout:", e); });
+                    req.connection.on("drain", function (e) { Log.log_calDavDebug("request", reqNum, "-drain:", e); });
+                    req.connection.on("error", function (e) { Log.log_calDavDebug("request", reqNum, "-error:", e); });
+                    req.connection.on("close", function (e) { Log.log_calDavDebug("request", reqNum, "-close:", e); });
                 }
             } catch (e) {
                 Log.log("Error during response setup:", e);
@@ -262,7 +278,7 @@ var httpClient = (function () {
         httpClient = getHttpClient(options);
 
         httpClient.on("error", function (e) {
-            Log.log("Error with http connection: ", e);
+            Log.log("Error with http connection on", reqNum, ": ", e);
             //TODO: check for unrecoverable errors here, i.e. dns errors.
             //if so do not retry but return:
             if (false) {
