@@ -24,7 +24,6 @@ var httpClient = (function () {
         }
     }
 
-    
     function parseURLIntoOptionsImpl(inUrl, options) {
         if (!inUrl) {
             return;
@@ -47,7 +46,7 @@ var httpClient = (function () {
         }
 
         options.prefix = options.protocol + "//" + options.headers.host + ":" + options.port;
-        
+
         if (haveProxy) {
             options.path = inUrl; //for proxy need the complete url in path.
         }
@@ -58,7 +57,7 @@ var httpClient = (function () {
         if (haveProxy) {
             key = proxyHost + ":" + proxyPort;
         }
-        
+
         if (!httpClientCache[key]) {
             httpClientCache[key] = {};
         }
@@ -86,36 +85,25 @@ var httpClient = (function () {
             httpClient,
             req,
             received = false,
+            retrying = false,
             lastSend = 0,
-            timeoutID,
             dataBuffer = new Buffer(data, 'utf8');
 
         if (retry === undefined) {
             retry = 0;
         }
 
-        function checkTimeout() {
-            var now;
-            if (!received) {
-                now = Date.now();
-                Log.debug("Message was send last before " + ((now - lastSend) / 1000) + " seconds, was not yet received.");
-                if (now - lastSend > 300 * 1000) { //last send before 30 seconds.. is that too fast?
-                    clearTimeout(timeoutID);
-                    if (retry <= 5) {
-                        Log.log_calDavDebug("Trying to resend message.");
-                        sendRequestImpl(options, data, retry + 1).then(function (f) {
-                            future.result = f.result; //transfer future result.
-                        });
-                    } else {
-                        Log.log("Already tried 5 times. Seems as if server won't answer? Sync seems broken.");
-                        future.result = { returnValue: false, msg: "Message timedout, even after retries. Sync failed." };
-                    }
+        function checkRetry(error) {
+            if (!received && !retrying) {
+                if (retry <= 5) {
+                    retrying = true;
+                    sendRequestImpl(options, data, retry + 1).then(function (f) {
+                        future.result = f.result; //transfer future result.
+                    });
                 } else {
-                    timeoutID = setTimeout(checkTimeout, 1000);
+                    future.result = { returnValue: false, msg: error };
                 }
             } else {
-                clearTimeout(timeoutID);
-                Log.log_calDavDebug("Message received, returning.");
             }
         }
 
@@ -126,7 +114,6 @@ var httpClient = (function () {
                 Log.log_calDavDebug(options.path, " was already received... exiting without callbacks.");
             }
             received = true;
-            clearTimeout(timeoutID);
             Log.log_calDavDebug("Body: " + body);
 
             result = {
@@ -157,9 +144,6 @@ var httpClient = (function () {
                     Log.log("Preventing enless redirect loop, because of redirection to identical location: " + res.headers.location + " === " + options.prefix + options.path);
                     result.returnValue = false;
                     future.result = result;
-                    if (timeoutID) {
-                        clearTimeout(timeoutID);
-                    }
                     return future;
                 }
                 parseURLIntoOptionsImpl(res.headers.location, options);
@@ -188,7 +172,7 @@ var httpClient = (function () {
             res.on('end', function () { //sometimes this does not happen. One reason are empty responses..
                 endCB(res);
             });
-            
+
             var con = res;
             if (!con.setTimeout) {
                 con = res.connection;
@@ -199,7 +183,7 @@ var httpClient = (function () {
                 con.setKeepAlive(true);
                 con.on('timeout', function () {
                     Log.log("Timeout while receiving.");
-                    endCB(res);
+                    checkRetry("Timeout in response");
                 });
             } else {
                 Log.log_calDavDebug("No setTimeout method on response.");
@@ -207,7 +191,7 @@ var httpClient = (function () {
 
             res.on('error', function (error) {
                 Log.log("Error while receiving:", error);
-                endCB(res);
+                checkRetry("Error in response: " + error);
             });
             res.on('close', function () {
                 endCB(res);
@@ -222,7 +206,7 @@ var httpClient = (function () {
             Log.log_calDavDebug("Options: ", options);
             Log.debug("Sending request to " + options.prefix + options.path);
             lastSend = Date.now();
-            
+
             //make sure path includes domain if using proxy.
             if (haveProxy && options.path.indexOf("http") < 0) {
                 options.path = options.prefix + options.path;
@@ -231,9 +215,7 @@ var httpClient = (function () {
             req.on('response', responseCB);
 
             req.on('error', function (e) {
-                Log.log('problem with request: ', e);
-                lastSend = 0; //let's trigger retry.
-                //future.exception = { code: e.errno, msg: "httpRequest error " + e.message };
+                checkRetry(e.message);
             });
 
             try {
@@ -250,10 +232,7 @@ var httpClient = (function () {
                     con.setTimeout(60000);
                     con.setKeepAlive(true);
                     con.on("timeout", function (e) {
-                        Log.log("Request timedout: ", e);
-                        lastSend = 0; //will retry.
-                        //clearTimeout(timeoutID);
-                        //future.result = { returnValue: false, msg: "Connection timedout: " + JSON.stringify(e) };
+                        checkRetry("Timeout in request.");
                     });
                 } else {
                     Log.log_calDavDebug("No setTimeout method on request?");
@@ -279,7 +258,6 @@ var httpClient = (function () {
             req.end();
         }
 
-        timeoutID = setTimeout(checkTimeout, 1000);
         lastSend = Date.now();
         httpClient = getHttpClient(options);
 
@@ -288,23 +266,22 @@ var httpClient = (function () {
             //TODO: check for unrecoverable errors here, i.e. dns errors.
             //if so do not retry but return:
             if (false) {
-                clearTimeout(timeoutID);
                 future.result = { returnValue: false, msg: "No connection possible: " + JSON.stringify(e) };
             } else {
                 httpClientCache[options.prefix].connected = false;
-                lastSend = 0; //trigger retry.
+                checkRetry("Connection error:" + JSON.stringify(e));
             }
         });
 
         doSendRequest();
         return future;
     }
-    
+
     return {
         sendRequest: function (options, data) {
             return sendRequestImpl(options, data, 0);
         },
-        
+
         parseURLIntoOptions: function (inUrl, options) {
             return parseURLIntoOptionsImpl(inUrl, options);
         }
