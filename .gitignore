@@ -7,4 +7,5 @@ distribute.cmd
 
 service/javascript/kinds_upsync.js
 
+sync-framework-patches
 *.ipk
