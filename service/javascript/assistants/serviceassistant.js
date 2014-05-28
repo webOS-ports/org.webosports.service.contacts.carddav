@@ -51,6 +51,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             } else if (launchConfig.name.indexOf("Contacts") >= 0) {
                 Log.debug("Setting Kinds to Contacts");
                 this.kinds = KindsContacts;
+            } else if (launchConfig.name.indexOf("Tasks") >= 0) {
+                Log.debug("Setting Kinds to Tasks");
+                this.kinds = KindsTasks;
             } else {
                 Log.debug("Setting general kinds...");
                 this.kinds = Kinds;
