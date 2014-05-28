@@ -22,6 +22,8 @@ enyo.kind({
     components: [
         { name: "getAccessToken", kind: "WebService", url: BASE_URL + "token", method: "POST",
             onSuccess: "gotAccessToken", onFailure: "getAccessTokenFailed" },
+        { name: "getUserName", kind: "WebService", url: "https://www.googleapis.com/plus/v1/people/me", method: "GET",
+            onSuccess: "gotName", onFailure: "getAccessTokenFailed" },
         {kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
         { kind: "PageHeader", content: "Sign In with Google", pack: "center" },
         { name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
@@ -58,15 +60,15 @@ enyo.kind({
                   encodeURIComponent(CLIENT_ID) +
                   "&response_type=code" +
                   "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts https://www.google.com/m8/feeds ");
+                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts https://www.google.com/m8/feeds https://www.googleapis.com/auth/plus.me");
 
         if (this.params && this.params.account && this.params.account.credentials && this.params.account.credentials.user) {
             url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
         }
 
-        //this.$.webView.setUrl(url);
-        authWin = window.open(url);
-        authWin.addEventListener("change", this.gotAuthToken.bind(this), false);
+        this.$.webView.setUrl(url);
+        //authWin = window.open(url);
+        //authWin.addEventListener("change", this.gotAuthToken.bind(this), false);
 
 
         console.error("<<<<<<<<<<<<<<<<<<<< create");
@@ -97,6 +99,13 @@ enyo.kind({
     },
     gotAccessToken: function (inSender, inResponse) {
         debug("Got access token: " + JSON.stringify(inResponse));
+        
+        this.token_response = inResponse;
+        
+        this.$.getName.call({access_token: inResponse.access_token});
+    },
+    gotName: function (inSender, inResponse) {
+        debug("Got name: " + JSON.stringify(inResponse));
 
         if (!this.params) {
             this.showLoginError("Please do run this from account app, not stand alone.");
@@ -107,13 +116,13 @@ enyo.kind({
         var i, template = this.params.template,
             username = this.$.txtUsername.getValue(),
             credentials = {
-                access_token: inResponse.access_token,
-                refresh_token: inResponse.refresh_token,
-                token_type: inResponse.token_type,
+                access_token: this.token_response.access_token,
+                refresh_token: this.token_response.refresh_token,
+                token_type: this.token_response.token_type,
                 oauth: true,
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
-                authToken: inResponse.token_type + " " + inResponse.access_token,
+                authToken: this.token_response.token_type + " " + this.token_response.access_token,
                 refresh_url: BASE_URL + "token"
             };
         if (!template) {
@@ -174,6 +183,7 @@ enyo.kind({
             };
         }
 
+        username = inResponse.displayName;
         if (!username) {
             username = Date.now();
         }
