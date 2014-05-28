@@ -28,10 +28,9 @@ AccountSetupGoogleAssistant.prototype.setup = function () {
                   encodeURIComponent(CLIENT_ID) +
                   "&response_type=code" +
                   "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.google.com/m8/feeds");
+                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.google.com/m8/feeds https://www.googleapis.com/auth/plus.me");
 
     /* setup widgets here */
-    this.controller.setupWidget("txtUser", { modelProperty: "username", hintText: $L("Username"), textCase: Mojo.Widget.steModeLowerCase}, this.account);
     this.controller.setupWidget("WebId", {url: url}, {});
 
     Mojo.Event.listen(this.controller.get("WebId"), Mojo.Event.webViewTitleUrlChanged, this.handleTitle.bind(this));
@@ -80,6 +79,7 @@ AccountSetupGoogleAssistant.prototype.handleTitle = function (event) {
 
         this.doing = true;
 
+        debug("Trying to get token.");
         req = new Ajax.Request(url, {
             method: "POST",
             parameters: {
@@ -100,22 +100,54 @@ AccountSetupGoogleAssistant.prototype.handleTitle = function (event) {
 };
 
 AccountSetupGoogleAssistant.prototype.tokenCB = function (response) {
+    var body, req;
+    try {
+        if (response.status < 300) { //success
+            debug("Got token ok: " + response.responseText);
+            body = response.responseJSON || JSON.parse(response.responseText);
+
+            debug("Now trying to get name");
+            req = new Ajax.Request("https://www.googleapis.com/plus/v1/people/me", {
+                method: "GET",
+                parameters: {
+                    access_token: body.access_token
+                },
+                onSuccess: this.nameCB.bind(this, body),
+                onFailure: function (response) {
+                    showError(this.controller, "Token error", "Could not get name: " + JSON.stringify(response));
+                }.bind(this)
+            });
+        }
+    } catch (e) {
+        this.controller.get('saveSpinner').mojo.stop();
+        this.controller.get('Scrim').hide();
+
+        log("Error during processing response: " + JSON.stringify(e));
+        showError(this.controller, "Token Error", "Could not get token: " + JSON.stringify(e));
+    }
+};
+
+AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
+    debug("Blargh?");
     try {
         var body, i, template = this.params.initialTemplate;
         //debug("Get-Token call came back: " + JSON.stringify(response));
         if (response.status < 300) { //success
+            debug("Get me came back: " + response.responseText);
             body = response.responseJSON || JSON.parse(response.responseText);
 
             this.account.credentials = {
-                access_token: body.access_token,
-                refresh_token: body.refresh_token,
-                token_type: body.token_type,
+                access_token: credbody.access_token,
+                refresh_token: credbody.refresh_token,
+                token_type: credbody.token_type,
                 oauth: true,
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
-                authToken: body.token_type + " " + body.access_token,
+                authToken: credbody.token_type + " " + credbody.access_token,
                 refresh_url: BASE_URL + "token"
             };
+
+            this.account.username = body.displayName;
 
             if (!this.account.username) {
                 this.account.username = Date.now();
