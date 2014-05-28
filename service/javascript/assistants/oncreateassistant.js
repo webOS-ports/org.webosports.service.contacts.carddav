@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Class, Sync, Future, Log, Kinds, lockCreateAssistant, DB, unlockCreateAssistant */
+/*global Class, Sync, Future, Log, Kinds, lockCreateAssistant, DB, unlockCreateAssistant, checkResult */
 
 var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
     run: function run(outerFuture) {
@@ -10,7 +10,7 @@ var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
         //but we need only one config object:
         if (lockCreateAssistant(this.client.clientId)) {
             future.then(this, function createAccountCB() {
-                var result = future.result, config = this.client.config;
+                var result = checkResult(future), config = this.client.config;
                 Log.log("Account created: ", result);
 
                 config.accountId = this.client.clientId; //be sure to store right accountId.
@@ -21,7 +21,7 @@ var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
             });
 
             future.then(this, function dbCB() {
-                var result = future.result;
+                var result = checkResult(future);
                 Log.debug("Stored config object: ", result);
                 if (result.returnValue === true) {
                     this.client.config._id = result.results[0].id;

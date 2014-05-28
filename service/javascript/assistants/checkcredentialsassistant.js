@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Base64, CalDav, DB, searchAccountConfig, Future, Log, KeyStore, UrlSchemes, Transport */
+/*global Base64, CalDav, DB, searchAccountConfig, Future, Log, KeyStore, UrlSchemes, Transport, checkResult */
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () {};
@@ -42,7 +42,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     }
 
     future.then(this, function gotConfigObject() {
-        var result = future.result, path, newPath;
+        var result = checkResult(future), path, newPath;
         if (result.returnValue === true) {
             this.config = result.config;
         }
@@ -69,7 +69,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function credentialsCheckCB() {
-        var result = future.result, authToken, msg, exception;
+        var result = checkResult(future), authToken, msg, exception;
         // Check if we are getting a good return code for success
         if (result.returnValue === true) {
             // Pass back credentials and config (username/password/url);
@@ -90,7 +90,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
         } else {
             Log.debug("Password rejected");
-            switch (result.returnCode) {
+            switch (result.exception.returnCode) {
             case 404:
                 msg = "URL wrong, document not found. - URL: " + result.uri;
                 exception = new Transport.BadRequestError(msg);
@@ -120,7 +120,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function updateCredentialsCB() {
-        var result = future.result || future.exception;
+        var result = checkResult(future);
         Log.debug("------------->Modified Key: ", result);
 
         if (this.config) {
@@ -142,7 +142,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function mergeCB() {
-        var result = future.result || future.exception;
+        var result = checkResult(future.result);
         Log.log("Stored config in config db: ", result);
         buildResult();
     });

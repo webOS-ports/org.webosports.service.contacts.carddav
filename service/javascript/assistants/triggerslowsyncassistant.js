@@ -1,10 +1,10 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, Log, Kinds, DB, CalDav, KindsContacts, KindsCalendar */
+/*global Future, Log, Kinds, DB, CalDav, KindsContacts, KindsCalendar, checkResult */
 
 var TriggerSlowSyncAssistant = function () {};
 
 TriggerSlowSyncAssistant.prototype.gotDBObject = function (future) {
-    var result = future.result;
+    var result = checkResult(future);
     if (result.returnValue) {
         future.nest(this.processAccount(result.results, 0));
     } else {
@@ -30,7 +30,7 @@ TriggerSlowSyncAssistant.prototype.run = function (outerFuture) {
     future.then(this, this.gotDBObject);
 
     future.then(this, function discoveryFinished() {
-        var result = future.result || {returnValue: false};
+        var result = checkResult(future);
         Log.log("triggerSlowSync finished.");
         outerFuture.result = result;
     });
@@ -54,7 +54,7 @@ TriggerSlowSyncAssistant.prototype.processAccount = function (objs, index) {
         future.nest(DB.merge([obj]));
 
         future.then(this, function storeCB() {
-            var result = future.result;
+            var result = checkResult(future);
             Log.debug("Store came back: ", result);
             future.nest(this.processAccount(objs, index + 1));
         });
