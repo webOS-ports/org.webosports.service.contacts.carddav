@@ -67,7 +67,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             }
         }
         if (!prefix) {
-            Log.debug("No prefix found for collectionId:", id);
+            Log.debug("No prefix found for collectionId: ", id);
             prefix = this.client.transport.syncKey[kindName].folders[0].uri;
         }
         this.params.path = prefix;
@@ -99,7 +99,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
             if (!prefix) {
                 //if no collection, use first folder. This should not happen. But it happened due to bug with calendar-deletion.
-                Log.debug("Had no folder for collectionId", obj.local.calendarId);
+                Log.debug("Had no folder for collectionId ", obj.local.calendarId);
                 prefix = this.client.transport.syncKey[kindName].folders[0].uri;
                 obj.local.calendarId = this.client.transport.syncKey[kindName].folders[0].collectionId;
             }
@@ -192,12 +192,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 for (key in obj) {
                     if (obj.hasOwnProperty(key) && obj[key] !== undefined) { // && obj[key] !== null) {
                         to[key] = obj[key];
-                        //debug("Copied event[" + key + "] = " + to[key]);
                     }
                 }
 
                 if (from.collectionId) {
-                    Log.debug("Had collectionId:", from.collectionId);
+                    Log.debug("Had collectionId: ", from.collectionId);
                     //calendarId is used by webOS. There is no such thing for contacts, yet.
                     //so we call it calendarId for them, too, right now, to prevent code duplication.
                     to.calendarId = from.collectionId;
@@ -209,8 +208,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     to.remoteId = this._uriToRemoteId(from.uri);
                 }
 
-                //debug("Converting from " + JSON.stringify(from));
-                //debug("Converted to: " + JSON.stringify(to));
 
                 return from.obj; //transformer.transformAndMerge(to, from);
             };
@@ -220,8 +217,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (Kinds.objects[kindName].allowUpsync) { //configure upsync via kinds.js
                 return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback => no real conversion here.
                     Log.log("\n\n**************************SyncAssistant:_local2remote*****************************");
-                    Log.debug("Transforming", from);
-                    Log.debug("To:", to);
+                    Log.debug("Transforming ", from);
+                    Log.debug("To: ", to);
                     if (!to.add) {
                         if (from.etag) {
                             to.etag = from.etag;
@@ -242,7 +239,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         }
                     }
 
-                    Log.debug("Result:", to);
+                    Log.debug("Result: ", to);
 
                     return true;
                 };
@@ -264,8 +261,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * means getting the whole dataset => not so nice for mobile data connections!
      */
     getRemoteId: function (obj, kindName) {
-        //log("\n\n**************************SyncAssistant:getRemoteID*****************************");
-
         if (obj.remoteId) {
             return obj.remoteId; //use uri, it is unique and constant.
         }
@@ -274,7 +269,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             return obj.remoteId;
         }
 
-        Log.debug("No remoteId for", obj);
+        Log.debug("No remoteId for ", obj);
         throw new Error("--------------> No URI in ob, maybe wrong kind: '" + kindName + "'");
     },
 
@@ -283,8 +278,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * it is updated locally with remote changes.
      */
     isDeleted: function (obj, kindName) {
-        //log("\n\n**************************SyncAssistant:isDeleted*****************************");
-
         if (obj && obj.doDelete) {
             return true;
         }
@@ -348,8 +341,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         this.params = { authToken: this.client.userAuth.authToken, path: path };
 
-        Log.log("State:", state, "for kind", kindName);
-        Log.debug("SyncKey:", this.client.transport.syncKey);
+        Log.log("State: ", state, " for kind ", kindName);
+        Log.debug("SyncKey: ", this.client.transport.syncKey);
         if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
             if (state === "first") {
                 //reset index:
@@ -369,7 +362,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     delete this.client.transport.syncKey[kindName].folders[i].entries;
                 }
 
-                Log.debug("Modified SyncKey:", this.client.transport.syncKey[kindName]);
+                Log.debug("Modified SyncKey: ", this.client.transport.syncKey[kindName]);
 
                 //reset error. If folders had error, transfer error state to content.
                 this.client.transport.syncKey[kindName].error = this.client.transport.syncKey[Kinds.objects[kindName].connected_kind].error;
@@ -430,7 +423,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                 //now get remote folders
                 this.params.path = home;
-                Log.debug("Getting remote collections for", kindName, "from", home, ", filtering for", filter);
+                Log.debug("Getting remote collections for ", kindName, " from ", home, ", filtering for ", filter);
                 future.nest(CalDav.getFolders(this.params, filter));
             } else {
                 Log.log("Could not get local folders.");
@@ -447,7 +440,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             var result = future.result, rFolders = result.folders, entries;
 
             if (result.returnValue === true) {
-                Log.debug("Got", rFolders, "remote folders, comparing them to", localFolders, "local ones.");
+                Log.debug("Got ", rFolders, " remote folders, comparing them to ", localFolders, " local ones.");
                 if (rFolders.length === 0) {
                     Log.log("Remote did not supply folders in listing. Using home URL as fall back.");
                     rFolders.push({
@@ -499,7 +492,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             folder = folders[index];
 
         if (!folder || !folder.uri) {
-            Log.log("No folder for index", index, "in", kindName);
+            Log.log("No folder for index ", index, " in ", kindName);
             future.result = {
                 more: nextIndex < folders.length,
                 entries: []
@@ -524,7 +517,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
-        Log.debug("Starting sync for", folder.name);
+        Log.debug("Starting sync for ", folder.name);
         future.nest(this._initCollectionId(kindName));
         future.then(this, function () {
             if (folder.entries &&
@@ -541,7 +534,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         //called from success callback, if needs update, determine which objects to update
         future.then(this, function handleDoNeedSyncResponse() {
             var result = future.result, ctag = result.ctag;
-            Log.debug("------------- Got need update response:", result.needsUpdate);
+            Log.debug("------------- Got need update response: ", result.needsUpdate);
 
             if (result.needsUpdate) {
 
@@ -552,7 +545,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     if (!result.error) {
                         if (!result.more) {
-                            Log.debug("Sync for folder", folder.name, "finished.");
+                            Log.debug("Sync for folder ", folder.name, " finished.");
                             this.client.transport.syncKey[kindName].folderIndex = nextIndex;
                             result.more = nextIndex < folders.length;
                         }
@@ -602,7 +595,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             folder = this._findMatch(remoteFolder.uri, folders, "uri");
 
             if (!folder) { //folder not found => need to add.
-                Log.debug("Need to add remote folder:", remoteFolder);
+                Log.debug("Need to add remote folder: ", remoteFolder);
                 folders.push({remoteId: remoteFolder.uri, uri: remoteFolder.uri, name: remoteFolder.name});
                 change = true;
             } else { //found remote folder
@@ -617,7 +610,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             remoteFolder = this._findMatch(folder.uri, remoteFolders, "uri");
 
             if (!remoteFolder) { //folder not found => need to delete.
-                Log.debug("Need to delete local folder", folder);
+                Log.debug("Need to delete local folder ", folder);
                 folders.splice(i, 1);
 
                 toBeDeleted.push(folder.collectionId);
@@ -641,7 +634,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                 future.then(this, function deleteCB() {
                     var result = future.result;
-                    Log.debug("Delete all objects returned:", result);
+                    Log.debug("Delete all objects returned: ", result);
                     deleteContent(ids);
                 });
             } else {
@@ -696,16 +689,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (result.returnValue === true) {
                 dbFolder = result.results[0];
                 if (dbFolder) {
-                    Log.debug("Setting collectionId to", dbFolder._id, "(", dbFolder.uri, ")");
+                    Log.debug("Setting collectionId to ", dbFolder._id, " (", dbFolder.uri, ")");
                     this.client.transport.syncKey[kindName].folders[folderIndex].collectionId = dbFolder._id;
                     this.currentCollectionId = dbFolder._id;
                     future.result = { returnValue: true };
                 } else {
                     future.result = { returnValue: false };
-                    Log.log("No local id for folder", uri);
+                    Log.log("No local id for folder ", uri);
                 }
             } else {
-                Log.log("Could not get collection ids from local database:", future.exception);
+                Log.log("Could not get collection ids from local database: ", future.exception);
                 future.result = { returnValue: false };
             }
         });
@@ -726,7 +719,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         } else {
             entries = this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].entries;
             if (entries && entries.length > 0) {
-                Log.log("Had changes remaining from last doUpdate call:", entries);
+                Log.log("Had changes remaining from last doUpdate call: ", entries);
                 Log.log("Starting download.");
                 future.nest(this._downloadData(kindName, entries, 0));
                 return future;
@@ -747,7 +740,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 }
                 future.nest(this._getLocalEtags(kindName));
             } else {
-                Log.log("Could not download etags. Reason:", result);
+                Log.log("Could not download etags. Reason: ", result);
                 future.result = { returnValue: false };
             }
         });
@@ -778,15 +771,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
             var result = future.result;
             if (future.exception || result.returnValue !== true) {
-                Log.log("Something in getting etags went wrong:", future.exception);
+                Log.log("Something in getting etags went wrong: ", future.exception);
                 Log.log("Aborting with no downsync.");
                 future.result = {
                     error: true
                 };
             } else {
-                Log.debug("Folder:", this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].uri);
-                //debug("remoteEtags: " + JSON.stringify(result.remoteEtags));
-                //debug("localEtags: " + JSON.stringify(result.localEtags));
+                Log.debug("Folder: ", this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].uri);
                 entries = this._parseEtags(result.remoteEtags, result.localEtags);
                 this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].entries = entries;
 
@@ -845,7 +836,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             }
 
             if (l.doDelete) {
-                Log.debug(l.remoteId, "seems to be orphaned entry left from collection change. Do delete.");
+                Log.debug(l.remoteId, " seems to be orphaned entry left from collection change. Do delete.");
                 return true;
             } else {
                 return false;
@@ -859,8 +850,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      */
     _parseEtags: function (remoteEtags, localEtags, key) {
         var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0, orphaned: 0};
-        Log.log("Got local etags:", localEtags.length);
-        Log.log("Got remote etags:", remoteEtags.length);
+        Log.log("Got local etags: ", localEtags.length);
+        Log.log("Got remote etags: ", remoteEtags.length);
 
         if (!key) {
             key = "etag";
@@ -881,7 +872,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                 //filter orphaned entries in different collections.
                 if (!this._isOrphanedEntry(l)) {
-                    //log("Finding match for " + JSON.stringify(l));
                     found = false;
                     r = this._findMatch(l.remoteId, remoteEtags);
 
@@ -889,15 +879,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         if (r.found) {
                             Log.log("Found local duplicate.");
                         } else {
-                            //log("Found match: " + JSON.stringify(r));
                             found = true;
                             r.found = true;
                             if (l[key] !== r[key]) { //have change on server => need update.
-                                //log("Pushing: " + JSON.stringify(l));
                                 entries.push(r);
                                 stats.update += 1;
                             } else {
-                                //log("No change.");
                                 stats.noChange += 1;
                             }
                         }
@@ -905,7 +892,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     //not found => deleted on server.
                     if (!found) {
-                        //log("Not found => must have been deleted.");
 
                         //only delete if object is in same collection.
                         if (!l.calendarId || l.calendarId === this.currentCollectionId) {
@@ -924,14 +910,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         for (i = 0; i < remoteEtags.length; i += 1) {
             r = remoteEtags[i];
             if (!r.found) { //was not found localy, need add!
-                //log("Remote etag " + JSON.stringify(r) + " was not found => add");
                 stats.add += 1;
                 r.add = true;
                 entries.push(r);
             }
         }
 
-        Log.log("Got", entries.length, "remote changes:", stats);
+        Log.log("Got ", entries.length, " remote changes: ", stats);
         return entries;
     },
 
@@ -953,7 +938,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.then(this, function downloadCB() {
                     var result = future.result;
                     if (result.returnValue === true) {
-                        Log.log("Download of entry", entriesIndex, "ok. Now converting.");
+                        Log.log("Download of entry ", entriesIndex, " ok. Now converting.");
 
                         if (kindName === Kinds.objects.calendarevent.name) {
                             //transform recevied iCal to webos calendar object:
@@ -972,15 +957,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         future.then(this, function conversionCB() {
                             var result = future.result, obj, fi = this.client.transport.syncKey[kindName].folderIndex;
                             if (result.returnValue === true) {
-                                Log.log("Object", entriesIndex, "converted ok. Doing next one.");
+                                Log.log("Object ", entriesIndex, " converted ok. Doing next one.");
                                 obj = result.result;
                                 obj.uri = entries[entriesIndex].uri;
                                 obj.etag = entries[entriesIndex].etag;
                                 entries[entriesIndex].collectionId = this.client.transport.syncKey[kindName].folders[fi].collectionId;
                                 entries[entriesIndex].obj = obj;
-                                //Log.log("Converted object:", entries[entriesIndex]);
                             } else {
-                                Log.log("Could not convert object", entriesIndex, "- trying next one. :(");
+                                Log.log("Could not convert object ", entriesIndex, " - trying next one. :(");
                             }
 
                             //done with this object, do next one.
@@ -988,13 +972,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         });
 
                     } else {
-                        Log.log("Download of entry", entriesIndex, "failed... trying next one. :(");
+                        Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
                         future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
                     }
                 });
             } //end update
         } else { //entriesIndex >= entries.length => finished.
-            Log.log(entriesIndex, "items received and converted.");
+            Log.log(entriesIndex, " items received and converted.");
             resultEntries = entries.splice(0, entriesIndex);
 
             fi = this.client.transport.syncKey[kindName].folderIndex;
@@ -1007,7 +991,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             //force download of etags, necessary if entries where left from last sync.
             needEtags = entries.length > 0 || this.client.transport.syncKey[kindName].folders[fi].forceEtags;
             delete this.client.transport.syncKey[kindName].folders[fi].forceEtags;
-            Log.log(entries.length, "items for next run.");
+            Log.log(entries.length, " items for next run.");
             future.result = {
                 more: needEtags,
                 entries: resultEntries
@@ -1061,13 +1045,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         Log.log("\n\n**************************SyncAssistant:putRemoteObjects*****************************");
         var future = new Future();
 
-        Log.debug("Batch:", batch);
+        Log.debug("Batch: ", batch);
 
         future.nest(this._processOne(0, [], batch, kindName));
 
         future.then(this, function () {
             var result = future.result;
-            Log.debug("Put objects returned, result:", result);
+            Log.debug("Put objects returned, result: ", result);
             //keep possible errors during upsync in database for next sync.
             this.client.transport.syncKey[kindName].error = !result.returnValue;
             future.result = result;
@@ -1077,22 +1061,22 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     },
 
     _processOne: function (index, remoteIds, batch, kindName) {
-        Log.log("Processing change", (index + 1), "of", batch.length);
+        Log.log("Processing change ", (index + 1), " of ", batch.length);
 
         var future = this._putOneRemoteObject(batch[index], kindName);
         future.then(this, function oneObjectCallback() {
             var result = future.result, rid;
 
             rid = this._uriToRemoteId(result.uri);
-            Log.debug("Have rid", rid, "from", result.uri);
+            Log.debug("Have rid ", rid, " from ", result.uri);
 
             if (result.returnValue === true) {
-                Log.debug("Upload of", rid, "worked.");
+                Log.debug("Upload of ", rid, " worked.");
                 if (batch[index].local.uploadFailed) {
                     batch[index].local.uploadFailed = 0;
                 }
             } else {
-                Log.debug("Upload of", rid, "failed. Save failure for later.");
+                Log.debug("Upload of ", rid, " failed. Save failure for later.");
                 batch[index].local.uploadFailed = 1;
             }
 
@@ -1198,13 +1182,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         //everything fine, continue.
                         future.result = result;
                     } else {
-                        Log.log("Could not delete object:", obj);
+                        Log.log("Could not delete object: ", obj);
                         future.result = result;
                     }
                 });
             } else {
                 //send dummy result.
-                Log.debug(obj.remote.uri, "not in local collection anymore. Do not delete on server.");
+                Log.debug(obj.remote.uri, " not in local collection anymore. Do not delete on server.");
                 future.result = {returnValue: true, uri: obj.remote.uri};
             }
         } else {
@@ -1228,7 +1212,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             var result = future.result;
             if (result.returnValue === true) {
                 if (result.etag) { //server already delivered etag => no need to get it again.
-                    Log.log("Already got etag in put response:", result.etag);
+                    Log.log("Already got etag in put response: ", result.etag);
                     future.result = { returnValue: true, uri: result.uri, etags: [{etag: result.etag, uri: result.uri}]};
                 } else {
                     Log.log("Need to get new etag from server.");
@@ -1236,7 +1220,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     future.nest(CalDav.downloadEtags(this.params));
                 }
             } else {
-                Log.log("put object failed for", obj.uri);
+                Log.log("put object failed for ", obj.uri);
                 //before I did throw an error here. This prevented the sync from finishing and triggered upsync for this object on
                 //next occasion... if we only return an error here, probably we loose local changes.
                 //issue is that on error code 412 (i.e. something changed on server on this object) sync will NEVER finish
@@ -1256,7 +1240,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.result = { returnValue: true, uri: obj.uri, etag: result.etags[0].etag };
             } else {
                 if (!result.putError) { //put was ok, only etag issue, let downsync solve that.
-                    Log.log("Get etag failed for", obj.uri);
+                    Log.log("Get etag failed for ", obj.uri);
                     future.result = { returnValue: true, uri: obj.uri, etag: "0" };
                 } else { //put also failed, tell _processOne to store a failed upload.
                     future.result = { returnValue: false, uri: obj.uri };
@@ -1284,7 +1268,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     batch[i].local.etag = "0";
                 }
                 batch[i].local._kind = Kinds.objects[kindName].id; //just to be sure it gets to the right DB.
-                Log.debug("Telling webos to save:", batch[i]);
+                Log.debug("Telling webos to save: ", batch[i]);
                 result.push(batch[i].local);
             }
         }
@@ -1335,11 +1319,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                 future.then(this, function startCB() {
                     var result = future.result || future.exception;
-                    Log.debug("Activity", name, "Start result:", result);
+                    Log.debug("Activity ", name, " Start result: ", result);
                     future.result = { returnValue: true };
                 });
             } else {
-                Log.debug("No upsync for", syncObj.name, "=> no SyncOnEdit activity");
+                Log.debug("No upsync for ", syncObj.name, " => no SyncOnEdit activity");
                 future.result = { returnValue: true };
             }
 
@@ -1355,7 +1339,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
     //Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
     complete: function (activity) {
-        Log.log("CDav-Completing activity", activity.name);
+        Log.log("CDav-Completing activity ", activity.name);
 
         // this.recreateActivitiesOnComplete will be set to false when
         // the sync command is run while the capability is disabled
@@ -1422,7 +1406,6 @@ var ContactsSync = Class.create(SyncAssistant, {
      * Return an array of strings identifying the object types for synchronization, in the correct order.
      */
     getSyncOrder: function () {
-        //log("\n\n**************************SyncAssistant: getSyncOrderContacts *****************************");
         return KindsContacts.syncOrder;
     },
 
@@ -1431,7 +1414,6 @@ var ContactsSync = Class.create(SyncAssistant, {
      * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
      */
     getSyncObjects: function () {
-        //log("\n\n**************************SyncAssistant: getSyncObjects*****************************");
         return KindsContacts.objects;
     },
 
@@ -1451,7 +1433,6 @@ var CalendarSync = Class.create(SyncAssistant, {
      * Return an array of strings identifying the object types for synchronization, in the correct order.
      */
     getSyncOrder: function () {
-        //log("\n\n**************************SyncAssistant: getSyncOrderCalendar *****************************");
         return KindsCalendar.syncOrder;
     },
 
@@ -1460,7 +1441,6 @@ var CalendarSync = Class.create(SyncAssistant, {
      * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
      */
     getSyncObjects: function () {
-        //log("\n\n**************************SyncAssistant: getSyncObjects*****************************");
         return KindsCalendar.objects;
     },
 

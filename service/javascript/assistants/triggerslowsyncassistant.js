@@ -8,7 +8,7 @@ TriggerSlowSyncAssistant.prototype.gotDBObject = function (future) {
     if (result.returnValue) {
         future.nest(this.processAccount(result.results, 0));
     } else {
-        Log.log("Could not get DB object:", result);
+        Log.log("Could not get DB object: ", result);
         Log.log(future.error);
         future.result = {returnValue: false, success: false};
     }
@@ -55,11 +55,11 @@ TriggerSlowSyncAssistant.prototype.processAccount = function (objs, index) {
 
         future.then(this, function storeCB() {
             var result = future.result;
-            Log.debug("Store came back:", result);
+            Log.debug("Store came back: ", result);
             future.nest(this.processAccount(objs, index + 1));
         });
     } else {
-        Log.log("All", index, "objects processed.");
+        Log.log("All ", index, " objects processed.");
         future.result = { returnValue: true, success: true };
     }
 

@@ -113,7 +113,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
                 break;
             }
             outerfuture.setException(exception);
-            Log.log("Error in CheckCredentials:", exception.toString());
+            Log.log("Error in CheckCredentials: ", exception.toString());
             outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.uri};
             throw exception;
         }
@@ -121,7 +121,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
     future.then(this, function updateCredentialsCB() {
         var result = future.result || future.exception;
-        Log.debug("------------->Modified Key:", result);
+        Log.debug("------------->Modified Key: ", result);
 
         if (this.config) {
             this.config.accountId = args.accountId || this.config.accountId;
@@ -143,7 +143,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
     future.then(this, function mergeCB() {
         var result = future.result || future.exception;
-        Log.log("Stored config in config db: " + JSON.stringify(result));
+        Log.log("Stored config in config db: ", result);
         buildResult();
     });
 

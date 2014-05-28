@@ -53,7 +53,7 @@ var CalDav = (function () {
     }
 
     function processPropstat(ps) {
-        Log.log_calDavParsingDebug("Processing propstat: " + JSON.stringify(ps));
+        Log.log_calDavParsingDebug("Processing propstat: ", ps);
         var propstat = {
             status: processStatus(getValue(ps, "status")),
             prop: processProp(getValue(ps, "prop"))
@@ -127,7 +127,7 @@ var CalDav = (function () {
                 prop = responses[i].propstats[j].prop;
                 for (key in prop) {
                     if (prop.hasOwnProperty(key)) {
-                        Log.log_calDavParsingDebug("Comparing " + key + " to getetag.");
+                        Log.log_calDavParsingDebug("Comparing ", key, " to getetag.");
                         if (key.toLowerCase().indexOf('getetag') >= 0) {
                             etag = getValue(prop[key], "$t");
                         }
@@ -237,7 +237,7 @@ var CalDav = (function () {
                 prop = responses[i].propstats[j].prop;
                 for (key in prop) {
                     if (prop.hasOwnProperty(key)) {
-                        Log.log_calDavParsingDebug("Processing key " + key);
+                        Log.log_calDavParsingDebug("Processing key ", key);
                         if (key.toLowerCase().indexOf('displayname') >= 0) {
                             folder.name = folder.name || getValue(prop[key], "$t");
                             Log.log_calDavParsingDebug("is displayname, result: ", folder.name);
@@ -385,7 +385,7 @@ var CalDav = (function () {
                 } else {
                     Log.log("Could not receive ctag.");
                 }
-                Log.log_calDavDebug("New ctag: " + ctag + ", old ctag: " + params.ctag);
+                Log.log_calDavDebug("New ctag: ", ctag, ", old ctag: ", params.ctag);
                 future.result = { success: result.returnValue, needsUpdate: ctag !== params.ctag, ctag: ctag };
             });
 
@@ -502,32 +502,31 @@ var CalDav = (function () {
                     //look for either calendar- or addressbook-home-set :)
                     home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "href"), "$t");
                     if (!home) {
-                        Log.log("Could not get " + (addressbook ? "addressbook" : "calendar") + " home folder.");
+                        Log.log("Could not get ", (addressbook ? "addressbook" : "calendar"), " home folder.");
                     } else {
-                        Log.log_calDavDebug("Original home: " + home);
+                        Log.log_calDavDebug("Original home: ", home);
                         if (home.indexOf("http") === 0) {
                             Log.log_calDavDebug("Home already complete?");
                         } else {
                             Log.log("Augmenting home...");
                             home = options.prefix + home;
                         }
-                        Log.log_calDavDebug("Got " + (addressbook ? "addressbook" : "calendar") + "-home: " + home);
+                        Log.log_calDavDebug("Got ", (addressbook ? "addressbook" : "calendar"), "-home: ", home);
                     }
                 } else {
                     //error, stop, return failure.
-                    Log.log("Error in getHomeCB: " + JSON.stringify(result));
-                    //future.result = result;
+                    Log.log("Error in getHomeCB: ", result);
                 }
 
                 if (!home) {
                     if (index < tryFolders.length) {
-                        Log.log_calDavDebug("Trying to ask for " + (addressbook ? "addressbook" : "calendar") + "-home-set on next url: " + JSON.stringify(tryFolders[index]) + " index: " + index);
+                        Log.log_calDavDebug("Trying to ask for ", (addressbook ? "addressbook" : "calendar"), "-home-set on next url: ", tryFolders[index], " index: ", index);
                         httpClient.parseURLIntoOptions(tryFolders[index], options);
                         future.nest(httpClient.sendRequest(options, data));
                         future.then(getHomeCB.bind(this, addressbook, index + 1));
                         return;
                     } else {
-                        Log.log_calDavDebug("Tried all folders. Will try to get " + (addressbook ? "addressbook" : "calendar") + " folders from original url.");
+                        Log.log_calDavDebug("Tried all folders. Will try to get ", (addressbook ? "addressbook" : "calendar"), " folders from original url.");
                         home = params.originalUrl;
                     }
                 }
@@ -548,7 +547,7 @@ var CalDav = (function () {
                 } else {
                     folders.addressbookHome = home;
                     //start folder search and consume first folder.
-                    Log.log_calDavDebug("Getting folders from " + homes[0]);
+                    Log.log_calDavDebug("Getting folders from ", homes[0]);
                     params.cardDav = false;
                     params.path = homes.shift();
                     future.nest(this.getFolders(params));
@@ -562,19 +561,18 @@ var CalDav = (function () {
                     principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
                     if (principal) {
                         principal = getValue(getValue(principal, "href"), "$t");
-                        Log.log_calDavDebug("Got principal: " + principal);
+                        Log.log_calDavDebug("Got principal: ", principal);
                         if (principal) {
                             if (principal.indexOf("http") < 0) {
                                 principal = options.prefix + principal;
                             }
-                            Log.log_calDavDebug("Adding: " + principal);
+                            Log.log_calDavDebug("Adding: ", principal);
                             generateMoreTestPaths(principal, principals);
                         }
                     }
                 } else {
                     //error, stop, return failure.
-                    Log.log("Error in getPrincipal: " + JSON.stringify(result));
-                    //future.result = result;
+                    Log.log("Error in getPrincipal: ", result);
                 }
 
                 if (index < tryFolders.length) {
@@ -624,12 +622,11 @@ var CalDav = (function () {
                         folders.subFolders[f.uri] = f;
                     }
                 } else {
-                    Log.log("Error during folder-search: " + JSON.stringify(result));
-                    //future.result = result;
+                    Log.log("Error during folder-search: ", result);
                 }
 
                 if (homes.length > 0) { //if we still have unsearched home-foders, search them:
-                    Log.log_calDavDebug("Getting folders from " + homes[0]);
+                    Log.log_calDavDebug("Getting folders from ", homes[0]);
                     params.cardDav = true; //bad hack.
                     params.path = homes.shift();
                     future.nest(this.getFolders(params));
@@ -675,7 +672,7 @@ var CalDav = (function () {
                         folders: folders
                     };
                 } else {
-                    Log.log("Error during getFolders: " + JSON.stringify(result));
+                    Log.log("Error during getFolders: ", result);
                     future.result = result;
                 }
             });
