@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, CalDav */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, KindsTasks, OAuth, checkResult */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
     clientId: "",
@@ -74,7 +74,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
             //initialize iCal stuff.
             future.then(this, function () {
-                var result = future.result;
+                var result = checkResult(future);
                 if (result.returnValue === true) {
                     this.config = result.config;
                 }
@@ -82,7 +82,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             });
 
             future.then(this, function () {
-                var result = future.result;
+                var result = checkResult(future);
                 if (!result.iCal) {
                     Log.debug("iCal init not ok.");
                 } else {
@@ -92,7 +92,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             });
 
             future.then(this, function () {
-                var result = future.result;
+                var result = checkResult(future);
                 if (!result.vCard) {
                     Log.debug("vCard init not ok.");
                 } else {
@@ -115,7 +115,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
                     future.nest(KeyStore.checkKey(this.accountId));
                     future.then(this, function () {
-                        var result = future.result, username, password, authToken;
+                        var result = checkResult(future), username, password, authToken;
                         Log.debug("------------->Checked Key" + JSON.stringify(result));
 
                         if (result.value) {  //found key
@@ -160,13 +160,8 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                             }
 
                             KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
-                                var result;
-                                try {
-                                    result = putKey.result;
-                                    Log.debug("------------->Saved Key", result);
-                                } catch (e) {
-                                    Log.log("---------> Error in Save Key:", e);
-                                }
+                                var result = checkResult(putKey);
+                                Log.debug("------------->Saved Key", result.returnValue);
                                 future.result = { returnValue: true }; //continue with future execution.
                             });
                         }

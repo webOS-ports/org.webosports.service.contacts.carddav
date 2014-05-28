@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true */
-/*global Log, httpClient, Future */
+/*global Log, httpClient, Future, checkResult */
 
 var CalDav = (function () {
 
@@ -379,7 +379,7 @@ var CalDav = (function () {
             future.nest(httpClient.sendRequest(options, data));
 
             future.then(function () {
-                var result = future.result, ctag;
+                var result = checkResult(future), ctag;
                 if (result.returnValue) {
                     ctag = getKeyValueFromResponse(result.parsedBody, 'getctag');
                 } else {
@@ -409,7 +409,7 @@ var CalDav = (function () {
             future.nest(httpClient.sendRequest(options, data));
 
             future.then(function () {
-                var result = future.result, etags;
+                var result = checkResult(future), etags;
                 if (result.returnValue) {
                     etags = getETags(result.parsedBody);
                     future.result = { returnValue: true, etags: etags };
@@ -438,7 +438,7 @@ var CalDav = (function () {
             future.nest(httpClient.sendRequest(options, ""));
 
             future.then(function () {
-                var result = future.result;
+                var result = checkResult(future);
                 future.result = { returnValue: result.returnValue, data: result.body };
             });
 
@@ -497,7 +497,7 @@ var CalDav = (function () {
                 tryFolders = [], principals = [];
 
             function getHomeCB(addressbook, index) {
-                var result = future.result, home;
+                var result = checkResult(future), home;
                 if (result.returnValue === true) {
                     //look for either calendar- or addressbook-home-set :)
                     home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "href"), "$t");
@@ -556,7 +556,7 @@ var CalDav = (function () {
             }
 
             function principalCB(index) {
-                var result = future.result, principal, folder, i;
+                var result = checkResult(future), principal, folder, i;
                 if (result.returnValue === true) {
                     principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
                     if (principal) {
@@ -614,7 +614,7 @@ var CalDav = (function () {
             future.then(principalCB.bind(this, 1));
 
             folderCB = function () {
-                var result = future.result, i, f, fresult = [], key;
+                var result = checkResult(future), i, f, fresult = [], key;
                 if (result.returnValue === true) {
                     //prevent duplicates by URI.
                     for (i = 0; i < result.folders.length; i += 1) {
@@ -664,7 +664,7 @@ var CalDav = (function () {
             future.nest(httpClient.sendRequest(options, data));
 
             future.then(this, function foldersCB() {
-                var result = future.result;
+                var result = checkResult(future);
                 if (result.returnValue === true) {
                     folders = getFolderList(result.parsedBody, filter, options.prefix);
                     future.result = {

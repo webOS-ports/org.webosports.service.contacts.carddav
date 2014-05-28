@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Class, Future, Log, PalmCall, Sync */
+/*global Class, Future, Log, PalmCall, Sync, checkResult */
 
 //This got necessary, because a bug in mojosync framework.
 //It only creates one sync-on-edit activity, which is randomly
@@ -22,11 +22,7 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
                 Log.debug("Still waiting for ", cancelCalls, " cancel callbacks.");
             }
 
-            try {
-                Log.debug("Result of cancel callback:", f.result);
-            } catch (e) {
-                Log.debug("Cancel gave exception, ignoring:", e);
-            }
+            Log.debug("Result of cancel callback: ", checkResult(f));
         }
 
         //we only delete these activities here.. creation is done after each sync, so let the sync cmd do this

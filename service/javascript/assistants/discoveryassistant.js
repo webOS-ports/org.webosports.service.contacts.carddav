@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, Log, Kinds, DB, CalDav, UrlSchemes */
+/*global Future, Log, Kinds, DB, CalDav, UrlSchemes, checkResult */
 
 var DiscoveryAssistant = function () {};
 
@@ -23,7 +23,7 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
     }
 
     future.then(this, function discoveryFinished() {
-        var result = future.result || {returnValue: false};
+        var result = checkResult(future);
         Log.log("Discovery finished.");
         outerFuture.result = result;
     });
@@ -40,7 +40,7 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
         future.nest(CalDav.getFolders(params, type));
 
         future.then(this, function foldersCB() {
-            var result = future.result;
+            var result = checkResult(future);
             if (result.returnValue === true) {
                 if (result.folders && result.folders.length > 0) {
                     Log.log("Got ", type, " folders from known home.");
@@ -105,7 +105,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         future.nest(this.resolveHome(params, config.username, "calendar"));
 
         future.then(this, function calendarResolveCB() {
-            var result = future.result;
+            var result = checkResult(future);
             if (result.returnValue === true) {
                 calendarHome = result.home;
             } else {
@@ -117,7 +117,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function contactResolveCB() {
-            var result = future.result;
+            var result = checkResult(future);
             if (result.returnValue === true) {
                 contactHome = result.home;
             } else {
@@ -140,7 +140,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function discoverCB() {
-            var result = future.result, i, f;
+            var result = checkResult(future), i, f;
 
             if (result.returnValue === true) {
                 config[Kinds.objects.calendarevent.name] = {
@@ -165,7 +165,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function storeConfigCB() {
-            var result = future.result || future.exception;
+            var result = checkResult(future);
             Log.debug("Store config came back: ", result);
             outerFuture.result = {returnValue: result.returnValue, success: result.returnValue, config: config};
         });

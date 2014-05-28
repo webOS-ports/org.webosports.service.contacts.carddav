@@ -1,6 +1,6 @@
 //JSLint stuff:
-/*jslint sloppy: true, nomen: true, regexp: true */
-/*global Contacts, fs, Log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer, fold */
+/*jslint sloppy: true, nomen: true, regexp: true, node: true */
+/*global Contacts, fs, Log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer, fold, checkResult */
 
 var vCard = (function () {
     var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
@@ -110,7 +110,7 @@ var vCard = (function () {
         initialize: function () {
             var photo = false, tmp = false, future = new Future(), finished = function () {
                 if (tmp && photo) {
-                    var res = future.result;
+                    var res = checkResult(future);
                     if (!res) {
                         res = {};
                     }
@@ -227,8 +227,9 @@ var vCard = (function () {
                     //do import:
                     var future = vCardImporter.readVCard();
                     future.then(function (f) {
-                        if (f.result[0]) {
-                            var obj = f.result[0].getDBObject(), key, buff;
+                        var result = checkResult(f), obj, key, buff;
+                        if (result[0]) {
+                            obj = result[0].getDBObject();
                             obj._kind = input.account.kind;
 
                             //prevent overriding of necessary stuff.
@@ -321,7 +322,7 @@ var vCard = (function () {
 
                         if (input.contact && input.contact.photos && input.contact.photos.length > 0) {
                             createPhotoBlob(input.contact.photos).then(this, function photoBlobCB(f) {
-                                var result = f.result;
+                                var result = checkResult(f);
                                 data = data.replace("END:VCARD", result.blob + "END:VCARD");
                                 resFuture.result = { returnValue: true, result: data};
                             });

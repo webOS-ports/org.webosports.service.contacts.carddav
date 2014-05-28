@@ -1,5 +1,5 @@
 /*jslint sloppy: true, nomen: true */
-/*global Future, DB, Log, Kinds*/
+/*global Future, DB, Log, Kinds, checkResult */
 
 //prevents the creation of multiple transport objects on webOS 2.2.4
 var createLocks = {};
@@ -36,7 +36,7 @@ var getTransportObjByAccountId = function (args, kind) {
     }
 
     future.then(this, function gotDBObject() {
-        var result = future.result || future.exception, i, obj, found = false;
+        var result = checkResult(future), i, obj, found = false;
         if (result.returnValue) {
             for (i = 0; i < result.results.length; i += 1) {
                 obj = result.results[i];
@@ -77,30 +77,23 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
         }));
 
         future.then(function searchCB() {
-            try {
-                var result = future.result || future.exception;
-                if (result.returnValue) {
-                    if (result.results.length > 0) {
-                        //delete result.results[0]._rev; => nope, not allowed. Did try that to prevent "wrong rev errors". But seems that we have to live with them.
-                        outerFuture.result = {
-                            config: result.results[0],
-                            returnValue: true
-                        };
-                        //log("Found config with " + param + ": " + JSON.stringify(config));
+            var result = checkResult(future);
+            if (result.returnValue) {
+                if (result.results.length > 0) {
+                    //delete result.results[0]._rev; => nope, not allowed. Did try that to prevent "wrong rev errors". But seems that we have to live with them.
+                    outerFuture.result = {
+                        config: result.results[0],
+                        returnValue: true
+                    };
 
-                        if (result.results.length > 1) {
-                            Log.log("WARNING: Found multiple results for account!!");
-                        }
-                    } else {
-                        //log("No config object for " + param + " = " + config[param]);
-                        outerFuture.nest(searchAccountConfigInConfigDB(config, next, nextNext)); //try next one.
+                    if (result.results.length > 1) {
+                        Log.log("WARNING: Found multiple results for account!!");
                     }
                 } else {
-                    Log.log("Could not find with param " + param + ". Reason: " + result.message);
                     outerFuture.nest(searchAccountConfigInConfigDB(config, next, nextNext)); //try next one.
                 }
-            } catch (e) {
-                Log.log("Got exception while find with param " + param + ". Message: " + e.message);
+            } else {
+                Log.log("Could not find with param ", param, ". Reason: ", result.message);
                 outerFuture.nest(searchAccountConfigInConfigDB(config, next, nextNext)); //try next one.
             }
         });
@@ -126,7 +119,7 @@ var searchAccountConfig = function (args) {
     future.nest(searchAccountConfigInConfigDB(args, "accountId", "name", "username"));
 
     future.then(function configCB() {
-        var result = future.result || future.exception;
+        var result = checkResult(future);
         if (result.returnValue === true) {
             //log("Found config in config db: " + JSON.stringify(result.config));
             outerFuture.result = { returnValue: true, config: result.config };
