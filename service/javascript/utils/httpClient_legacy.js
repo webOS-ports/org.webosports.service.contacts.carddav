@@ -233,11 +233,7 @@ var httpClient = (function () {
         function connectCB(e) { Log.log_calDavDebug("request", reqNum, "-connected:", e); }
         function secureCB(e) { Log.log_calDavDebug("request", reqNum, "-secure:", e); }
         function dataCBCon(e) { Log.log_calDavDebug("request", reqNum, "-data:", e.length); }
-        function endCBCon(e) { Log.log_calDavDebug("request", reqNum, "-end:", e); }
-        function timeoutCBCon(e) { Log.log_calDavDebug("request", reqNum, "-timeout:", e); }
         function drainCB(e) { Log.log_calDavDebug("request", reqNum, "-drain:", e); }
-        function errorCBCon(e) { Log.log_calDavDebug("request", reqNum, "-error:", e); }
-        function closeCBCon(e) { Log.log_calDavDebug("request", reqNum, "-close:", e); }
 
         function doSendRequest() {
             options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
@@ -258,10 +254,7 @@ var httpClient = (function () {
             try {
                 addListenerOnlyOnce(req, "close", closeCB);
 
-                var con = req;
-                if (!con.setTimeout) {
-                    con = req.connection;
-                }
+                var con = req.connection;
                 if (con && con.setTimeout) {
                     Log.log_calDavDebug("Set timeout on request to 60000");
                     con.setTimeout(60000);
@@ -276,11 +269,14 @@ var httpClient = (function () {
                     addListenerOnlyOnce(req.connection, "connect", connectCB);
                     addListenerOnlyOnce(req.connection, "secure", secureCB);
                     addListenerOnlyOnce(req.connection, "data", dataCBCon);
-                    addListenerOnlyOnce(req.connection, "end", endCBCon);
-                    addListenerOnlyOnce(req.connection, "timeout", timeoutCBCon);
                     addListenerOnlyOnce(req.connection, "drain", drainCB);
-                    addListenerOnlyOnce(req.connection, "error", errorCBCon);
-                    addListenerOnlyOnce(req.connection, "close", closeCBCon);
+                    
+                    //those really seem to happen and not propagate to the httpClient, sometimes.
+                    //=> keep them!
+                    addListenerOnlyOnce(req.connection, "timeout", timeoutCB);
+                    addListenerOnlyOnce(req.connection, "error", errorCB);
+                    addListenerOnlyOnce(req.connection, "close", closeCB);
+                    addListenerOnlyOnce(req.connection, "end", closeCB); //somehow we lose the response object here? => Error.
                 }
             } catch (e) {
                 Log.log("Error during response setup:", e);
