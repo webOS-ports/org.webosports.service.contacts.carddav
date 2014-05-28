@@ -149,6 +149,7 @@ var httpClient = (function () {
             Log.debug("Answer for", reqNum, " received."); //does this also happen on timeout??
             if (received) {
                 Log.log_calDavDebug(options.path, " =", reqNum, "was already received... exiting without callbacks.");
+                return;
             }
             if (retrying) {
                 Log.log_calDavDebug("Request ", reqNum, " to ", options.path, " is already retrying... exiting without callbacks.");
