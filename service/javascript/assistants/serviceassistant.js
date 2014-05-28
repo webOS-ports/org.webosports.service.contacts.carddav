@@ -19,9 +19,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
         setup: function setup(service, accountid, launchConfig, launchArgs) {
             Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
             //for testing only - will expose credentials to log file if left open
-            //Log.debug("\n------------------->accountId:", accountid);
-            //Log.debug("\n------------------->launchConfig", launchConfig);
-            //Log.debug("\n------------------->launchArgs", launchArgs);
+            //Log.debug("\n------------------->accountId: ", accountid);
+            //Log.debug("\n------------------->launchConfig: ", launchConfig);
+            //Log.debug("\n------------------->launchArgs: ", launchArgs);
             Log.log("Starting ", launchConfig.name, " for account ", launchArgs.accountId, " from activity ", launchArgs.$activity);
 
             //this seems necessary for super class constructor during checkCredentials calls.
