@@ -108,4 +108,3 @@ Kinds.syncOrder = [
     Kinds.objects.contactset.name,
     Kinds.objects.contact.name
 ];
-
