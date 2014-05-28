@@ -31,7 +31,7 @@ enyo.kind({
                 {content: "Name"}
             ]}
         ]},
-        { kind: "WebView", flex: 9, onPageTitleChanged: "gotAuthToken"},
+        //{ kind: "WebView", flex: 9, onPageTitleChanged: "gotAuthToken"},
         {kind: "CrossAppResult", name: "crossAppResult" },
         {className: "accounts-footer-shadow", tabIndex: -1},
         {kind: "Toolbar", className: "enyo-toolbar-light", components: [
@@ -39,6 +39,7 @@ enyo.kind({
         ]}
     ],
     create: function () {
+        var url, authWin;
         this.inherited(arguments);
         console.error(">>>>>>>>>>>>>>>>>>>> create");
         console.error("Parameters: " + JSON.stringify(arguments));
@@ -53,17 +54,20 @@ enyo.kind({
             this.params = enyo.windowParams;
         }
 
-        var url = BASE_URL + "auth?client_id=" +
+        url = BASE_URL + "auth?client_id=" +
                   encodeURIComponent(CLIENT_ID) +
                   "&response_type=code" +
                   "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts");
+                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts https://www.google.com/m8/feeds ");
 
         if (this.params && this.params.account && this.params.account.credentials && this.params.account.credentials.user) {
             url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
         }
 
-        this.$.webView.setUrl(url);
+        //this.$.webView.setUrl(url);
+        authWin = window.open(url);
+        authWin.addEventListener("change", this.gotAuthToken.bind(this), false);
+
 
         console.error("<<<<<<<<<<<<<<<<<<<< create");
     },
