@@ -38,6 +38,7 @@ console.log("Service Path: " + servicePath);
 var Log = require(servicePath + "/javascript/utils/Log.js");
 var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
 var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+var OAuth = require(servicePath + "/javascript/utils/oauth.js");
 
 console.error("--------->Loaded Libraries OK1");
 
