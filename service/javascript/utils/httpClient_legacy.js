@@ -105,9 +105,9 @@ var httpClient = (function () {
         function checkRetry(error) {
             if (!received && !retrying) {
                 Log.log("Message", reqNum, "had error:", error);
+                retrying = true; //set to true always to prevent further actions.
                 if (retry <= 5) {
                     Log.log_calDavDebug("Trying to resend message", reqNum, ".");
-                    retrying = true;
                     sendRequestImpl(options, data, retry + 1).then(function (f) {
                         future.result = f.result; //transfer future result.
                     });
@@ -136,7 +136,7 @@ var httpClient = (function () {
 
         function closeCB(e) {
             Log.log_calDavDebug("res-close:", e);
-            checkRetry("Close");
+            checkRetry("Connection closed " + (e ? " with error." : " without error."));
         }
 
         function dataCB(chunk) {
@@ -149,6 +149,10 @@ var httpClient = (function () {
             Log.debug("Answer for", reqNum, " received."); //does this also happen on timeout??
             if (received) {
                 Log.log_calDavDebug(options.path, " =", reqNum, "was already received... exiting without callbacks.");
+            }
+            if (retrying) {
+                Log.log_calDavDebug("Request ", reqNum, " to ", options.path, " is already retrying... exiting without callbacks.");
+                return;
             }
             received = true;
             Log.log_calDavDebug("Body: " + body);
