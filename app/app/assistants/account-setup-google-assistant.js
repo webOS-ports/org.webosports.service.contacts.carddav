@@ -28,7 +28,7 @@ AccountSetupGoogleAssistant.prototype.setup = function () {
                   encodeURIComponent(CLIENT_ID) +
                   "&response_type=code" +
                   "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts");
+                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.google.com/m8/feeds");
 
     /* setup widgets here */
     this.controller.setupWidget("txtUser", { modelProperty: "username", hintText: $L("Username"), textCase: Mojo.Widget.steModeLowerCase}, this.account);
