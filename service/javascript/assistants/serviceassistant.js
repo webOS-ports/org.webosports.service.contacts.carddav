@@ -125,7 +125,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                                 this.userAuth = getKey.result.credentials;
 
                                 if (this.userAuth.oauth) {
-                                    future.nest(CalDav.refreshToken(this.userAuth));
+                                    future.nest(OAuth.refreshToken(this.userAuth));
                                 } else {
                                     future.result = {returnValue: true};
                                 }
