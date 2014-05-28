@@ -266,7 +266,7 @@ var vCard = (function () {
 
                             resFuture.result = {returnValue: true, result: obj};
                         } else {
-                            Log.log("No result from conversion: ", f.result);
+                            Log.log("No result from conversion: ", result);
                             fs.unlink(filename);
                             resFuture.result = {returnValue: false, result: {}};
                         }
@@ -293,7 +293,7 @@ var vCard = (function () {
             Log.log("Get contact", contactId, "transfer it to version", version, "vCard.");
             vCardExporter.exportOne(contactId, false).then(function (future) {
                 Log.log("webOS saved vCard to ", filename);
-                Log.log("result: ", future.result);
+                Log.log("result: ", checkResult(future));
                 fs.readFile(filename, "utf-8", function (err, data) {
                     if (err) {
                         Log.log("Could not read back vCard from", filename, ":", err);

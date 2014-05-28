@@ -1371,7 +1371,6 @@ var iCal = (function () {
                     //for timezone mangling.
                     future = TZManager.loadTimezones([event.tzId, localTzId], years);
                     future.then(this, function (future) {
-                        //Log.log_icalDebug("loadTimezones returned:", future.result);
                         try {
                             calendarVersion = 2; //TODO: can we get that from server?
                             result = generateICalIntern(event);

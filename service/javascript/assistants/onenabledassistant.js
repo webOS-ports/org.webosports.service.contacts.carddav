@@ -11,7 +11,7 @@
 var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
     run: function run(outerFuture) {
         var future = new Future(), config = this.client.config, kind, name, cancelCalls = 0, enabled = this.contorller.args.enabled;
-        Log.debug("Arguments:", this.contorller.args);
+        Log.debug("Arguments: ", this.contorller.args);
 
         function cancelCB(f) {
             cancelCalls -= 1;
@@ -19,7 +19,7 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
                 Log.debug("Finished canceling activities. Continue with disabling capability.");
                 this.$super(run)(outerFuture);
             } else {
-                Log.debug("Still waiting for", cancelCalls, " cancel callbacks.");
+                Log.debug("Still waiting for ", cancelCalls, " cancel callbacks.");
             }
 
             try {

@@ -22,7 +22,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             //Log.debug("\n------------------->accountId:", accountid);
             //Log.debug("\n------------------->launchConfig", launchConfig);
             //Log.debug("\n------------------->launchArgs", launchArgs);
-            Log.log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
+            Log.log("Starting ", launchConfig.name, " for account ", launchArgs.accountId, " from activity ", launchArgs.$activity);
 
             //this seems necessary for super class constructor during checkCredentials calls.
             this.accountId = launchArgs.accountId || "";
@@ -46,13 +46,13 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             }
 
             if (launchConfig.name.indexOf("Calendar") >= 0) {
-                Log.log("Setting Kinds to Calendar.");
+                Log.debug("Setting Kinds to Calendar.");
                 this.kinds = KindsCalendar;
             } else if (launchConfig.name.indexOf("Contacts") >= 0) {
-                Log.log("Setting Kinds to Contacts");
+                Log.debug("Setting Kinds to Contacts");
                 this.kinds = KindsContacts;
             } else {
-                Log.log("Setting general kinds...");
+                Log.debug("Setting general kinds...");
                 this.kinds = Kinds;
             }
 
@@ -184,7 +184,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
         },
 
         getSyncInterval: function () {
-            Log.log("*********************************** getSyncInterval ********************************");
             return new Future("20m");  //default sync interval
         },
 
