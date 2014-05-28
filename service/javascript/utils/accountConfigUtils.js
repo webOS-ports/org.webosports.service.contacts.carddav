@@ -4,9 +4,9 @@
 //prevents the creation of multiple transport objects on webOS 2.2.4
 var createLocks = {};
 var lockCreateAssistant = function (accountId) {
-    Log.debug("Locking account " + accountId + " for creation.");
+    Log.debug("Locking account ", accountId, " for creation.");
     if (createLocks[accountId]) {
-        Log.debug("Already locked: " + JSON.stringify(createLocks));
+        Log.debug("Already locked: ", createLocks);
         return false;
     } else {
         createLocks[accountId] = true;
@@ -16,10 +16,10 @@ var lockCreateAssistant = function (accountId) {
 
 var unlockCreateAssistant = function (accountId) {
     if (createLocks[accountId]) {
-        Log.debug("Unlocking account " + accountId + " for creation.");
+        Log.debug("Unlocking account ", accountId, " for creation.");
         delete createLocks[accountId];
     } else {
-        Log.debug("Tried unlocking account " + accountId + ", but was not locked.");
+        Log.debug("Tried unlocking account ", accountId, ", but was not locked.");
     }
 };
 
@@ -48,7 +48,7 @@ var getTransportObjByAccountId = function (args, kind) {
             }
 
             if (!found) {
-                Log.log("No transport object for account " + args.accountId);
+                Log.log("No transport object for account ", args.accountId);
                 future.result = {returnValue: false, success: false};
             }
         } else {
@@ -65,7 +65,7 @@ var getTransportObjByAccountId = function (args, kind) {
 var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
     var future = new Future(), outerFuture = new Future();
     if (!param) { //exit condition.
-        Log.log("Could not find any information about account " + config.accountId + " in config db.");
+        Log.log("Could not find any information about account ", config.accountId, " in config db.");
         outerFuture.result = {returnValue: false }; //continue execution.
         return outerFuture;
     }
@@ -118,7 +118,7 @@ var searchAccountConfig = function (args) {
     var outerFuture = new Future(), future = new Future();
 
     if (createLocks[args.accountId]) {
-        Log.log("Account " + args.accountId + " already locked for account creation. Not searching for config object.");
+        Log.log("Account ", args.accountId, " already locked for account creation. Not searching for config object.");
         outerFuture.result = {returnValue: true, config: args };
         return outerFuture;
     }

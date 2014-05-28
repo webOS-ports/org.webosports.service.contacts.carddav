@@ -71,7 +71,7 @@ var logBase = function () {
         }
     }
 
-    data = argsArr.join(" ");
+    data = argsArr.join("");
 
     // I want ALL my logs!
     data = data.split("\n");

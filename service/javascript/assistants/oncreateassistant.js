@@ -22,7 +22,7 @@ var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
 
             future.then(this, function dbCB() {
                 var result = future.result;
-                Log.debug("Stored config object:", result);
+                Log.debug("Stored config object: ", result);
                 if (result.returnValue === true) {
                     this.client.config._id = result.results[0].id;
                     this.client.config._rev = result.results[0].rev;
@@ -35,7 +35,7 @@ var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
 
             checkRunning = function () {
                 if (!lockCreateAssistant(this.client.clientId)) {
-                    Log.log("Still waiting for creation of account " + this.client.clientId);
+                    Log.log("Still waiting for creation of account ", this.client.clientId);
                     setTimeout(checkRunning.bind(this), 100);
                 } else {
                     Log.log("Other create assistant did finish, finish this, too.");
@@ -45,7 +45,6 @@ var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
             };
 
             setTimeout(checkRunning.bind(this), 100);
-            //outerFuture.result = {returnValue: true};
         }
         return outerFuture;
     }
