@@ -27,13 +27,7 @@ enyo.kind({
         {kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
         { kind: "PageHeader", content: "Sign In with Google", pack: "center" },
         { name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
-        {kind: "InputBox", components: [
-            {kind: "Input", hint: "Account Name", value: "", name: "txtUsername", tabIndex: "0", spellcheck: false,
-                className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
-                {content: "Name"}
-            ]}
-        ]},
-        //{ kind: "WebView", flex: 9, onPageTitleChanged: "gotAuthToken"},
+        { kind: "WebView", flex: 9, onPageTitleChanged: "gotAuthToken"},
         {kind: "CrossAppResult", name: "crossAppResult" },
         {className: "accounts-footer-shadow", tabIndex: -1},
         {kind: "Toolbar", className: "enyo-toolbar-light", components: [
@@ -99,10 +93,10 @@ enyo.kind({
     },
     gotAccessToken: function (inSender, inResponse) {
         debug("Got access token: " + JSON.stringify(inResponse));
-        
+
         this.token_response = inResponse;
-        
-        this.$.getName.call({access_token: inResponse.access_token});
+
+        this.$.getUserName.call({access_token: inResponse.access_token});
     },
     gotName: function (inSender, inResponse) {
         debug("Got name: " + JSON.stringify(inResponse));
@@ -114,7 +108,7 @@ enyo.kind({
 
         this.accountSettings = {};
         var i, template = this.params.template,
-            username = this.$.txtUsername.getValue(),
+            username = inResponse.displayName,
             credentials = {
                 access_token: this.token_response.access_token,
                 refresh_token: this.token_response.refresh_token,
@@ -183,7 +177,6 @@ enyo.kind({
             };
         }
 
-        username = inResponse.displayName;
         if (!username) {
             username = Date.now();
         }
