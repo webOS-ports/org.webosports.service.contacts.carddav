@@ -1506,9 +1506,14 @@ SyncAll.prototype.run = function (outerfuture) {
     }
 
     future.then(this, function accountInfoCB() {
-        var result = checkResult(future), account = result.result;
+        var result = checkResult(future), account = result.result || {};
         if (result.returnValue === true) {
-            if (account && account.capabilityProviders) {
+            //Log.debug("Account Info: ", result);
+            if (account.beingDeleted) {
+                return errorOut("Account is being deleted! Not syncing.");
+            }
+
+            if (account.capabilityProviders) {
                 if (account.capabilityProviders.length === 0) {
                     future.result = {returnValue: true};
                     Log.log("WARNING: No capabilityProviders defined, won't sync anything.");
@@ -1516,10 +1521,10 @@ SyncAll.prototype.run = function (outerfuture) {
                     future.nest(processCapabilities(account.capabilityProviders, 0));
                 }
             } else {
-                errorOut("No account or capabilityProviders in result: " + JSON.stringify(result));
+                return errorOut("No account or capabilityProviders in result: " + JSON.stringify(result));
             }
         } else {
-            errorOut("Could not get account info: " + JSON.stringify(result));
+            return errorOut("Could not get account info: " + JSON.stringify(result));
         }
     });
 
