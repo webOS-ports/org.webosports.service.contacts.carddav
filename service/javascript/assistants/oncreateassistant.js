@@ -1,53 +1,60 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Class, Sync, Future, Log, Kinds, lockCreateAssistant, DB, unlockCreateAssistant, checkResult */
+/*global Class, Sync, Future, Log, Kinds, lockCreateAssistant, searchAccountConfig, DB, unlockCreateAssistant, checkResult */
 
-var OnContactsCreate = Class.create(Sync.CreateAccountCommand, {
+var OnCreate = Class.create(Sync.CreateAccountCommand, {
     run: function run(outerFuture) {
-        var future = new Future(), checkRunning;
-
-        this.$super(run)(future); //let parent create transport object.
+        var future = new Future(), checkRunning, config = this.client.config;
 
         //but we need only one config object:
-        if (lockCreateAssistant(this.client.clientId)) {
-            future.then(this, function createAccountCB() {
-                var result = checkResult(future), config = this.client.config;
-                Log.log("Account created: ", result);
+        if (lockCreateAssistant(this.client.clientId, this.controller.config.name)) {
+            future.nest(searchAccountConfig({accountId: this.client.clientId}, true)); //see if another create-assistant already stored an object.
 
-                config.accountId = this.client.clientId; //be sure to store right accountId.
-                config._kind = Kinds.accountConfig.id;
-
-                Log.log("Storing config in onCreateAssistant");
-                future.nest(DB.put([config]));
-            });
-
-            future.then(this, function dbCB() {
+            future.then(this, function searchCB() {
                 var result = checkResult(future);
-                Log.debug("Stored config object: ", result);
                 if (result.returnValue === true) {
-                    this.client.config._id = result.results[0].id;
-                    this.client.config._rev = result.results[0].rev;
+                    Log.log("Config object already exists. Skipping creation.");
+                    unlockCreateAssistant(this.client.clientId);
+                    this.$super(run)(outerFuture); //let parent create transport object.
+                } else {
+                    config.accountId = this.client.clientId; //be sure to store right accountId.
+                    config._kind = Kinds.accountConfig.id;
+
+                    Log.log("Storing config in ", this.controller.config.name);
+                    future.nest(DB.put([config]));
+
+                    future.then(this, function dbCB() {
+                        var result = checkResult(future);
+                        Log.debug("Stored config object: ", result);
+                        if (result.returnValue === true) {
+                            this.client.config._id = result.results[0].id;
+                            this.client.config._rev = result.results[0].rev;
+                        }
+                        unlockCreateAssistant(this.client.clientId);
+
+                        this.$super(run)(outerFuture); //let parent create transport object.
+                    });
                 }
-                unlockCreateAssistant(this.client.clientId);
-                outerFuture.result = {returnValue: true};
             });
         } else { //other create assistant already running. Prevent multiple account objects.
             Log.log("Another create assistant is already running. Waiting...");
+            //we need to wait here to make sure that the config object makes it into the db,
+            //before we continue to the initial sync of this capability.
 
             checkRunning = function () {
-                if (!lockCreateAssistant(this.client.clientId)) {
+                if (!lockCreateAssistant(this.client.clientId, this.controller.config.name)) {
                     Log.log("Still waiting for creation of account ", this.client.clientId);
-                    setTimeout(checkRunning.bind(this), 100);
+                    setTimeout(checkRunning.bind(this), 1000);
                 } else {
                     Log.log("Other create assistant did finish, finish this, too.");
                     unlockCreateAssistant(this.client.clientId); //unlock again.
-                    outerFuture.result = {returnValue: true};
+
+                    this.$super(run)(outerFuture); //let parent create transport object.
                 }
             };
 
-            setTimeout(checkRunning.bind(this), 100);
+            setTimeout(checkRunning.bind(this), 1000);
         }
+
         return outerFuture;
     }
 });
-
-var OnCreate = Sync.CreateAccountCommand; //use dummy for all capabilities other than contacts, so that we only store one account.config object per account. They are all called by the account manager anyway...
