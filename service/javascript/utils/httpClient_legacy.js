@@ -139,7 +139,7 @@ var httpClient = (function () {
         }
 
         function dataCB(chunk) {
-            Log.log_calDavDebug("res", reqNum, "-chunk:", chunk);
+            Log.log_calDavDebug("res", reqNum, "-chunk:", chunk.length);
             body += chunk;
         }
 

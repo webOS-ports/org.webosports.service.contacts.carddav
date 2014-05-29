@@ -41,10 +41,12 @@ var OAuth = (function () {
         },
 
         needsRefresh: function (credObj) {
-            if (credObj.expires_in) {
-                if (Date.now() < credObj.expires_in) {
-                    Log.log(Date.now(), " < ", credObj.expires_in, " => we can still use it.");
+            if (credObj.expires) {
+                if (Date.now() < credObj.expires) {
+                    Log.debug(Date.now(), " < ", credObj.expires, " => we can still use old token.");
                     return false;
+                } else {
+                    Log.debug(Date.now(), " > ", credObj.expires, " => we need new token!");
                 }
             }
             return true;
