@@ -122,7 +122,7 @@ var vCard = (function () {
             //check that a temporary file path exists to save/read vcards to.
             path.exists(tmpPath, function (exists) {
                 if (!exists) {
-                    fs.mkdir(tmpPath, 777, function (error) {
+                    fs.mkdir(tmpPath, 0777, function (error) {
                         if (error) {
                             Log.log("Could not create tmp-path, error:", error);
                         }
@@ -138,7 +138,7 @@ var vCard = (function () {
             //create path for photos:
             path.exists(photoPath, function (exists) {
                 if (!exists) {
-                    fs.mkdir(photoPath, 777, function (error) {
+                    fs.mkdir(photoPath, 0777, function (error) {
                         if (error) {
                             Log.log("Could not create photo-path, error:", error);
                         }
