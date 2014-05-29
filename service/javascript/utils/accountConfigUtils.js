@@ -3,13 +3,13 @@
 
 //prevents the creation of multiple transport objects on webOS 2.2.4
 var createLocks = {};
-var lockCreateAssistant = function (accountId) {
-    Log.debug("Locking account ", accountId, " for creation.");
-    if (createLocks[accountId]) {
-        Log.debug("Already locked: ", createLocks);
+var lockCreateAssistant = function (accountId, name) {
+    Log.debug("Locking account ", accountId, " for creation from ", name);
+    if (createLocks[accountId] && createLocks[accountId] !== name) {
+        Log.debug("Already locked by ", createLocks[accountId]);
         return false;
     } else {
-        createLocks[accountId] = true;
+        createLocks[accountId] = name;
         return true;
     }
 };
@@ -107,10 +107,10 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 
 //searches account info from all possible places.
 //will also transfer old config storage into new one.
-var searchAccountConfig = function (args) {
+var searchAccountConfig = function (args, override) {
     var outerFuture = new Future(), future = new Future();
 
-    if (createLocks[args.accountId]) {
+    if (createLocks[args.accountId] && !override) {
         Log.log("Account ", args.accountId, " already locked for account creation. Not searching for config object.");
         outerFuture.result = {returnValue: true, config: args };
         return outerFuture;

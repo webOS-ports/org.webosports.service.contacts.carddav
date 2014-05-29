@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, KindsTasks, OAuth, checkResult */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, KindsTasks, OAuth, checkResult, lockCreateAssistant */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
     clientId: "",
@@ -26,6 +26,10 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
             //this seems necessary for super class constructor during checkCredentials calls.
             this.accountId = launchArgs.accountId || "";
+
+            if (launchConfig.name.indexOf("Create") >= 0) {
+                lockCreateAssistant(this.accountId, launchConfig.name);
+            }
 
             if (!this.config) {
                 this.config = {};
