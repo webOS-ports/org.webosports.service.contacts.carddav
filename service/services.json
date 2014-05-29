@@ -51,18 +51,8 @@
                     "public": true
                 },
                 {
-                    "name": "doContactsSync",
-                    "assistant": "ContactsSync",
-                    "public": true
-                },
-                {
-                    "name": "doCalendarSync",
-                    "assistant": "CalendarSync",
-                    "public": true
-                },
-                {
                     "name": "sync",
-                    "assistant": "SyncAll",
+                    "assistant": "SyncAssistant",
                     "public": true
                 },
                 {

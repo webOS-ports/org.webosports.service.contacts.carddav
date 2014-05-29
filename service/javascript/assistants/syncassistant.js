@@ -6,6 +6,119 @@
 /*global Log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar, url, Activity, checkResult */
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
+    run: function run(outerfuture) {
+        var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
+
+        if (!args.capability) {
+            errorOut = function (msg) {
+                Log.log(msg);
+                outerfuture.result = { returnValue: false, success: false, message: msg };
+                return outerfuture;
+            };
+
+            processCapabilities = function (capabilities, index) {
+                var capObj = capabilities[index], outerfuture = new Future(), syncCB;
+
+                syncCB = function (name, future) {
+                    var result = checkResult(future);
+                    Log.log("Sync came back:", result);
+                    future.nest(processCapabilities(capabilities, index + 1));
+
+                    //augment result a bit:
+                    future.then(function innerCB() {
+                        var innerResult = checkResult(future);
+
+                        //only be a success if all syncs ware a success.
+                        innerResult.returnValue = innerResult.returnValue && result.returnValue;
+                        innerResult.success = innerResult.returnValue; //this is done, because something tends to overwrite returnValue..
+                        innerResult[name] = result;
+                        outerfuture.result = innerResult;
+                    });
+                };
+
+                if (capObj) {
+                    if (capObj.capability === "CONTACTS") {
+                        PalmCall.call("palm://org.webosports.cdav.service/", "sync", {accountId: accountId, capability: "CONTACTS"}).then(syncCB.bind(this, "contacts"));
+                    } else if (capObj.capability === "CALENDAR") {
+                        PalmCall.call("palm://org.webosports.cdav.service/", "sync", {accountId: accountId, capability: "CALENDAR"}).then(syncCB.bind(this, "calendar"));
+                    } else {
+                        Log.log("Unknown capability:", capObj);
+                        outerfuture.nest(processCapabilities(capabilities, index + 1));
+                    }
+                } else {
+                    Log.log("Processing capabilities done.");
+                    outerfuture.result = { returnValue: true };
+                }
+
+                return outerfuture;
+            };
+
+            if (accountId) {
+                future.nest(PalmCall.call("palm://com.palm.service.accounts", "getAccountInfo", {accountId: accountId}));
+            } else {
+                return errorOut("No accountId given, no sync possible.");
+            }
+
+            future.then(this, function accountInfoCB() {
+                var result = checkResult(future), account = result.result || {};
+                if (result.returnValue === true) {
+                    //Log.debug("Account Info: ", result);
+                    if (account.beingDeleted) {
+                        return errorOut("Account is being deleted! Not syncing.");
+                    }
+
+                    if (account.capabilityProviders) {
+                        if (account.capabilityProviders.length === 0) {
+                            future.result = {returnValue: true};
+                            Log.log("WARNING: No capabilityProviders defined, won't sync anything.");
+                        } else {
+                            future.nest(processCapabilities(account.capabilityProviders, 0));
+                        }
+                    } else {
+                        return errorOut("No account or capabilityProviders in result: " + JSON.stringify(result));
+                    }
+                } else {
+                    return errorOut("Could not get account info: " + JSON.stringify(result));
+                }
+            });
+
+            future.then(this, function syncsCB() {
+                var result = checkResult(future);
+                Log.log("All syncs done, returning.");
+                outerfuture.result = result;
+            });
+
+            return outerfuture;
+        } else {
+            this.$super(run)(outerfuture);
+        }
+    },
+
+        /*
+     * Return an array of strings identifying the object types for synchronization, in the correct order.
+     */
+    getSyncOrder: function () {
+        return this.client.kinds.syncOrder;
+    },
+
+    /*
+     * Return an array of "kind objects" to identify object types for synchronization
+     * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
+     */
+    getSyncObjects: function () {
+        return this.client.kinds.objects;
+    },
+
+    /*
+     * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
+     * supported by the sync engine as specified in the account template (e.g.,
+     * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
+     * to provide automatic sync notification support.
+     */
+    getCapabilityProviderId: function () {
+        return "CALENDAR, CONTACTS, TASKS";
+    },
+
     _uriToRemoteId: function (uri) {
         var i;
         if (!uri) {
@@ -1396,143 +1509,3 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         }
     }
 });
-
-var ContactsSync = Class.create(SyncAssistant, {
-    /*
-     * Return an array of strings identifying the object types for synchronization, in the correct order.
-     */
-    getSyncOrder: function () {
-        return KindsContacts.syncOrder;
-    },
-
-    /*
-     * Return an array of "kind objects" to identify object types for synchronization
-     * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
-     */
-    getSyncObjects: function () {
-        return KindsContacts.objects;
-    },
-
-    /*
-     * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
-     * supported by the sync engine as specified in the account template (e.g.,
-     * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
-     * to provide automatic sync notification support.
-     */
-    getCapabilityProviderId: function () {
-        return Kinds.objects.contact.identifier;
-    }
-});
-
-var CalendarSync = Class.create(SyncAssistant, {
-    /*
-     * Return an array of strings identifying the object types for synchronization, in the correct order.
-     */
-    getSyncOrder: function () {
-        return KindsCalendar.syncOrder;
-    },
-
-    /*
-     * Return an array of "kind objects" to identify object types for synchronization
-     * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
-     */
-    getSyncObjects: function () {
-        return KindsCalendar.objects;
-    },
-
-    /*
-     * Return the ID string for the capability (e.g., CALENDAR, CONTACTS, etc.)
-     * supported by the sync engine as specified in the account template (e.g.,
-     * com.palm.calendar.google, com.palm.contacts.google, etc.).  This is used
-     * to provide automatic sync notification support.
-     */
-    getCapabilityProviderId: function () {
-        return Kinds.objects.calendar.identifier;
-    }
-});
-
-var SyncAll = function () {};
-
-SyncAll.prototype.run = function (outerfuture) {
-    var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
-
-    errorOut = function (msg) {
-        Log.log(msg);
-        outerfuture.result = { returnValue: false, success: false, message: msg };
-        return outerfuture;
-    };
-
-    processCapabilities = function (capabilities, index) {
-        var capObj = capabilities[index], outerfuture = new Future(), syncCB;
-
-        syncCB = function (name, future) {
-            var result = checkResult(future);
-            Log.log("Sync came back:", result);
-            future.nest(processCapabilities(capabilities, index + 1));
-
-            //augment result a bit:
-            future.then(function innerCB() {
-                var innerResult = checkResult(future);
-
-                //only be a success if all syncs ware a success.
-                innerResult.returnValue = innerResult.returnValue && result.returnValue;
-                innerResult.success = innerResult.returnValue; //this is done, because something tends to overwrite returnValue..
-                innerResult[name] = result;
-                outerfuture.result = innerResult;
-            });
-        };
-
-        if (capObj) {
-            if (capObj.capability === "CONTACTS") {
-                PalmCall.call("palm://org.webosports.cdav.service/", "doContactsSync", {accountId: accountId}).then(syncCB.bind(this, "contacts"));
-            } else if (capObj.capability === "CALENDAR") {
-                PalmCall.call("palm://org.webosports.cdav.service/", "doCalendarSync", {accountId: accountId}).then(syncCB.bind(this, "calendar"));
-            } else {
-                Log.log("Unknown capability:", capObj);
-                outerfuture.nest(processCapabilities(capabilities, index + 1));
-            }
-        } else {
-            Log.log("Processing capabilities done.");
-            outerfuture.result = { returnValue: true };
-        }
-
-        return outerfuture;
-    };
-
-    if (accountId) {
-        future.nest(PalmCall.call("palm://com.palm.service.accounts", "getAccountInfo", {accountId: accountId}));
-    } else {
-        return errorOut("No accountId given, no sync possible.");
-    }
-
-    future.then(this, function accountInfoCB() {
-        var result = checkResult(future), account = result.result || {};
-        if (result.returnValue === true) {
-            //Log.debug("Account Info: ", result);
-            if (account.beingDeleted) {
-                return errorOut("Account is being deleted! Not syncing.");
-            }
-
-            if (account.capabilityProviders) {
-                if (account.capabilityProviders.length === 0) {
-                    future.result = {returnValue: true};
-                    Log.log("WARNING: No capabilityProviders defined, won't sync anything.");
-                } else {
-                    future.nest(processCapabilities(account.capabilityProviders, 0));
-                }
-            } else {
-                return errorOut("No account or capabilityProviders in result: " + JSON.stringify(result));
-            }
-        } else {
-            return errorOut("Could not get account info: " + JSON.stringify(result));
-        }
-    });
-
-    future.then(this, function syncsCB() {
-        var result = checkResult(future);
-        Log.log("All syncs done, returning.");
-        outerfuture.result = result;
-    });
-
-    return outerfuture;
-};
