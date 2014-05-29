@@ -1,5 +1,5 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Future, Log, Kinds, DB, CalDav, UrlSchemes */
+/*global Future, Log, Kinds, DB, CalDav, UrlSchemes, checkResult */
 
 var DiscoveryAssistant = function () {};
 
@@ -23,7 +23,7 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
     }
 
     future.then(this, function discoveryFinished() {
-        var result = future.result || {returnValue: false};
+        var result = checkResult(future);
         Log.log("Discovery finished.");
         outerFuture.result = result;
     });
@@ -35,18 +35,18 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
 
     home = UrlSchemes.resolveURL(params.originalUrl, username, type);
     if (home) {
-        Log.log("Could resolve", type, "home from known URL schemes, get folders from there");
+        Log.log("Could resolve ", type, " home from known URL schemes, get folders from there");
         params.path = home;
         future.nest(CalDav.getFolders(params, type));
 
         future.then(this, function foldersCB() {
-            var result = future.result;
+            var result = checkResult(future);
             if (result.returnValue === true) {
                 if (result.folders && result.folders.length > 0) {
-                    Log.log("Got", type, "folders from known home.");
+                    Log.log("Got ", type, " folders from known home.");
                     future.result = { returnValue: true, home: home };
                 } else {
-                    Log.log("No", type, "folders from known home, trying usual discovery.");
+                    Log.log("No ", type, " folders from known home, trying usual discovery.");
                     future.result = { returnValue: false };
                 }
             } else {
@@ -54,7 +54,7 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
             }
         });
     } else {
-        Log.log("Could not resolve", type, "home from known URL schemes.");
+        Log.log("Could not resolve ", type, " home from known URL schemes.");
         future.result = { returnValue: false };
     }
 
@@ -65,7 +65,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
     var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome, key, additionalConfig;
 
     if (config) {
-        Log.debug("Got config object:", config);
+        Log.debug("Got config object: ", config);
 
         if (args.accountId) {
             config.accountId = args.accountId;
@@ -81,7 +81,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         }
 
         if (!config.url) {
-            Log.log("No url for", config, " found in db or agruments. Can't process this account.");
+            Log.log("No url for ", config, " found in db or agruments. Can't process this account.");
             outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
             return outerFuture;
         }
@@ -105,7 +105,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         future.nest(this.resolveHome(params, config.username, "calendar"));
 
         future.then(this, function calendarResolveCB() {
-            var result = future.result;
+            var result = checkResult(future);
             if (result.returnValue === true) {
                 calendarHome = result.home;
             } else {
@@ -117,7 +117,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function contactResolveCB() {
-            var result = future.result;
+            var result = checkResult(future);
             if (result.returnValue === true) {
                 contactHome = result.home;
             } else {
@@ -125,7 +125,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
             }
 
             if (!calendarHome || !contactHome) {
-                Log.log("Missing some homes, start discovery. CalendarHome:", calendarHome, ", ConctactHome:", contactHome);
+                Log.log("Missing some homes, start discovery. CalendarHome: ", calendarHome, ", ConctactHome: ", contactHome);
                 if (calendarHome) {
                     params.path = calendarHome;
                 } else if (contactHome) {
@@ -140,7 +140,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function discoverCB() {
-            var result = future.result, i, f;
+            var result = checkResult(future), i, f;
 
             if (result.returnValue === true) {
                 config[Kinds.objects.calendarevent.name] = {
@@ -150,7 +150,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
                     homeFolder: result.contactHome
                 };
             } else {
-                Log.log("Could not discover addressbook and calendar folders:", result);
+                Log.log("Could not discover addressbook and calendar folders: ", result);
 
                 Log.log("Setting home folders to original URL and hoping for the best.");
                 config[Kinds.objects.calendarevent.name] = {
@@ -165,8 +165,8 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function storeConfigCB() {
-            var result = future.result || future.exception;
-            Log.debug("Store config came back:", result);
+            var result = checkResult(future);
+            Log.debug("Store config came back: ", result);
             outerFuture.result = {returnValue: result.returnValue, success: result.returnValue, config: config};
         });
     }

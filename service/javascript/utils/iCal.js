@@ -828,7 +828,7 @@ var iCal = (function () {
                 } else if (lObj.value === "VTODO" || lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
                     event.ignoreMode = lObj.value;
                 } else if (lObj.value === "VEVENT") {
-                    event.value = true;
+                    event.valid = true;
                 } //will ignore begins of VTIMEZONE and VCALENDAR.
                 break;
             case "ORGANIZER":
@@ -1371,7 +1371,6 @@ var iCal = (function () {
                     //for timezone mangling.
                     future = TZManager.loadTimezones([event.tzId, localTzId], years);
                     future.then(this, function (future) {
-                        //Log.log_icalDebug("loadTimezones returned:", future.result);
                         try {
                             calendarVersion = 2; //TODO: can we get that from server?
                             result = generateICalIntern(event);

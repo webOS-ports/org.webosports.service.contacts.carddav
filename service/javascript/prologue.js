@@ -37,6 +37,8 @@ var servicePath = fs.realpathSync('.');
 console.log("Service Path: " + servicePath);
 var Log = require(servicePath + "/javascript/utils/Log.js");
 var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
+var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+var OAuth = require(servicePath + "/javascript/utils/oauth.js");
 
 console.error("--------->Loaded Libraries OK1");
 
@@ -45,3 +47,16 @@ process.on("uncaughtException", function (e) {
     //throw e;
 });
 
+//helper to check result of futures with catching exceptions
+//because futures can "transport" exceptions to waiting
+//functions.
+//Using this small function should allow V8 to optimize the other functions,
+//because functions including try-catch can not be optimized currently.
+function checkResult(future) {
+    var exception = future.exception;
+    if (exception) {
+        return {returnValue: false, exception: future.exception};
+    } else {
+        return future.result;
+    }
+}

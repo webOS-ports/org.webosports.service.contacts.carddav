@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint sloppy: true, node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, CalDav */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, KindsTasks, OAuth, checkResult, lockCreateAssistant */
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
     clientId: "",
@@ -19,13 +19,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
         setup: function setup(service, accountid, launchConfig, launchArgs) {
             Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
             //for testing only - will expose credentials to log file if left open
-            //Log.debug("\n------------------->accountId:", accountid);
-            //Log.debug("\n------------------->launchConfig", launchConfig);
-            //Log.debug("\n------------------->launchArgs", launchArgs);
-            Log.log("Starting " + launchConfig.name + " for account " + launchArgs.accountId + " from activity " + JSON.stringify(launchArgs.$activity));
+            //Log.debug("\n------------------->accountId: ", accountid);
+            //Log.debug("\n------------------->launchConfig: ", launchConfig);
+            //Log.debug("\n------------------->launchArgs: ", launchArgs);
+            Log.log("Starting ", launchConfig.name, " for account ", launchArgs.accountId, " from activity ", launchArgs.$activity);
 
             //this seems necessary for super class constructor during checkCredentials calls.
             this.accountId = launchArgs.accountId || "";
+
+            if (launchConfig.name.indexOf("Create") >= 0) {
+                lockCreateAssistant(this.accountId, launchConfig.name);
+            }
 
             if (!this.config) {
                 this.config = {};
@@ -45,14 +49,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 }
             }
 
-            if (launchConfig.name.indexOf("Calendar") >= 0) {
-                Log.log("Setting Kinds to Calendar.");
+            if (launchConfig.name.indexOf("Calendar") >= 0 || launchArgs.capability === "CALENDAR") {
+                Log.debug("Setting Kinds to Calendar.");
                 this.kinds = KindsCalendar;
-            } else if (launchConfig.name.indexOf("Contacts") >= 0) {
-                Log.log("Setting Kinds to Contacts");
+            } else if (launchConfig.name.indexOf("Contacts") >= 0 || launchArgs.capability === "CONTACTS") {
+                Log.debug("Setting Kinds to Contacts");
                 this.kinds = KindsContacts;
+            } else if (launchConfig.name.indexOf("Tasks") >= 0 || launchArgs.capability === "TASKS") {
+                Log.debug("Setting Kinds to Tasks");
+                this.kinds = KindsTasks;
             } else {
-                Log.log("Setting general kinds...");
+                Log.debug("Setting general kinds...");
                 this.kinds = Kinds;
             }
 
@@ -74,7 +81,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
             //initialize iCal stuff.
             future.then(this, function () {
-                var result = future.result;
+                var result = checkResult(future);
                 if (result.returnValue === true) {
                     this.config = result.config;
                 }
@@ -82,7 +89,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             });
 
             future.then(this, function () {
-                var result = future.result;
+                var result = checkResult(future);
                 if (!result.iCal) {
                     Log.debug("iCal init not ok.");
                 } else {
@@ -92,7 +99,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             });
 
             future.then(this, function () {
-                var result = future.result;
+                var result = checkResult(future);
                 if (!result.vCard) {
                     Log.debug("vCard init not ok.");
                 } else {
@@ -102,34 +109,52 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             });
 
             future.then(this, function getCredentials() {
-                Log.debug("Getting credentials.");
                 //these two endpoints don't require stored auth data (passed in as default)
                 //onEnabled also did not supply creds.. hm. Will this cause problems?
-                if (launchConfig.name === "onDelete" || launchConfig.name === "checkCredentials") {
-                    this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: this.config.url};
+                if (launchConfig.name === "checkCredentials") {
+                    this.userAuth = launchArgs; //copy all.
+                    this.userAuth.url = this.config.url;
                     future.result = {returnValue: true}; //do continue future execution
-                } else {
+                } else if (launchConfig.name === "sync" || launchConfig.name === "discovery") {
+                    Log.debug("Getting credentials.");
                     if (!this.accountId) {
                         throw "Need accountId for operation " + launchConfig.name;
                     }
 
+                    future.nest(KeyStore.getKey(this.accountId)).then(this, function getKeyCB(getKey) {
+                        Log.log("------------->Got Key"); //, getKey.result);
+                        this.userAuth = getKey.result.credentials;
+
+                        if (this.userAuth.oauth && OAuth.needsRefresh(this.userAuth)) {
+                            future.nest(OAuth.refreshToken(this.userAuth));
+
+                            future.then(this, function refreshCB(future) {
+                                var result = checkResult(future);
+                                if (result.returnValue === true && result.credentials) {
+                                    this.userAuth = result.credentials;
+                                    KeyStore.putKey(this.accountId, this.userAuth).then(function putOAuthCB(putKey) {
+                                        var result = checkResult(putKey);
+                                        Log.debug("------------->Saved OAuth Key", result.returnValue);
+                                        future.result = { returnValue: true }; //continue with future execution.
+                                    });
+                                } else {
+                                    future.result = { returnValue: true };
+                                }
+                            });
+                        } else {
+                            future.result = {returnValue: true};
+                        }
+                    });
+                } else if (launchConfig.name.indexOf("Create") > 0 || launchConfig.name === "onCredentialsChanged") {
                     future.nest(KeyStore.checkKey(this.accountId));
+
                     future.then(this, function () {
-                        var result = future.result, username, password, authToken;
+                        var result = checkResult(future), username, password, authToken;
                         Log.debug("------------->Checked Key" + JSON.stringify(result));
 
                         if (result.value) {  //found key
-                            Log.debug("------------->Existing Key Found");
-                            KeyStore.getKey(this.accountId).then(this, function (getKey) {
-                                Log.log("------------->Got Key"); //, getKey.result);
-                                this.userAuth = getKey.result.credentials;
-
-                                if (this.userAuth.oauth) {
-                                    future.nest(CalDav.refreshToken(this.userAuth));
-                                } else {
-                                    future.result = {returnValue: true};
-                                }
-                            });
+                            Log.debug("------------->Existing Key Found, no need to store auth data.");
+                            future.result = { returnValue: true }; //continue with future execution.
                         } else { //no key found - check for username / password and save
                             Log.debug("------------->No Key Found - Putting Key Data and storing globally");
 
@@ -160,17 +185,14 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                             }
 
                             KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
-                                var result;
-                                try {
-                                    result = putKey.result;
-                                    Log.debug("------------->Saved Key", result);
-                                } catch (e) {
-                                    Log.log("---------> Error in Save Key:", e);
-                                }
+                                var result = checkResult(putKey);
+                                Log.debug("------------->Saved Key ", result.returnValue);
                                 future.result = { returnValue: true }; //continue with future execution.
                             });
                         }
                     });
+                } else { //most assistants do not need credentials, continue.
+                    future.result = { returnValue: true };
                 }
             });
 
@@ -184,7 +206,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
         },
 
         getSyncInterval: function () {
-            Log.log("*********************************** getSyncInterval ********************************");
             return new Future("20m");  //default sync interval
         },
 

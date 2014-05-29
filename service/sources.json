@@ -78,6 +78,9 @@
         "source": "javascript/assistants/ondeleteassistant.js"
     },
     {
+        "source": "javascript/assistants/onenabledassistant.js"
+    },
+    {
         "source": "javascript/assistants/syncassistant.js"
     },
     {

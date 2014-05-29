@@ -33,24 +33,24 @@ var UrlSchemes = {
         {
             keys:              ["/owncloud/", "cloudu.de"],
             //issue: calendar/contact contain display name, which we don't know and can be different from username??
-            calendar:          "%URL_PREFIX%/remote.php/caldav/calendars/%USERNAME%/",
-            contact:           "%URL_PREFIX%/remote.php/carddav/addressbooks/%USERNAME%/",
-            checkCredentials:  "%URL_PREFIX%/remote.php/caldav"
+            calendar:          "%URL_PREFIX%remote.php/caldav/calendars/%USERNAME%/",
+            contact:           "%URL_PREFIX%remote.php/carddav/addressbooks/%USERNAME%/",
+            checkCredentials:  "%URL_PREFIX%remote.php/caldav"
         },
         {
             keys:              ["/egroupware/"],
-            calendar:          "%URL_PREFIX%/groupdav.php/%USERNAME%/",
-            contact:           "%URL_PREFIX%/groupdav.php/%USERNAME%/",
-            checkCredentials:  "%URL_PREFIX%/groupdav.php",
+            calendar:          "%URL_PREFIX%groupdav.php/%USERNAME%/",
+            contact:           "%URL_PREFIX%groupdav.php/%USERNAME%/",
+            checkCredentials:  "%URL_PREFIX%groupdav.php",
             additionalConfig: {
                 preventDuplicateCalendarEntries: true
             }
         },
         {
             keys:              ["/SOGo/"],
-            calendar:          "%URL_PREFIX%/dav/%USERNAME%/Calendar/",
-            contact:           "%URL_PREFIX%/dav/%USERNAME%/Contacts/",
-            checkCredentials:  "%URL_PREFIX%/dav/%USERNAME%/"
+            calendar:          "%URL_PREFIX%dav/%USERNAME%/Calendar/",
+            contact:           "%URL_PREFIX%dav/%USERNAME%/Contacts/",
+            checkCredentials:  "%URL_PREFIX%dav/%USERNAME%/"
         }
     ],
 

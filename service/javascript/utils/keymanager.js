@@ -3,7 +3,7 @@ KeyStore - used to handle storage of authentication data
 within key manager.
 **************************************************/
 /*jslint nomen: true, sloppy: true */
-/*global Future, PalmCall, Log, Base64 */
+/*global Future, PalmCall, Log, Base64, checkResult */
 //this is taken from MojoSyncFramework example in PalmSDK. What License is this under??
 var KeyStore = (function () {
     var keyStoreFuture = new Future(null),
@@ -22,29 +22,23 @@ var KeyStore = (function () {
         });
 
         future.then(function () {
-            try { // Fire the exception if there is one
-                future.getResult();
-            } catch (e) {
+            var result = checkResult(future);
+            if (result.returnValue === false) {
                 keydata = {};
                 future.result = {};
-                return;
+            } else {
+                keydata = JSON.parse(result.keydata);
+                
+                // Remove the key with this accountId, so it can be replaced
+                //console.log("------>made API _putCredentials call remove");
+                future.nest(PalmCall.call(KEYMGR_URI, "remove", {
+                    "keyname": accountId
+                }));
             }
-
-            keydata = JSON.parse(future.result.keydata);
-
-            // Remove the key with this accountId, so it can be replaced
-            //console.log("------>made API _putCredentials call remove");
-            future.nest(PalmCall.call(KEYMGR_URI, "remove", {
-                "keyname": accountId
-            }));
         });
 
         future.then(function () {
-            try {
-                future.getResult();
-            } catch (e) {
-                //ignore error?
-            }
+            checkResult(future); //ignore result.
             keydata = value;
 
             //console.log("------>made API _putCredentials call store - Data:" + JSON.stringify(keydata));
@@ -64,10 +58,10 @@ var KeyStore = (function () {
             keyname: accountId
         });
         future.then(function () {
-            var success, credentials;
+            var success, credentials, result = checkResult(future);
 
-            try {
-                credentials = JSON.parse(future.result.keydata);
+            if (result.returnValue !== false) {
+                credentials = JSON.parse(result.keydata);
 
                 if (credentials) {
                     future.result = {
@@ -75,7 +69,6 @@ var KeyStore = (function () {
                     };
                     success = true;
                 }
-            } catch (e) {
             }
 
             if (!success) {
@@ -103,15 +96,11 @@ var KeyStore = (function () {
             keyname: accountId
         });
         future.then(function () {
-            var r,
+            var r = checkResult(future),
                 success;
 
-            try {
-                r = future.result;
-                success = true;
-            } catch (e) {
-                success = false;
-            }
+            success = r.returnValue !== false;
+
             future.result = {
                 "value": success
             };

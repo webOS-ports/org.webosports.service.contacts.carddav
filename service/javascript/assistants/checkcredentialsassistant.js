@@ -1,18 +1,23 @@
 /*jslint sloppy: true, node: true, nomen: true */
-/*global Base64, CalDav, DB, searchAccountConfig, Future, Log, KeyStore, UrlSchemes, Transport */
+/*global Base64, CalDav, DB, searchAccountConfig, Future, Log, KeyStore, UrlSchemes, Transport, checkResult */
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () {};
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
-    var args = this.controller.args, base64Auth, future = new Future(), url = args.url;
+    var args = this.controller.args, base64Auth, future = new Future(), url = args.url, name = args.name;
     //debug("Account args =", args);
 
     // Base64 encode username and password
     base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
 
-    if (args && args.config && !url) {
-        url = args.config.url;
+    if (args && args.config) {
+        if (!url) {
+            url = args.config.url;
+        }
+        if (!name) {
+            name = args.config.name;
+        }
     }
 
     if (args.accountId) {
@@ -36,13 +41,14 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
             config: {
                 password: args.password,
                 username: args.username,
-                url: url
+                url: url,
+                name: name
             }
         };
     }
 
     future.then(this, function gotConfigObject() {
-        var result = future.result, path, newPath;
+        var result = checkResult(future), path, newPath;
         if (result.returnValue === true) {
             this.config = result.config;
         }
@@ -69,7 +75,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function credentialsCheckCB() {
-        var result = future.result, authToken, msg, exception;
+        var result = checkResult(future), authToken, msg, exception;
         // Check if we are getting a good return code for success
         if (result.returnValue === true) {
             // Pass back credentials and config (username/password/url);
@@ -90,7 +96,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
         } else {
             Log.debug("Password rejected");
-            switch (result.returnCode) {
+            switch (result.exception.returnCode) {
             case 404:
                 msg = "URL wrong, document not found. - URL: " + result.uri;
                 exception = new Transport.BadRequestError(msg);
@@ -113,15 +119,15 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
                 break;
             }
             outerfuture.setException(exception);
-            Log.log("Error in CheckCredentials:", exception.toString());
+            Log.log("Error in CheckCredentials: ", exception.toString());
             outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.uri};
             throw exception;
         }
     });
 
     future.then(this, function updateCredentialsCB() {
-        var result = future.result || future.exception;
-        Log.debug("------------->Modified Key:", result);
+        var result = checkResult(future);
+        Log.debug("------------->Modified Key: ", result);
 
         if (this.config) {
             this.config.accountId = args.accountId || this.config.accountId;
@@ -142,8 +148,8 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function mergeCB() {
-        var result = future.result || future.exception;
-        Log.log("Stored config in config db: " + JSON.stringify(result));
+        var result = checkResult(future.result);
+        Log.log("Stored config in config db: ", result);
         buildResult();
     });
 

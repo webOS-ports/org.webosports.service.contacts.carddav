@@ -1,3 +1,27 @@
+0.3.3:
+    o fixed possible crash in service with brittle network connections
+    o fixed contact sync not working after reboot
+2014-05-29: Achim Königs <garfonso@mobo.info>
+
+0.3.2:
+    o fixed error in checkCredentials that prevented return on network / authentication errors.
+    o more fixes to timing out messages, reworked message timeout & retry mechanism
+    o fixed issues with initial sync and account deletion (please clean up database and activities manually!)
+    o fixed issue with periodic sync when only one of multiple capabilities is disabled
+    o fixed issue with periodic sync only syncing contacts (you need to disable ony capability and re-enable it to solve this issue)
+    o now correctly prevents sync if account is being marked for deletion.
+    o fixed issue with account creation if contacts were not enabled
+2014-05-29: Achim Königs <garfonso@mobo.info>
+
+0.3.1:
+    o fixed: auto detection could screw up urls on some servers.
+    o some fixes to timing out messages, reworked message timeout & retry mechanism
+    o updated icon
+    o fixed a bug in ical conversion that could prevent calendarevents from showing up
+    o added simple proxy support, use http_proxy environment variable to use. (No https connect support, i.e. proxy will be able to read everything and has to handle the https connection)
+    o removed text-box in google-cred-ui and ask google for display name.
+2014-05-28: Achim Königs <garfonso@mobo.info>
+
 0.3.0:
     o added enyo app and moved check-credentials-UI into sub folder.
     o created enyo UI for google OAuth2.0 access
