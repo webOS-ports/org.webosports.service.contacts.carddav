@@ -49,13 +49,13 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 }
             }
 
-            if (launchConfig.name.indexOf("Calendar") >= 0) {
+            if (launchConfig.name.indexOf("Calendar") >= 0 || launchArgs.capability === "CALENDAR") {
                 Log.debug("Setting Kinds to Calendar.");
                 this.kinds = KindsCalendar;
-            } else if (launchConfig.name.indexOf("Contacts") >= 0) {
+            } else if (launchConfig.name.indexOf("Contacts") >= 0 || launchArgs.capability === "CONTACTS") {
                 Log.debug("Setting Kinds to Contacts");
                 this.kinds = KindsContacts;
-            } else if (launchConfig.name.indexOf("Tasks") >= 0) {
+            } else if (launchConfig.name.indexOf("Tasks") >= 0 || launchArgs.capability === "TASKS") {
                 Log.debug("Setting Kinds to Tasks");
                 this.kinds = KindsTasks;
             } else {
@@ -115,7 +115,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                     this.userAuth = launchArgs; //copy all.
                     this.userAuth.url = this.config.url;
                     future.result = {returnValue: true}; //do continue future execution
-                } else if (launchConfig.name.indexOf("Sync") > 0 || launchConfig.name === "discovery") {
+                } else if (launchConfig.name === "sync" || launchConfig.name === "discovery") {
                     Log.debug("Getting credentials.");
                     if (!this.accountId) {
                         throw "Need accountId for operation " + launchConfig.name;
