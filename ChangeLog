@@ -1,3 +1,12 @@
+0.3.1:
+    o fixed: auto detection could screw up urls on some servers.
+    o some fixes to timing out messages, reworked message timeout & retry mechanism
+    o updated icon
+    o fixed a bug in ical conversion that could prevent calendarevents from showing up
+    o added simple proxy support, use http_proxy environment variable to use. (No https connect support, i.e. proxy will be able to read everything and has to handle the https connection)
+    o removed text-box in google-cred-ui and ask google for display name.
+2014-05-28: Achim Königs <garfonso@mobo.info>
+
 0.3.0:
     o added enyo app and moved check-credentials-UI into sub folder.
     o created enyo UI for google OAuth2.0 access
