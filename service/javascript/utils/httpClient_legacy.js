@@ -101,17 +101,21 @@ var httpClient = (function () {
 
         globalReqNum += 1;
 
-        function checkRetry(error) {
+        function checkRetry(error, override) {
             if (!received && !retrying) {
                 retrying = true; //set to true always to prevent further actions.
                 Log.log("Message ", reqNum, " had error: ", error);
-                if (retry <= 5) {
+                if (retry <= 5 && !override) {
                     Log.log_calDavDebug("Trying to resend message ", reqNum, ".");
                     sendRequestImpl(options, data, retry + 1).then(function (f) {
                         future.result = f.result; //transfer future result.
                     });
                 } else {
-                    Log.log("Already tried message ", reqNum, " 5 times. Seems as if server won't answer? Sync seems broken.");
+                    if (override) {
+                        Log.log("Error for request ", reqNum, " makes retries senseless.");
+                    } else {
+                        Log.log("Already tried message ", reqNum, " 5 times. Seems as if server won't answer? Sync seems broken.");
+                    }
                     future.result = { returnValue: false, msg: error };
                 }
             } else {
@@ -130,12 +134,7 @@ var httpClient = (function () {
 
         function errorCB(e) {
             Log.log("Error in connection for ", reqNum, ": ", e);
-            checkRetry("Error:" + e.message);
-        }
-
-        function closeCB(e) {
-            Log.log_calDavDebug("connection-closed for ", reqNum, e ? " with error." : " without error.");
-            checkRetry("Connection closed " + (e ? " with error." : " without error."));
+            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED");
         }
 
         function dataCB(chunk) {
