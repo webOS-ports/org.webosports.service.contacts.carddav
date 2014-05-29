@@ -5,7 +5,7 @@
     "type": "web",
     "main": "index.html",
     "title": "C+DAV Sync App",
-    "icon": "images/lune-icon256.png",
+    "icon": "images/caldav-1024.png",
     "uiRevision":2,
     "noWindow": true
 }
