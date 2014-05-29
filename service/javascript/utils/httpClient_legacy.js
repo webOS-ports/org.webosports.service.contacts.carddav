@@ -94,6 +94,7 @@ var httpClient = (function () {
             future = new Future(),
             httpClient,
             req,
+            res,
             reqNum = globalReqNum,
             received = false,
             retrying = false,
@@ -142,7 +143,7 @@ var httpClient = (function () {
             body += chunk;
         }
 
-        function endCB(res) {
+        function endCB() {
             var result;
             Log.debug("Answer for ", reqNum, " received."); //does this also happen on timeout??
             if (received) {
@@ -200,7 +201,17 @@ var httpClient = (function () {
             }
         }
 
-        function responseCB(res) {
+        function closeCB(e) {
+            Log.log_calDavDebug("connection-closed for ", reqNum, e ? " with error." : " without error.");
+            if (!e) {
+                endCB(res);
+            } else {
+                checkRetry("Connection closed " + (e ? " with error." : " without error."));
+            }
+        }
+
+        function responseCB(inRes) {
+            res = inRes;
             Log.log_calDavDebug("STATUS: ", res.statusCode, " for ", reqNum);
             Log.log_calDavDebug("HEADERS: ", res.headers, " for ", reqNum);
             res.setEncoding("utf8");
