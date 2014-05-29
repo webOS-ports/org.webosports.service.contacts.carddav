@@ -203,7 +203,7 @@ var httpClient = (function () {
 
         function closeCB(e) {
             Log.log_calDavDebug("connection-closed for ", reqNum, e ? " with error." : " without error.");
-            if (!e) {
+            if (!e && res) { //close also happens if no res is there, yet. Hm. Catch this here and retry.
                 endCB(res);
             } else {
                 checkRetry("Connection closed " + (e ? " with error." : " without error."));
