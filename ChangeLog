@@ -1,3 +1,8 @@
+0.3.3:
+    o fixed possible crash in service with brittle network connections
+    o fixed contact sync not working after reboot
+2014-05-29: Achim Königs <garfonso@mobo.info>
+
 0.3.2:
     o fixed error in checkCredentials that prevented return on network / authentication errors.
     o more fixes to timing out messages, reworked message timeout & retry mechanism
