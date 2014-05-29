@@ -5,14 +5,19 @@
 var checkCredentialsAssistant = function () {};
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
-    var args = this.controller.args, base64Auth, future = new Future(), url = args.url;
+    var args = this.controller.args, base64Auth, future = new Future(), url = args.url, name = args.name;
     //debug("Account args =", args);
 
     // Base64 encode username and password
     base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
 
-    if (args && args.config && !url) {
-        url = args.config.url;
+    if (args && args.config) {
+        if (!url) {
+            url = args.config.url;
+        }
+        if (!name) {
+            name = args.config.name;
+        }
     }
 
     if (args.accountId) {
@@ -36,7 +41,8 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
             config: {
                 password: args.password,
                 username: args.username,
-                url: url
+                url: url,
+                name: name
             }
         };
     }
