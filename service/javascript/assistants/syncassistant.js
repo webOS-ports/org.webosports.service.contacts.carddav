@@ -1509,3 +1509,4 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         }
     }
 });
+

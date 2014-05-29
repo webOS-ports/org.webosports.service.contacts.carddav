@@ -96,7 +96,7 @@ enyo.kind({
 
         this.token_response = inResponse;
 
-        this.$.getUserName.call({access_token: inResponse.access_token});
+        this.$.getName.call({access_token: inResponse.access_token});
     },
     gotName: function (inSender, inResponse) {
         debug("Got name: " + JSON.stringify(inResponse));
@@ -177,6 +177,7 @@ enyo.kind({
             };
         }
 
+        username = inResponse.displayName;
         if (!username) {
             username = Date.now();
         }
