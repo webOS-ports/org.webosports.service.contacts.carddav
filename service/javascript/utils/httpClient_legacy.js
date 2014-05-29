@@ -139,7 +139,7 @@ var httpClient = (function () {
         }
 
         function dataCB(chunk) {
-            Log.log_calDavDebug("res", reqNum, "-chunk:", chunk.length);
+            Log.log_calDavDebug("res", reqNum, "-chunk:", chunk);
             body += chunk;
         }
 
@@ -221,16 +221,22 @@ var httpClient = (function () {
                 endCB(res);
             });
 
-            var con = res;
-            if (!con.setTimeout) {
-                con = res.connection;
-            }
-            if (con && con.setTimeout) {
-                con.setTimeout(60000);
-                con.setKeepAlive(true);
-                addListenerOnlyOnce(con, "timeout", timeoutCB);
-            } else {
-                Log.log_calDavDebug("No setTimeout method on response...?");
+            try {
+                var con = res;
+                if (!con.setTimeout) {
+                    con = res.connection;
+                }
+                if (con && con.setTimeout) {
+                    con.setTimeout(60000);
+                    if (con.setKeepAlive) {
+                        con.setKeepAlive(true);
+                    }
+                    addListenerOnlyOnce(con, "timeout", timeoutCB);
+                } else {
+                    Log.log_calDavDebug("No setTimeout method on response...?");
+                }
+            } catch (e) {
+                Log.log("Error during response setup: ", e);
             }
 
             addListenerOnlyOnce(res, "error", errorCB);
@@ -267,7 +273,9 @@ var httpClient = (function () {
                 if (con && con.setTimeout) {
                     Log.log_calDavDebug("Set timeout on request to 60000");
                     con.setTimeout(60000);
-                    con.setKeepAlive(true);
+                    if (con.setKeepAlive) {
+                        con.setKeepAlive(true);
+                    }
                     addListenerOnlyOnce(con, "timeout", timeoutCB);
                 } else {
                     Log.log_calDavDebug("No setTimeout method on request?");
@@ -279,7 +287,7 @@ var httpClient = (function () {
                     addListenerOnlyOnce(req.connection, "secure", secureCB);
                     addListenerOnlyOnce(req.connection, "data", dataCBCon);
                     addListenerOnlyOnce(req.connection, "drain", drainCB);
-                    
+
                     //those really seem to happen and not propagate to the httpClient, sometimes.
                     //=> keep them!
                     addListenerOnlyOnce(req.connection, "timeout", timeoutCB);
@@ -288,7 +296,7 @@ var httpClient = (function () {
                     addListenerOnlyOnce(req.connection, "end", closeCB); //somehow we lose the response object here? => Error.
                 }
             } catch (e) {
-                Log.log("Error during response setup: ", e);
+                Log.log("Error during request setup: ", e);
             }
 
             // write data to request body
