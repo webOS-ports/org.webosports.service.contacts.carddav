@@ -138,7 +138,7 @@ var CalDav = (function () {
                 }
             }
         }
-        Log.log_calDavDebug("Etag directory: ", eTags);
+        Log.log_calDavDebug("Etag directory: ", eTags.length);
         return eTags;
     }
 
@@ -401,9 +401,11 @@ var CalDav = (function () {
             //maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
             //be sure to not delete local objects that are beyond that timerange! ;)
 
-            data = "<c:calendar-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCALENDAR'><c:comp-filter name='VEVENT'></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
+            data = '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT"></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>';
             if (params.cardDav) {
-                data = "<c:addressbook-query xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name='VCARD'></c:comp-filter></c:filter></c:addressbook-query>";
+                //no filtering required for contacts, i.e. do propfind request.
+                options.method = "PROPFIND";
+                data = '<?xml version="1.0" encoding="utf-8" ?><D:propfind xmlns:D="DAV:"><D:prop><D:getetag/></D:prop></D:propfind>';
             }
 
             future.nest(httpClient.sendRequest(options, data));
