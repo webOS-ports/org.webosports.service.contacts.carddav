@@ -105,34 +105,52 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             });
 
             future.then(this, function getCredentials() {
-                Log.debug("Getting credentials.");
                 //these two endpoints don't require stored auth data (passed in as default)
                 //onEnabled also did not supply creds.. hm. Will this cause problems?
-                if (launchConfig.name === "onDelete" || launchConfig.name === "checkCredentials") {
-                    this.userAuth = {"username": launchArgs.username, "password": launchArgs.password, url: this.config.url};
+                if (launchConfig.name === "checkCredentials") {
+                    this.userAuth = launchArgs; //copy all.
+                    this.userAuth.url = this.config.url;
                     future.result = {returnValue: true}; //do continue future execution
-                } else {
+                } else if (launchConfig.name.indexOf("Sync") > 0 || launchConfig.name === "discovery") {
+                    Log.debug("Getting credentials.");
                     if (!this.accountId) {
                         throw "Need accountId for operation " + launchConfig.name;
                     }
 
+                    future.nest(KeyStore.getKey(this.accountId)).then(this, function getKeyCB(getKey) {
+                        Log.log("------------->Got Key"); //, getKey.result);
+                        this.userAuth = getKey.result.credentials;
+
+                        if (this.userAuth.oauth && OAuth.needsRefresh(this.userAuth)) {
+                            future.nest(OAuth.refreshToken(this.userAuth));
+
+                            future.then(this, function refreshCB(future) {
+                                var result = checkResult(future);
+                                if (result.returnValue === true && result.credentials) {
+                                    this.userAuth = result.credentials;
+                                    KeyStore.putKey(this.accountId, this.userAuth).then(function putOAuthCB(putKey) {
+                                        var result = checkResult(putKey);
+                                        Log.debug("------------->Saved OAuth Key", result.returnValue);
+                                        future.result = { returnValue: true }; //continue with future execution.
+                                    });
+                                } else {
+                                    future.result = { returnValue: true };
+                                }
+                            });
+                        } else {
+                            future.result = {returnValue: true};
+                        }
+                    });
+                } else if (launchConfig.name.indexOf("Create") > 0 || launchConfig.name === "onCredentialsChanged") {
                     future.nest(KeyStore.checkKey(this.accountId));
+
                     future.then(this, function () {
                         var result = checkResult(future), username, password, authToken;
                         Log.debug("------------->Checked Key" + JSON.stringify(result));
 
                         if (result.value) {  //found key
-                            Log.debug("------------->Existing Key Found");
-                            KeyStore.getKey(this.accountId).then(this, function (getKey) {
-                                Log.log("------------->Got Key"); //, getKey.result);
-                                this.userAuth = getKey.result.credentials;
-
-                                if (this.userAuth.oauth) {
-                                    future.nest(OAuth.refreshToken(this.userAuth));
-                                } else {
-                                    future.result = {returnValue: true};
-                                }
-                            });
+                            Log.debug("------------->Existing Key Found, no need to store auth data.");
+                            future.result = { returnValue: true }; //continue with future execution.
                         } else { //no key found - check for username / password and save
                             Log.debug("------------->No Key Found - Putting Key Data and storing globally");
 
@@ -164,11 +182,13 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
                             KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
                                 var result = checkResult(putKey);
-                                Log.debug("------------->Saved Key", result.returnValue);
+                                Log.debug("------------->Saved Key ", result.returnValue);
                                 future.result = { returnValue: true }; //continue with future execution.
                             });
                         }
                     });
+                } else { //most assistants do not need credentials, continue.
+                    future.result = { returnValue: true };
                 }
             });
 
