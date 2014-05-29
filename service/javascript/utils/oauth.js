@@ -24,8 +24,9 @@ var OAuth = (function () {
                         credObj.access_token = obj.access_token || credObj.access_token;
                         credObj.token_type = obj.token_type || credObj.token_type;
                         credObj.authToken = credObj.token_type + " " + credObj.access_token;
-                        Log.log("Refresh of token successful.");
-                        future.result = {returnValue: true};
+                        credObj.expires = Date.now() + obj.expires_in * 1000;
+                        Log.log("Refresh of token successful, expires: ", obj.expires_in);
+                        future.result = {returnValue: true, credentials: credObj};
                     } catch (e) {
                         Log.log("Exception during processing refresh result: ", e);
                         future.result = {returnValue: false};
@@ -37,6 +38,16 @@ var OAuth = (function () {
             });
 
             return future;
+        },
+
+        needsRefresh: function (credObj) {
+            if (credObj.expires_in) {
+                if (Date.now() < credObj.expires_in) {
+                    Log.log(Date.now(), " < ", credObj.expires_in, " => we can still use it.");
+                    return false;
+                }
+            }
+            return true;
         }
     };
 }());
