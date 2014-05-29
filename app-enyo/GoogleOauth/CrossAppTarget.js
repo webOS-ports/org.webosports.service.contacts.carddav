@@ -177,6 +177,7 @@ enyo.kind({
             };
         }
 
+        username = inResponse.displayName;
         if (!username) {
             username = Date.now();
         }

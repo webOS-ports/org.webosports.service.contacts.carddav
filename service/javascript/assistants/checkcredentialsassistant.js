@@ -96,7 +96,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
         } else {
             Log.debug("Password rejected");
-            switch (result.returnCode) {
+            switch (result.exception.returnCode) {
             case 404:
                 msg = "URL wrong, document not found. - URL: " + result.uri;
                 exception = new Transport.BadRequestError(msg);
