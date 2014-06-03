@@ -9,6 +9,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     run: function run(outerfuture) {
         var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
 
+        this.recreateActivitiesOnComplete = true;
+
         if (!args.capability) {
             errorOut = function (msg) {
                 Log.log(msg);
@@ -64,6 +66,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 if (result.returnValue === true) {
                     //Log.debug("Account Info: ", result);
                     if (account.beingDeleted) {
+                        this.recreateActivitiesOnComplete = false;
                         return errorOut("Account is being deleted! Not syncing.");
                     }
 
@@ -75,6 +78,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                             future.nest(processCapabilities(account.capabilityProviders, 0));
                         }
                     } else {
+                        this.recreateActivitiesOnComplete = false;
                         return errorOut("No account or capabilityProviders in result: " + JSON.stringify(result));
                     }
                 } else {
