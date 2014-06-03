@@ -27,7 +27,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             //Log.debug("\n------------------->accountId: ", accountid);
             //Log.debug("\n------------------->launchConfig: ", launchConfig);
             //Log.debug("\n------------------->launchArgs: ", launchArgs);
-            Log.log("Starting ", launchConfig.name, " for account ", launchArgs.accountId, " from activity ", launchArgs.$activity);
+            Log.log("Starting ", launchConfig.name, " for account ", launchArgs.accountId, " from activity ", launchArgs.$activity, " with capacity ", launchArgs.capability);
 
             //this seems necessary for super class constructor during checkCredentials calls.
             this.accountId = launchArgs.accountId || "";
