@@ -1,7 +1,11 @@
+0.3.6:
+    o fixed possible sync-endless loop because of wrong sync on edit activity creation
+2014-06-03: Achim Königs <garfonso@mobo.info>
+
 0.3.5:
     o fixed possible dns issue that could hang the service for ever.
     o optimizations in loading routine.
-2014-05-30: Achim Königs <garfonso@mobo.info>
+2014-06-03: Achim Königs <garfonso@mobo.info>
 
 0.3.4:
     o fixed possible connection issue that could hang the service for ever.
