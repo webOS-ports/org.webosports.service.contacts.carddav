@@ -1,5 +1,8 @@
-/*jslint node: true */
-/*global Future, Log, url, xml, http */
+/*global Future, Log, IMPORTS */
+
+var xml = IMPORTS["foundations.xml"];
+var http = require("http");
+var url = require("url");   //required to parse urls
 
 var httpClient = (function () {
     "use strict";
@@ -97,8 +100,7 @@ var httpClient = (function () {
             res,
             reqNum = globalReqNum,
             received = false,
-            retrying = false,
-            dataBuffer = new Buffer(data, 'utf8');
+            retrying = false;
 
         globalReqNum += 1;
 
@@ -251,7 +253,7 @@ var httpClient = (function () {
         function drainCB(e) { Log.log_calDavDebug("request", reqNum, "-drain:", e); }
 
         function doSendRequest() {
-            options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
+            options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
 
             Log.log_calDavDebug("Sending request ", reqNum, " with data ", data, " to server.");
             Log.log_calDavDebug("Options: ", options);
@@ -262,7 +264,7 @@ var httpClient = (function () {
                 options.path = options.prefix + options.path;
             }
             req = httpClient.request(options.method, options.path, options.headers);
-            addListenerOnlyOnce(req, 'response', responseCB);
+            addListenerOnlyOnce(req, "response", responseCB);
 
             addListenerOnlyOnce(req, "error", errorCB);
 

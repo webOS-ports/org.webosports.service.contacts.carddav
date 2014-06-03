@@ -1,12 +1,14 @@
-/*jslint sloppy: true, node: true, nomen: true */
+/*jslint nomen: true */
 /*global Future, Log, Kinds, DB, CalDav, UrlSchemes, checkResult */
+/*exported DiscoveryAssistant */
 
-var DiscoveryAssistant = function () {};
+var DiscoveryAssistant = function () { "use strict"; };
 
 //call with accountId (required), username, name, url.
 //accountId, name and username will be used to search for config object.
 //url will be updated in DB. If no object in DB, yet, URL is required.
 DiscoveryAssistant.prototype.run = function (outerFuture) {
+    "use strict";
     var future = new Future(), args = this.controller.args;
 
     if (this.client && this.client.config) {
@@ -31,6 +33,7 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 };
 
 DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
+    "use strict";
     var future = new Future(), home;
 
     home = UrlSchemes.resolveURL(params.originalUrl, username, type);
@@ -62,6 +65,7 @@ DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
 };
 
 DiscoveryAssistant.prototype.processAccount = function (args, config) {
+    "use strict";
     var future = new Future(), outerFuture = new Future(), params, calendarHome, contactHome, key, additionalConfig;
 
     if (config) {
@@ -140,7 +144,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
         });
 
         future.then(this, function discoverCB() {
-            var result = checkResult(future), i, f;
+            var result = checkResult(future);
 
             if (result.returnValue === true) {
                 config[Kinds.objects.calendarevent.name] = {

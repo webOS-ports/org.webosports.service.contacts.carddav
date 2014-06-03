@@ -1,7 +1,7 @@
-/*jslint sloppy: true, node: true */
 /*global Log, httpClient, Future, checkResult */
 
 var CalDav = (function () {
+    "use strict";
 
     function endsWith(str, suffix) {
         return str.indexOf(suffix, str.length - suffix.length) !== -1;
@@ -110,9 +110,8 @@ var CalDav = (function () {
                             text = getValue(prop[key], "$t");
                             if (notResolveText || !text) {
                                 return prop[key];
-                            } else {
-                                return text;
                             }
+                            return text;
                         }
                     }
                 }
@@ -128,7 +127,7 @@ var CalDav = (function () {
                 for (key in prop) {
                     if (prop.hasOwnProperty(key)) {
                         Log.log_calDavParsingDebug("Comparing ", key, " to getetag.");
-                        if (key.toLowerCase().indexOf('getetag') >= 0) {
+                        if (key.toLowerCase().indexOf("getetag") >= 0) {
                             etag = getValue(prop[key], "$t");
                         }
                     }
@@ -157,16 +156,16 @@ var CalDav = (function () {
             var key, unspecCal = false;
             for (key in rt) {
                 if (rt.hasOwnProperty(key)) {
-                    if (key.toLowerCase().indexOf('vevent-collection') >= 0) {
+                    if (key.toLowerCase().indexOf("vevent-collection") >= 0) {
                         return "calendar";
                     }
-                    if (key.toLowerCase().indexOf('vcard-collection') >= 0 || key.toLowerCase().indexOf('addressbook') >= 0) {
+                    if (key.toLowerCase().indexOf("vcard-collection") >= 0 || key.toLowerCase().indexOf("addressbook") >= 0) {
                         return "contact";
                     }
-                    if (key.toLowerCase().indexOf('vtodo-collection') >= 0) {
+                    if (key.toLowerCase().indexOf("vtodo-collection") >= 0) {
                         return "task";
                     }
-                    if (key.toLowerCase().indexOf('calendar') >= 0) {
+                    if (key.toLowerCase().indexOf("calendar") >= 0) {
                         //issue: calendar can be todo or calendar.
                         unspecCal = true;
                     }
@@ -189,7 +188,7 @@ var CalDav = (function () {
             var key, comps = [], array, i;
             for (key in xmlComp) {
                 if (xmlComp.hasOwnProperty(key)) {
-                    if (key.toLowerCase().indexOf('comp') >= 0) { //found list of components
+                    if (key.toLowerCase().indexOf("comp") >= 0) { //found list of components
                         array = xmlComp[key];
                         if (array.name) {
                             comps.push(array.name);
@@ -238,22 +237,22 @@ var CalDav = (function () {
                 for (key in prop) {
                     if (prop.hasOwnProperty(key)) {
                         Log.log_calDavParsingDebug("Processing key ", key);
-                        if (key.toLowerCase().indexOf('displayname') >= 0) {
+                        if (key.toLowerCase().indexOf("displayname") >= 0) {
                             folder.name = folder.name || getValue(prop[key], "$t");
                             Log.log_calDavParsingDebug("is displayname, result: ", folder.name);
-                        } else if (key.toLowerCase().indexOf('resourcetype') >= 0) {
+                        } else if (key.toLowerCase().indexOf("resourcetype") >= 0) {
                             tmpVal = getResourceType(prop[key]);
                             if (!folder.resource || tmpVal !== "ignore") {
                                 folder.resource = tmpVal;
                             }
                             Log.log_calDavParsingDebug("is resourcetype, result: ", folder.resource);
-                        } else if (key.toLowerCase().indexOf('supported-calendar-component-set') >= 0) {
+                        } else if (key.toLowerCase().indexOf("supported-calendar-component-set") >= 0) {
                             tmpVal = parseSupportedComponents(prop[key]);
                             if (tmpVal) {
                                 folder.supportedComponents = folder.supportedComponents.concat(tmpVal);
                             }
                             Log.log_calDavParsingDebug("is supported-calendar-component-set, result: ", folder.supportedComponents);
-                        } else if (key.toLowerCase().indexOf('getctag') >= 0) {
+                        } else if (key.toLowerCase().indexOf("getctag") >= 0) {
                             folder.ctag = getValue(prop[key], "$t");
                         }
                     }
@@ -298,11 +297,12 @@ var CalDav = (function () {
 
     function generateMoreTestPaths(folder, tryFolders) {
         var newFolders = [folder], i, j, duplicate, tmp,
-            replacePart = function (data, searchString, replacement, caseInsensitive) {
+            replacePart = function (data, searchString, replacement) {
                 var tmpStr;
                 if (data.indexOf(searchString) >= 0) {
                     return data.replace(searchString, replacement);
-                } else if (data.toLowerCase().indexOf(searchString) >= 0) {
+                }
+                if (data.toLowerCase().indexOf(searchString) >= 0) {
                     tmpStr = data.substr(data.toLowerCase().indexOf(searchString), searchString.length);
                     return data.replace(tmpStr, replacement); //could theoretically screw up path.
                 }
@@ -343,25 +343,30 @@ var CalDav = (function () {
 
     //define public interface
     return {
-        //checks only authorization.
-        //But does that with propfind user principal now, instead of GET.
-        //Issue was that one can get the login screen without (and also with wrong) credentials.
-        //check result.returnValue from feature.
-        //this does not really look at the error message. All codes >= 400 return a false => i.e. auth error. But also returns status code.
+        /**
+         * Checks authorization. It does that with propfind user principal now, instead of a simple GET.
+         * Issue was that one can get the login screen without (and also with wrong) credentials.
+         * @param params usual param object with path, credentials, ...
+         * @return future, result.returnValue can be used to determine if login was ok or not.
+         *                  of course network errors can also happen. Also all status codes < 400 are
+         *                  accepted as ok (redirects are processed) all >= 400 are rejected as error.
+         */
         checkCredentials: function (params) {
             var options = preProcessOptions(params), future = new Future(), data;
 
             options.headers.Depth = 0;
             options.method = "PROPFIND";
-            data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
+            data = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 
             future.nest(httpClient.sendRequest(options, data));
             return future;
         },
 
-        //determines if a sync is necessary for datastore given by url.
-        //needs: { username, password, url, ctag }
-        //returns future, which will eventually get result which contains ctag and
+        /**
+         * Determines if a sync is necessary for datastore given by url.
+         * @param params usual param object with path, credentials, ...
+         * @return future, result contains ctag and needsUpdate == if update is necessary
+         */
         checkForChanges: function (params) {
             var options = preProcessOptions(params), future = new Future(), data;
             options.method = "PROPFIND";
@@ -381,7 +386,7 @@ var CalDav = (function () {
             future.then(function () {
                 var result = checkResult(future), ctag;
                 if (result.returnValue) {
-                    ctag = getKeyValueFromResponse(result.parsedBody, 'getctag');
+                    ctag = getKeyValueFromResponse(result.parsedBody, "getctag");
                 } else {
                     Log.log("Could not receive ctag.");
                 }
@@ -392,6 +397,11 @@ var CalDav = (function () {
             return future;
         },
 
+        /**
+         * Downloads etags from all childs of a directory
+         * @param params usual param object with path, credentials, ...
+         * @return future result.etags will contain the etag directory of uri<=>etag objects
+         */
         downloadEtags: function (params) {
             var options = preProcessOptions(params), future = new Future(), data;
             options.method = "REPORT";
@@ -401,11 +411,11 @@ var CalDav = (function () {
             //maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
             //be sure to not delete local objects that are beyond that timerange! ;)
 
-            data = '<c:calendar-query xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name="VCALENDAR"><c:comp-filter name="VEVENT"></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>';
+            data = "<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
             if (params.cardDav) {
                 //no filtering required for contacts, i.e. do propfind request.
                 options.method = "PROPFIND";
-                data = '<?xml version="1.0" encoding="utf-8" ?><D:propfind xmlns:D="DAV:"><D:prop><D:getetag/></D:prop></D:propfind>';
+                data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><D:propfind xmlns:D=\"DAV:\"><D:prop><D:getetag/></D:prop></D:propfind>";
             }
 
             future.nest(httpClient.sendRequest(options, data));
@@ -424,9 +434,11 @@ var CalDav = (function () {
             return future;
         },
 
-        /*
+        /**
          * Downloadds a single object, whose uri is in obj.uri.
-         * Future will contain data member which contains the body, i.e. the complete data of the object.
+         * @param params usual param object with path, credentials, ...
+         * @param obj, data object with uri field.
+         * @return future result.data contains the body, i.e. the complete data of the object.
          */
         downloadObject: function (params, obj) {
             var future = new Future(), options = preProcessOptions(params);
@@ -447,9 +459,11 @@ var CalDav = (function () {
             return future;
         },
 
-        /*
+        /**
          * Sends delete request to the server.
-         * Future will cotain uri member with old uri for reference.
+         * @param params usual param object with path, credentials, ...
+         * @param obj, with uri and etag fields.
+         * @return future which will cotain uri member with old uri for reference.
          */
         deleteObject: function (params, obj) {
             var future = new Future(), options = preProcessOptions(params);
@@ -466,9 +480,11 @@ var CalDav = (function () {
             return future;
         },
 
-        /*
+        /**
          * Puts an object to server.
-         * If server delivers etag in response, will also add etag to future.result.
+         * @param params usual param object with path, credentials, ...
+         * @param obj, the obj to send to the server, with uri, etag and data fields
+         * @return future, if server delivers etag in response, it will be delivered in result.etag
          */
         putObject: function (params, obj) {
             var future = new Future(), options = preProcessOptions(params);
@@ -491,9 +507,12 @@ var CalDav = (function () {
             return future;
         },
 
-        //discovers folders for contacts and calendars.
-        //future.result will contain array folders.
-        //folders contain uri, resource = contact/calendar/task
+        /**
+         * Discovers folders for contacts and calendars.
+         * @param params usual param object with path, credentials, ...
+         * @return future, result.folders will contain array folders with
+         *                  folder objects containing uri and resource = contact/calendar/task
+         */
         discovery: function (params) {
             var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = { subFolders: {} }, folderCB,
                 tryFolders = [], principals = [];
@@ -525,12 +544,14 @@ var CalDav = (function () {
                         Log.log_calDavDebug("Trying to ask for ", (addressbook ? "addressbook" : "calendar"), "-home-set on next url: ", tryFolders[index], " index: ", index);
                         httpClient.parseURLIntoOptions(tryFolders[index], options);
                         future.nest(httpClient.sendRequest(options, data));
-                        future.then(getHomeCB.bind(this, addressbook, index + 1));
+                        future.then(function () {
+                            getHomeCB(addressbook, index + 1);
+                        });
                         return;
-                    } else {
-                        Log.log_calDavDebug("Tried all folders. Will try to get ", (addressbook ? "addressbook" : "calendar"), " folders from original url.");
-                        home = params.originalUrl;
                     }
+
+                    Log.log_calDavDebug("Tried all folders. Will try to get ", (addressbook ? "addressbook" : "calendar"), " folders from original url.");
+                    home = params.originalUrl;
                 }
 
                 if (homes.length > 0 && homes[0] === home) {
@@ -540,27 +561,29 @@ var CalDav = (function () {
                 }
 
                 if (!addressbook) {
-                    data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
+                    data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\"><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
                     options.headers.Depth = 0;
                     folders.calendarHome = home;
                     httpClient.parseURLIntoOptions(tryFolders[0], options);
                     future.nest(httpClient.sendRequest(options, data));
-                    future.then(getHomeCB.bind(this, true, 1)); //calendar done, start with addressbook
+                    future.then(function () {
+                        getHomeCB(true, 1);
+                    }); //calendar done, start with addressbook
                 } else {
                     folders.addressbookHome = home;
                     //start folder search and consume first folder.
                     Log.log_calDavDebug("Getting folders from ", homes[0]);
                     params.cardDav = false;
                     params.path = homes.shift();
-                    future.nest(this.getFolders(params));
-                    future.then(this, folderCB);
+                    future.nest(CalDav.getFolders(params));
+                    future.then(folderCB);
                 }
             }
 
             function principalCB(index) {
-                var result = checkResult(future), principal, folder, i;
+                var result = checkResult(future), principal;
                 if (result.returnValue === true) {
-                    principal = getKeyValueFromResponse(result.parsedBody, 'current-user-principal', true);
+                    principal = getKeyValueFromResponse(result.parsedBody, "current-user-principal", true);
                     if (principal) {
                         principal = getValue(getValue(principal, "href"), "$t");
                         Log.log_calDavDebug("Got principal: ", principal);
@@ -580,7 +603,9 @@ var CalDav = (function () {
                 if (index < tryFolders.length) {
                     httpClient.parseURLIntoOptions(tryFolders[index], options);
                     future.nest(httpClient.sendRequest(options, data));
-                    future.then(principalCB.bind(this, index + 1));
+                    future.then(function () {
+                        principalCB(index + 1);
+                    });
                 } else {
                     if (principals.length === 0) {
                         Log.log("Could not get any principal at all.");
@@ -588,14 +613,16 @@ var CalDav = (function () {
 
                     //prepare home folder search:
                     options.headers.Depth = 0;
-                    data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><c:calendar-home-set/></d:prop></d:propfind>";
+                    data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><c:calendar-home-set/></d:prop></d:propfind>";
 
                     //reorder array, so that principal folders are tried first:
                     tryFolders = principals.concat(tryFolders);
 
                     httpClient.parseURLIntoOptions(tryFolders[0], options);
                     future.nest(httpClient.sendRequest(options, data));
-                    future.then(getHomeCB.bind(this, false, 1));
+                    future.then(function () {
+                        getHomeCB(false, 1);
+                    });
                 }
             }
 
@@ -611,9 +638,11 @@ var CalDav = (function () {
             options.parse = true;
             httpClient.parseURLIntoOptions(tryFolders[0], options);
             options.headers.Depth = 0;
-            data = "<d:propfind xmlns:d='DAV:'><d:prop><d:current-user-principal /></d:prop></d:propfind>";
+            data = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:current-user-principal /></d:prop></d:propfind>";
             future.nest(httpClient.sendRequest(options, data));
-            future.then(principalCB.bind(this, 1));
+            future.then(function () {
+                principalCB(1);
+            });
 
             folderCB = function () {
                 var result = checkResult(future), i, f, fresult = [], key;
@@ -631,7 +660,7 @@ var CalDav = (function () {
                     Log.log_calDavDebug("Getting folders from ", homes[0]);
                     params.cardDav = true; //bad hack.
                     params.path = homes.shift();
-                    future.nest(this.getFolders(params));
+                    future.nest(CalDav.getFolders(params));
                     future.then(this, folderCB);
                 } else {
                     for (key in folders.subFolders) {
@@ -651,17 +680,21 @@ var CalDav = (function () {
             return future;
         },
 
-        //get's folders below uri. Can filter for addressbook, calendar or tasks.
-        //future.result will contain array folders
+        /**
+         * Gets folders below uri. Can filter for addressbook, calendar or tasks.
+         * @param params object with required params, like path and credentials
+         * @param filter optional filter for addressbook, calendar or tasks
+         * @return future, result.folders will contain array folders
+         */
         getFolders: function (params, filter) {
             var future = new Future(), options = preProcessOptions(params), data, folders;
 
             options.headers.Depth = 1;
             options.parse = true;
 
-            data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:caldav'><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
+            data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
             if (params.cardDav) {
-                data = "<d:propfind xmlns:d='DAV:' xmlns:c='urn:ietf:params:xml:ns:carddav'><d:prop><d:resourcetype /><d:displayname /></d:prop></d:propfind>";
+                data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\"><d:prop><d:resourcetype /><d:displayname /></d:prop></d:propfind>";
             }
             future.nest(httpClient.sendRequest(options, data));
 
@@ -682,6 +715,11 @@ var CalDav = (function () {
             return future;
         },
 
+        /**
+         * Allows to test the folder parsing without network activity
+         * @param body the xml-parsed body object.
+         * @return array of folder objects
+         */
         testFolderParsing: function (body) {
             return getFolderList(body);
         }

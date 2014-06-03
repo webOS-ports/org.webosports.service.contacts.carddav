@@ -2,11 +2,17 @@
  * SyncAssistant
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
-/*jslint node: true, nomen: true, sloppy: true */
-/*global Log, Class, Sync, feedURLContacts, feedURLCalendar, Kinds, Future, CalDav, Assert, iCal, vCard, DB, PalmCall, KindsContacts, KindsCalendar, url, Activity, checkResult */
+/*jslint nomen: true */
+/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, servicePath */
+/*exported SyncAssistant */
+
+var url = require("url");   //required to parse urls
+var iCal = require(servicePath + "/javascript/utils/iCal.js");
+var vCard = require(servicePath + "/javascript/utils/vCard.js");
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
     run: function run(outerfuture) {
+        "use strict";
         var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
 
         this.recreateActivitiesOnComplete = true;
@@ -91,17 +97,19 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 Log.log("All syncs done, returning.");
                 outerfuture.result = result;
             });
-
-            return outerfuture;
         } else {
+            //we have a capability, run usual sync
             this.$super(run)(outerfuture);
         }
+
+        return outerfuture;
     },
 
         /*
      * Return an array of strings identifying the object types for synchronization, in the correct order.
      */
     getSyncOrder: function () {
+        "use strict";
         return this.client.kinds.syncOrder;
     },
 
@@ -110,6 +118,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * This will normally be an object with property names as returned from getSyncOrder, with structure like this:
      */
     getSyncObjects: function () {
+        "use strict";
         return this.client.kinds.objects;
     },
 
@@ -120,10 +129,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * to provide automatic sync notification support.
      */
     getCapabilityProviderId: function () {
+        "use strict";
         return "CALENDAR, CONTACTS, TASKS";
     },
 
     _uriToRemoteId: function (uri) {
+        "use strict";
         var i;
         if (!uri) {
             return undefined;
@@ -131,7 +142,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         if (this.client.config.preventDuplicateCalendarEntries) {
             for (i = uri.length - 1; i >= 0; i -= 1) {
-                if (uri.charAt(i) === '/') {
+                if (uri.charAt(i) === "/") {
                     return uri.substring(i + 1);
                 }
             }
@@ -143,6 +154,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Sets error = true for kindName. Makes sure that object is saved in database.
      */
     _saveErrorState: function (kindName) {
+        "use strict";
         this.client.transport.syncKey[kindName].error = true; //trigger "slow" sync.
         this.handler.putAccountTransportObject(this.client.transport).then(function putCB(f) {
             var result = checkResult(f);
@@ -157,6 +169,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * on the remote side. We create a new remoteId here and fill the remote object with that.
      */
     getNewRemoteObject: function (kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant: getNewRemoteObject *****************************");
         var postfix, remoteId, result;
 
@@ -175,6 +188,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     },
 
     _setParamsFromCollectionId: function (kindName, id) {
+        "use strict";
         var prefix, i;
         for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
             if (this.client.transport.syncKey[kindName].folders[i].collectionId === id) {
@@ -193,6 +207,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * This method is used to find the correct URI from a local/remote object pair.
      */
     _findURIofRemoteObject: function (kindName, obj) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant: _findURIofRemoteObject *****************************");
         var uri, prefix, remoteId, i;
 
@@ -222,7 +237,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
             prefix = url.parse(prefix).pathname || "/";
 
-            if (prefix.charAt(prefix.length - 1) !== '/') {
+            if (prefix.charAt(prefix.length - 1) !== "/") {
                 prefix += "/";
             }
 
@@ -263,6 +278,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Tells sync engine the transformation type.    remote2local or local2remote
      */
     getTransformer: function (name, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant: getTransformer*****************************");
         if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
             return this._getObjectTransformer(name, kindName);
@@ -272,7 +288,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (name === "remote2local") {
                 return function (to, from) {
                     to.accountId = this.client.clientId;
-                    //to.color = "purple"; //yes, I'm purple. :P
                     to.excludeFromAll = false;
                     to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
                     to.name = from.name;
@@ -297,12 +312,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * translate the fields into webos fields.
      */
     _getObjectTransformer: function (name, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:_getObjectTransformer*****************************");
 
         if (name === "remote2local") {
             return function (to, from) {
                 Log.log("\n\n**************************SyncAssistant:_remote2local*****************************");
-                var key, obj = from.obj, i;
+                var key, obj = from.obj;
 
                 //populate to object with data from event:
                 for (key in obj) {
@@ -376,6 +392,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * means getting the whole dataset => not so nice for mobile data connections!
      */
     getRemoteId: function (obj, kindName) {
+        "use strict";
         if (obj.remoteId) {
             return obj.remoteId; //use uri, it is unique and constant.
         }
@@ -390,9 +407,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
     /*
      * This tells webOs if the object was deleted on the server. If it was not deleted,
-     * it is updated locally with remote changes.
+     * it is updated locally with remote changes. Also gets kindName param, which we do not need.
      */
-    isDeleted: function (obj, kindName) {
+    isDeleted: function (obj) {
+        "use strict";
         if (obj && obj.doDelete) {
             return true;
         }
@@ -409,6 +427,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Might be a good idea for memory saving... not quite sure how to do that for caldav/carddav.
      */
     getRemoteChanges: function (state, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:getRemoteChanges*****************************");
         var path, key, i, future = new Future();
 
@@ -497,6 +516,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Get remote changes in calendars.. i.e. if calendars were removed or added.
      */
     _getRemoteCollectionChanges: function (state, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:_getRemoteCollectionChanges*****************************");
         var future = new Future(),
             subKind = Kinds.objects[kindName].connected_kind,
@@ -573,7 +593,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                 //wait till updateCollectionsConfig is finished, because this might delete all entries of a kind.
                 future.then(this, function updateConfigCB() {
-                    var result = checkResult(future);
+                    checkResult(future);
                     future.result = {
                         more: false,
                         entries: entries //etags will be undefined for both. But that is fine. Just want to compare uris.
@@ -600,6 +620,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * ctag and etag is the same for caldav and carddav. Changes are only with objects.
      */
     _getRemoteChanges: function (state, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:_getRemoteChanges*****************************");
         var future = new Future(), folders = this.client.transport.syncKey[kindName].folders,
             index = this.client.transport.syncKey[kindName].folderIndex || 0,
@@ -700,7 +721,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Updates the stored config for calendar/addressbook folders from collection changes.
      */
     _updateCollectionsConfig: function (kindName, remoteFolders) {
-        var i, subKind = Kinds.objects[kindName].connected_kind, folders, entry, folder,
+        "use strict";
+        var i, subKind = Kinds.objects[kindName].connected_kind, folders, folder,
             remoteFolder, change = false, future = new Future(), outerFuture = new Future(), toBeDeleted = [];
 
         folders = this.client.transport.syncKey[subKind].folders;
@@ -747,7 +769,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     }
                 ));
 
-                future.then(this, function deleteCB() {
+                future.then(function deleteCB() {
                     var result = checkResult(future);
                     Log.debug("Delete all objects returned: ", result);
                     deleteContent(ids);
@@ -774,6 +796,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * It will return a future wich has the array of { etag, uri } objects as result.results field.
      */
     _getLocalEtags: function (kindName) {
+        "use strict";
         var query =
             {
                 from: Kinds.objects[kindName].id,
@@ -790,6 +813,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Initializes the collectionId for subKinds (i.e. calendarevent and contacts) from local database.
      */
     _initCollectionId: function (kindName) {
+        "use strict";
         var future = new Future(),
             folderIndex = this.client.transport.syncKey[kindName].folderIndex,
             uri = this.client.transport.syncKey[kindName].folders[folderIndex].uri,
@@ -825,6 +849,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Handles download and parsing of etag data and then download of object data.
      */
     _doUpdate: function (kindName, folder) {
+        "use strict";
         var future = new Future(), remoteEtags, entries;
         Log.debug("Need update, getting etags from server.");
 
@@ -908,6 +933,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Used for etag directories and collections.
      */
     _findMatch: function (remoteId, objs, key) {
+        "use strict";
         var i;
         if (!key) {
             key = "remoteId";
@@ -927,6 +953,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * This happens only sometimes. Maybe failure somewhere during sync is involved.
      */
     _isOrphanedEntry: function (l) {
+        "use strict";
         var i, j, key, folders;
 
         if (!this.collectionIds) {
@@ -953,8 +980,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (l.doDelete) {
                 Log.debug(l.remoteId, " seems to be orphaned entry left from collection change. Do delete.");
                 return true;
-            } else {
-                return false;
             }
         }
         return false;
@@ -964,6 +989,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * just parses the local & remote etag lists and determines which objects to add/update or delete.
      */
     _parseEtags: function (remoteEtags, localEtags, key) {
+        "use strict";
         var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0, orphaned: 0};
         Log.log("Got local etags: ", localEtags.length);
         Log.log("Got remote etags: ", remoteEtags.length);
@@ -1040,6 +1066,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * the future returns when all downloads are finished.
      */
     _downloadData: function (kindName, entries, entriesIndex) {
+        "use strict";
         var future = new Future(), resultEntries, fi, needEtags;
 
         if (entriesIndex < entries.length && entriesIndex < 10) {
@@ -1059,7 +1086,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                             Log.debug("Starting iCal conversion");
                             future.nest(iCal.parseICal(result.data, {serverId: "" }));
                         } else if (kindName === Kinds.objects.contact.name) {
-                            //TODO: rework iCal and vCard and equalize their outer api, so that the calls are the same... :(
                             Log.debug("Starting vCard conversion");
                             future.nest(vCard.parseVCard({account: { name: this.client.config.name,
                                                                         kind: Kinds.objects[kindName].id, account: this.client.clientId },
@@ -1122,10 +1148,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * and that's it.
      */
     getRemoteMatches: function (remoteIds, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:getRemoteMatches*****************************");
         var i, results = [], future = new Future();
 
-        //TODO: do we need to get full uris here from db?
         for (i = 0; i < remoteIds.length; i += 1) {
             Log.debug("remoteId[", i, "] =", remoteIds[i]);
             results.push({remoteId: remoteIds[i]});
@@ -1156,6 +1182,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * We also need to store new/changed etags.
      */
     putRemoteObjects:    function (batch, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:putRemoteObjects*****************************");
         var future = new Future();
 
@@ -1175,6 +1202,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     },
 
     _processOne: function (index, remoteIds, batch, kindName) {
+        "use strict";
         Log.log("Processing change ", (index + 1), " of ", batch.length);
 
         var future = this._putOneRemoteObject(batch[index], kindName);
@@ -1220,6 +1248,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * checks if collectionId still exists on device.
      */
     _checkCollectionId: function (kindName, collectionId) {
+        "use strict";
         var folders = this.client.transport.syncKey[kindName].folders, i;
         for (i = 0; i < folders.length; i += 1) {
             if (folders[i].collectionId === collectionId) {
@@ -1234,6 +1263,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * if deleted, obj is only deleted on server.
      */
     _putOneRemoteObject: function (obj, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
         var future = new Future();
 
@@ -1259,17 +1289,17 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         }
 
         function conversionCB(f) {
-            var i, result = checkResult(f);
+            var result = checkResult(f);
             if (result.returnValue === true) {
                 obj.remote.data = result.result; //copy vCard/iCal result into obj.
             }
 
             if (!obj.remote.uri) {
                 Log.log("Did not have uri in converted object. How can that happen?");
-                this._findURIofRemoteObject(kindName, obj);
+                SyncAssistant._findURIofRemoteObject(kindName, obj);
             }
 
-            future.nest(this._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+            future.nest(SyncAssistant._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
         }
 
         if (obj.operation === "save") {
@@ -1316,6 +1346,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * input is the "remote" object.
      */
     _sendObjToServer: function (kindName, obj, collectionId) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:_sendObjToServer*****************************");
         var future = new Future();
 
@@ -1373,6 +1404,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      //disabled because  sync patch for stable upload breaks produces endless loop if postPutRemoteModify is used.
     //re-enabled, because it is necessary for us to track remote changes. Will fix the patch..
     postPutRemoteModify: function (batch, kindName) {
+        "use strict";
         Log.log("\n\n**************************SyncAssistant:postPutRemoteModify*****************************");
         var result = [], future = new Future(), i;
 
@@ -1397,6 +1429,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
      * Returns a future that will return after all work is done.
      */
     _buildSyncOnEditActivity: function (upSyncs, index) {
+        "use strict";
         var syncObj = upSyncs[index], future = new Future(),
             rev, name, queryParams, activity;
 
@@ -1442,7 +1475,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             }
 
             future.then(this, function startCB() {
-                var result = checkResult(future);
+                checkResult(future);
                 future.nest(this._buildSyncOnEditActivity(upSyncs, index + 1));
             });
         }
@@ -1452,6 +1485,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
     //Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
     complete: function (activity) {
+        "use strict";
+        var syncActivity, outerFuture = new Future(), future;
         Log.log("CDav-Completing activity ", activity.name);
 
         // this.recreateActivitiesOnComplete will be set to false when
@@ -1459,12 +1494,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         // This is a little messy
         if (!this.recreateActivitiesOnComplete) {
             Log.log("CDav-complete(): skipping creating of sync activities");
-            return activity.complete().then(function (future) {
-                future.result = true;
+            activity.complete().then(function () {
+                outerFuture.result = true;
             });
         } else {
-            var syncActivity, outerFuture = new Future(), future;
-
             future = this.getPeriodicSyncActivity().then(this, function getPeriodicSyncActivityCB() {
                 var restart = false;
                 syncActivity = checkResult(future);
@@ -1509,7 +1542,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     outerFuture.result = true;
                 }
             });
-            return outerFuture;
         }
+        return outerFuture;
     }
 });

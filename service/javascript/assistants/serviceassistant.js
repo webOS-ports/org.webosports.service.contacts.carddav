@@ -6,8 +6,12 @@
 * To run manually:
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
-/*jslint sloppy: true, node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, KeyStore, Kinds, iCal, vCard, DB, Base64, KindsCalendar, KindsContacts, KindsTasks, OAuth, checkResult, lockCreateAssistant */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, iCal, vCard, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath */
+/*exported ServiceAssistant, OnCredentialsChanged*/
+
+var OAuth = require(servicePath + "/javascript/utils/OAuth.js");
+var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
+var Base64 = require(servicePath + "/javascript/utils/Base64.js");
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
     clientId: "",
@@ -17,6 +21,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
         kinds: {},
 
         setup: function setup(service, accountid, launchConfig, launchArgs) {
+            "use strict";
             Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
             //for testing only - will expose credentials to log file if left open
             //Log.debug("\n------------------->accountId: ", accountid);
@@ -206,10 +211,12 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
         },
 
         getSyncInterval: function () {
+            "use strict";
             return new Future("20m");  //default sync interval
         },
 
         requiresInternet: function () {
+            "use strict";
             return true;  //yes, we need internet to connect to Plaxo
         }
     })

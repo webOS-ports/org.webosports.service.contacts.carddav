@@ -1,4 +1,5 @@
 /*global Log */
+/*exported UrlSchemes*/
 
 var UrlSchemes = {
     //known url schemes.
@@ -14,13 +15,6 @@ var UrlSchemes = {
         },
         {
             keys:              ["google."],
-            //calendar does not yet work, requires OAuth2,
-            //will require new validator and own account, so
-            //there will be two google accounts until google supports
-            //OAuth2 for contacts also. => ok, it seems like this already
-            //exists: https://developers.google.com/google-apps/carddav/
-            //so change the google account template and create custom UI for OAuth2
-            //try to keep OAuth2 UI general.. probably others use it, too, in the future.
             contact:           "https://www.google.com:443/carddav/v1/principals/%USERNAME%/lists/",
             checkCredentials:  "https://www.google.com:443/.well-known/carddav"
         },
@@ -54,6 +48,12 @@ var UrlSchemes = {
         }
     ],
 
+    /**
+     * Resolve url to known c+dav url parts.
+     * @param url the given url.
+     * @param username given username, will be inserted into URL if necessary.
+     * @param type what type of URL to extract one of ["calendar", "contact", "checkCredentials"]
+     */
     resolveURL: function (url, username, type) {
         "use strict";
         var i, j, scheme, index, prefix, newURL, searchUrl;
@@ -74,9 +74,9 @@ var UrlSchemes = {
                             newURL = newURL.replace("%USERNAME%", username); //This will only replace once.
                             Log.debug("Returning new URL: ", newURL);
                             return newURL;
-                        } else {
-                            return scheme[type];
                         }
+                        //else
+                        return scheme[type];
                     }
                 }
             }

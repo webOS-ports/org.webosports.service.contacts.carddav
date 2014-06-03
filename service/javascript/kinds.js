@@ -1,3 +1,4 @@
+/*exported Kinds, KindsContacts, KindsCalendar */
 /************************************************************
 Contains global kinds references - NOT USED BY CONFIGURATOR
 *************************************************************/

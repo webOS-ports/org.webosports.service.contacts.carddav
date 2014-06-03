@@ -1,9 +1,10 @@
-/*jslint sloppy: true, node: true, nomen: true */
-/*global Future, Log, Kinds, DB, CalDav, KindsContacts, KindsCalendar, checkResult */
+/*jslint nomen: false */
+/*global Future, Log, DB, KindsContacts, KindsCalendar, checkResult */
 
-var TriggerSlowSyncAssistant = function () {};
+var TriggerSlowSyncAssistant = function () { "use strict"; };
 
 TriggerSlowSyncAssistant.prototype.gotDBObject = function (future) {
+    "use strict";
     var result = checkResult(future);
     if (result.returnValue) {
         future.nest(this.processAccount(result.results, 0));
@@ -15,21 +16,22 @@ TriggerSlowSyncAssistant.prototype.gotDBObject = function (future) {
 };
 
 TriggerSlowSyncAssistant.prototype.run = function (outerFuture) {
-    var future = new Future(), args = this.controller.args,
+    "use strict";
+    var future = new Future(),
         query = {"from": KindsContacts.account.metadata_id};
 
     future.nest(DB.find(query, false, false));
 
     future.then(this, this.gotDBObject);
 
-    future.then(this, function calendarFinished() {
+    future.then(this, function contactsFinished() {
         query.from = KindsCalendar.account.metadata_id;
         future.nest(DB.find(query, false, false));
     });
 
     future.then(this, this.gotDBObject);
 
-    future.then(this, function discoveryFinished() {
+    future.then(this, function dbFinished() {
         var result = checkResult(future);
         Log.log("triggerSlowSync finished.");
         outerFuture.result = result;
@@ -38,6 +40,7 @@ TriggerSlowSyncAssistant.prototype.run = function (outerFuture) {
 };
 
 TriggerSlowSyncAssistant.prototype.processAccount = function (objs, index) {
+    "use strict";
     var future = new Future(), syncKey, obj = objs[index], key;
 
     if (obj) {

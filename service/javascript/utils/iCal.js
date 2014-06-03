@@ -1,6 +1,6 @@
-//JSLint things:
-/*jslint nomen: true, continue: true */
-/*global Log, PalmCall, Calendar, decodeURIComponent, escape, unescape, encodeURIComponent, quoted_printable_decode, unquote, quote, Future, quoted_printable_encode, fold */
+/*global Log, PalmCall, Calendar, Future, checkResult, servicePath */
+
+var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.
@@ -92,8 +92,7 @@ var iCal = (function () {
         //used to try timeZone correction...
         localTzId = "UTC",
         TZManager = Calendar.TimezoneManager(),
-        shiftAllDay = true,
-        calendarVersion = 2;
+        shiftAllDay = true;
 
     function iCalTimeToWebOsTime(time, tz) {
         var t = {offset: 0}, result, date, offset, ts2;
@@ -160,9 +159,6 @@ var iCal = (function () {
         } else if (tzId === "UTC") {
             if (allDay && shiftAllDay) {
                 t = date.getFullYear() + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + (date.getDate() < 10 ? "0" : "") + date.getDate();
-                if (calendarVersion === 1) {
-                    t += "T000000";
-                }
             } else {
                 t = date.getUTCFullYear() + (date.getUTCMonth() + 1 < 10 ? "0" : "") + (date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + date.getUTCDate();
                 if (!allDay) {
@@ -225,10 +221,10 @@ var iCal = (function () {
             offset *= sign;
             Log.log_icalDebug("Converted duration " + duration + " into offset " + offset);
             return offset;
-        } else {
-            Log.log("iCal.js======> DURATION DID NOT MATCH: ", duration);
-            return 0;
         }
+        //else
+        Log.log("iCal.js======> DURATION DID NOT MATCH: ", duration);
+        return 0;
     }
 
     function parseDATEARRAY(str) {
@@ -301,53 +297,6 @@ var iCal = (function () {
         }
         //remove last ";".
         return text.substring(0, text.length - 1);
-    }
-
-    function buildRRULEvCalendar(rr, tzId) {
-        var text, freqType, i, j, freqMod = [], sign = "+", ordFactor = 1, rule;
-        for (i = 0; rr.rules && i < rr.rules.length; i += 1) {
-            if (rr.rules[i].ruleType === "BYDAY") {
-                freqType = "P";
-            }
-            for (j = 0; j < rr.rules[i].ruleValue.length; j += 1) {
-                rule = rr.rules[i].ruleValue[j];
-                if (rule.ord < 0) {
-                    sign = "-";
-                    ordFactor = -1;
-                } else {
-                    sign = "+";
-                    ordFactor = 1;
-                }
-                freqMod[j] = "";
-                if (rule.ord) {
-                    freqMod[j] += (ordFactor * rule.ord) + sign + " ";
-                }
-                if (rule.day) {
-                    freqMod[j] += numToDay[rule.day];
-                }
-            }
-        }
-        //select default values, if no byday rule was present:
-        if (freqType === undefined) {
-            if (rr.freq === "YEARLY") {
-                freqType = "M";
-            } else if (rr.freq === "MONTHLY") {
-                freqType = "D";
-            } else {
-                freqType = "";
-            }
-        }
-        text = "RRULE: " + rr.freq.charAt(0) + freqType + rr.interval; //only takes first char of freq.
-        for (i = 0; i < freqMod.length; i += 1) {
-            text += " " + freqMod[i];
-        }
-        if (rr.count) { //does this cause trouble? Was necessary for myFunambol to understand until clause. I think this is correct, isn't it?
-            text += " #" + (rr.count || "0");
-        }
-        if (rr.until) {
-            text += " " + webOsTimeToICal(rr.until, false, tzId);
-        }
-        return text;
     }
 
     function parseRRULEvCalendar(rs) {
@@ -582,6 +531,7 @@ var iCal = (function () {
             } else {
                 return false; //signal that we are finished
             }
+            break;
         default:
             if (lObj.key !== "X-LIC-LOCATION") {
                 Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
@@ -746,7 +696,6 @@ var iCal = (function () {
             "TZID"            :    "tzId",
             "URL"            :    "url",
             "RECURRENCE-ID"    :    "recurrenceId",
-            "AALARM"        :    "aalarm", //save aalarm.
             "UID"            :    "uId" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
         };
         translationQuote = {
@@ -777,10 +726,7 @@ var iCal = (function () {
         if (translation[lObj.key]) {
             event[translation[lObj.key]] = lObj.value;
         } else if (translationQuote[lObj.key]) {
-            if (lObj.parameters.encoding === "QUOTED-PRINTABLE" || calendarVersion === 1) {
-                lObj.value = quoted_printable_decode(lObj.value);
-            }
-            event[translationQuote[lObj.key]] = unquote(lObj.value);
+            event[translationQuote[lObj.key]] = Quoting.unquote(lObj.value);
         } else if (transTime[lObj.key]) {
             //log_icalDebug("Should call TZManager.loadTimezones for " + event.subject);
             event[transTime[lObj.key]] = lObj.value;
@@ -845,10 +791,8 @@ var iCal = (function () {
                 event.rrule = parseRRULE(lObj.value);
                 break;
             case "VERSION":
-                if (lObj.value === "1.0") {
-                    calendarVersion = 1;
-                } else {
-                    calendarVersion = 2;
+                if (lObj.value !== "2.0") {
+                    Log.log("WARNING: Parser only tested for iCal version 2.0, read: ", lObj.value);
                 }
                 break;
             case "X-FUNAMBOL-ALLDAY":
@@ -965,8 +909,8 @@ var iCal = (function () {
         return event;
     }
 
-    function applyHacks(event, ical, serverId) { //TODO: read product from id to have an idea which hacks to apply.. or similar.
-        var i, val, start, diff, tz, parts, tsStruct, date;
+    function applyHacks(event) {
+        var i, val, start, diff, tz, tsStruct, date;
 
         /*if (event.tzId && event.tzId !== "UTC") {
             log_icalDebug("ERROR: Event was not specified in UTC. Can't currently handle anything else than UTC! Expect problems!!!! :(");
@@ -974,23 +918,6 @@ var iCal = (function () {
                 event.tzId = UTC;
             }
         }*/
-
-        //This is not really correct here, because this is not really a hack but necessary for x-vcalendar support.
-        //but we just keep that here, it fits so nice.
-        if (event.aalarm) {
-            //AALARM is not really supported anymore..
-            //support only very simple aalarms.
-            //mostly this is a DATE-TIME VALARM, so add one. ;)
-            if (!event.alarm) {
-                event.alarm = [];
-            }
-            parts = event.aalarm.split(";");
-            for (i = 0; i < parts.length; i += 1) {
-                if (DATETIME.test(parts[i])) {
-                    event.alarm.push({ alarmTrigger: { value: parts[i], valueType: "DATETIME" } });
-                }
-            }
-        }
 
         //webOs does not support DATE-TIME as alarm trigger. Try to calculate a relative alarm from that...
         //issue: this does not work, if server and device are in different timezones. Then the offset from
@@ -1059,7 +986,7 @@ var iCal = (function () {
         return event;
     }
 
-    function removeHacks(event, serverId) {
+    function removeHacks(event) {
         if (event.allDay) {
             //43200000 = 12 hours => 0 o'clock, -1 second, because we start from 12:00:01.
             event.dtend += 43199000;
@@ -1068,52 +995,8 @@ var iCal = (function () {
         return event;
     }
 
-    //x-vcalendar things:
-    function prepareXVCalendar(event) {
-        var i, ts, alarmValue, parts, date, sign;
-
-        Log.log_icalDebug("Converting to x-vcalendar:", event);
-        for (i = 0; event.alarm && i < event.alarm.length; i += 1) {
-            if (event.alarm[i].alarmTrigger.value !== "none") {
-                if (event.alarm[i].alarmTrigger.valueType === "DURATION") {
-                    Log.log_icalDebug("Got duration-alarm " + event.alarm[i].alarmTrigger.value + " and converting it to aalarm.");
-                    ts = event.dtstart;
-                    alarmValue = event.alarm[i].alarmTrigger.value;
-                    ts += convertDurationIntoMicroseconds(alarmValue);
-
-                    event.aalarm = webOsTimeToICal(ts, false, event.tzId || localTzId);
-                    Log.log_icalDebug("Found alarm:", event.alarm[i], ", created:", event.aalarm);
-                    break;
-                } else {
-                    event.aalarm = event.alarm[i].alarmTrigger.value;
-                    //Log.log_icalDebug("Found alarm:", event.alarm[i]), ", created:", event.aalarm);
-                }
-            }
-        }
-        delete event.alarm;
-        delete event.tzId;
-
-        if (event.allDay) {
-            //event.allDay = false;
-            date = new Date(event.dtstart);
-            date.setHours(0);
-            date.setMinutes(0);
-            date.setSeconds(0);
-            event.dtstart = date.getTime();
-            date = new Date(event.dtend);
-            if (date.getHours() !== 0) {
-                date.setHours(0);
-                date.setDate(date.getDate() + 1);
-            }
-            date.setMinutes(0);
-            date.setSeconds(0);
-            event.dtend = date.getTime();
-        }
-        return event;
-    }
-
     function generateICalIntern(event) {
-        var field = "", i, line, offset, text = [], translation, translationQuote, transTime, allDay, quoted, result;
+        var field = "", i, text = [], translation, translationQuote, transTime, allDay, result;
         //not in webOs: UID
         //in webos but not iCal: allDay, calendarID, parentId, parentDtStart (???)
         //string arrays: attach, exdates, rdates
@@ -1156,31 +1039,16 @@ var iCal = (function () {
         }*/
         Log.log_icalDebug("Generating iCal for event", event);
         text.push("BEGIN:VCALENDAR");
-        if (calendarVersion === 1) {
-            text.push("VERSION:1.0");
-        } else {
-            text.push("VERSION:2.0");
-        }
+        text.push("VERSION:2.0");
         //text.push("PRODID:MOBO.SYNCML.0.0.3");
         text.push("METHOD:PUBLISH");
         text.push("BEGIN:VEVENT");
         for (field in event) {
             if (event.hasOwnProperty(field)) {
                 if (translation[field]) {
-                    if (field !== "aalarm" || calendarVersion === 1) {
-                        text.push(translation[field] + ":" + event[field]);
-                    }
+                    text.push(translation[field] + ":" + event[field]);
                 } else if (translationQuote[field] && event[field] !== "") {
-                    if (calendarVersion === 1) {
-                        quoted = quoted_printable_encode(event[field]);
-                        if (quoted !== event[field]) {
-                            text.push(translationQuote[field] + ";CHARSET=UTF-8;ENCODING=QUOTED-PRINTABLE:" + quoted);
-                        } else { //don't add quoted tags if qouting was not necessary.
-                            text.push(translationQuote[field] + ":" + quoted);
-                        }
-                    } else {
-                        text.push(translationQuote[field] + ":" + quote(event[field]));
-                    }
+                    text.push(translationQuote[field] + ":" + Quoting.quote(event[field]));
                 } else if (transTime[field]) {
                     allDay = event.allDay;
                     if (field !== "dtstart" && field !== "dtend") {
@@ -1202,9 +1070,7 @@ var iCal = (function () {
                         text.push("RDATE:" + event.rdates.join(","));
                         break;
                     case "alarm":
-                        if (calendarVersion === 2) {
-                            text = buildALARM(event.alarm, text);
-                        }
+                        text = buildALARM(event.alarm, text);
                         break;
                     case "attendees":
                         for (i = 0; event.attendees && i < event.attendees.length; i += 1) {
@@ -1213,11 +1079,7 @@ var iCal = (function () {
                         break;
                     case "rrule":
                         if (event.rrule) {
-                            if (calendarVersion === 1) {
-                                text.push(buildRRULEvCalendar(event.rrule, event.tzId));
-                            } else {
-                                text.push(buildRRULE(event.rrule, event.tzId)); //tzId needed for until date.
-                            }
+                            text.push(buildRRULE(event.rrule, event.tzId)); //tzId needed for until date.
                         }
                         break;
                     default:
@@ -1240,10 +1102,8 @@ var iCal = (function () {
         text.push("END:VCALENDAR");
 
         //lines "should not" be longer than 75 chars in icalendar spec.
-        if (calendarVersion !== 1) { //vcalendar spec read like this is optional. But breaks are only allowed in whitespaces. => ignore that.
-            for (i = 0; i < text.length; i += 1) {
-                text[i] = fold(text[i]);
-            }
+        for (i = 0; i < text.length; i += 1) {
+            text[i] = Quoting.fold(text[i]);
         }
         result = text.join("\r\n");
         Log.log_icalDebug("Resulting iCal: " + result);
@@ -1251,21 +1111,23 @@ var iCal = (function () {
     }
 
     return {
-        parseICal: function (ical, serverData, callback) { // 6 === 1 + transTime.length in parseLineIntoObj, this is important.
+        /**
+         * parses text representation of iCal into webOS calendarevent
+         * @param ical the ical string
+         * @return future that will contain the webOS object in result.result
+         */
+        parseICal: function (ical) { // 6 === 1 + transTime.length in parseLineIntoObj, this is important.
             var proc, lines, lines2, line, j, i, lObj, event = {alarm: [], loadTimezones: 6,
                     comment: "", note: "", location: "", subject: "", attendees: [], rrule: null}, alarm, tzContinue, afterTZ, outerFuture = new Future();
             //used for timezone mangling.
-            afterTZ = function (future) {
+            afterTZ = function () {
                 try {
                     event.loadTimezones -= 1;
                     if (event.loadTimezones === 0) {
                         delete event.loadTimezones;
                         event = convertTimestamps(event);
-                        event = applyHacks(event, ical, serverData.serverId);
+                        event = applyHacks(event);
                         outerFuture.result = {returnValue: true, result: event};
-                        if (callback) {
-                            callback(event);
-                        }
                     }
                 } catch (e) {
                     outerFuture.result = {returnValue: false, result: event};
@@ -1316,9 +1178,6 @@ var iCal = (function () {
                 if (!event.valid) {
                     Log.log("VCALENDAR Object did not contain VEVENT.");
                     outerFuture.result = {returnValue: false};
-                    if (callback) {
-                        callback(false);
-                    }
                 }
 
                 event = tryToFillParentId(event);
@@ -1337,11 +1196,8 @@ var iCal = (function () {
                 if (event.loadTimezones <= 0) {
                     delete event.loadTimezones;
                     event = convertTimestamps(event);
-                    event = applyHacks(event, ical, serverData.serverId);
+                    event = applyHacks(event);
                     outerFuture.result = {returnValue: true, result: event};
-                    if (callback) {
-                        callback(event);
-                    }
                 } //else, wait for TZManager to load up tz information.
             } catch (e) {
                 outerFuture.result = {returnValue: false, result: event};
@@ -1351,13 +1207,15 @@ var iCal = (function () {
             return outerFuture;
         },
 
-        generateICal: function (event, serverData) {
+        /**
+         * generates text representation of webOS calendarevent
+         * @param event the event object
+         * @return future with the text in result.result
+         */
+        generateICal: function (event) {
             var years = [], outerFuture = new Future(), future, result;
             try {
-                event = removeHacks(event, serverData.serverId);
-                if (serverData.serverType === "text/x-vcalendar") {
-                    event = prepareXVCalendar(event);
-                }
+                event = removeHacks(event);
 
                 if (event.tzId && event.tzId !== localTzId && event.tzId !== "UTC") {
                     years.push(new Date(event.dtstart).getFullYear());
@@ -1370,9 +1228,8 @@ var iCal = (function () {
                     }
                     //for timezone mangling.
                     future = TZManager.loadTimezones([event.tzId, localTzId], years);
-                    future.then(this, function (future) {
+                    future.then(this, function () {
                         try {
-                            calendarVersion = 2; //TODO: can we get that from server?
                             result = generateICalIntern(event);
                             outerFuture.result = { returnValue: true, result: result};
                         } catch (e) {
@@ -1384,7 +1241,7 @@ var iCal = (function () {
                         future.result = { returnValue: false };
                     });
                 } else {
-                    result = generateICalIntern(event, serverData.serverType);
+                    result = generateICalIntern(event);
                     outerFuture.result = { returnValue: true, result: result};
                 }
             } catch (e) {
@@ -1418,7 +1275,7 @@ var iCal = (function () {
                     Log.log_icalDebug("iCal: init TZManager");
                     future.nest(TZManager.setup());
                     future.then(this, function tzManagerReturn() {
-                        var result = future.result;
+                        checkResult(future);
                         Log.log_icalDebug("TZManager initialized");
                         this.TZManagerInitialized = true;
                         future.result = { returnValue: true };
@@ -1430,7 +1287,7 @@ var iCal = (function () {
 
             future.then(this, function endInit() {
                 Log.log_icalDebug("iCal init checking " + this.haveSystemTime + " - " + this.TZManagerInitialized);
-                var result = future.result;
+                checkResult(future);
                 if (this.haveSystemTime && this.TZManagerInitialized) {
                     Log.log_icalDebug("iCal init finished");
                 }
@@ -1446,3 +1303,5 @@ var iCal = (function () {
         }
     }; //end of public interface
 }());
+
+module.exports = iCal;

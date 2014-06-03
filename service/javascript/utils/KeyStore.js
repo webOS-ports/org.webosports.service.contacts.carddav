@@ -2,12 +2,14 @@
 KeyStore - used to handle storage of authentication data
 within key manager.
 **************************************************/
-/*jslint nomen: true, sloppy: true */
-/*global Future, PalmCall, Log, Base64, checkResult */
-//this is taken from MojoSyncFramework example in PalmSDK. What License is this under??
+/*jslint nomen: true */
+/*global PalmCall, Log, checkResult, servicePath */
+//this is taken from MojoSyncFramework example in PalmSDK
+var Base64 = require(servicePath + "/javascript/utils/Base64.js");
+
 var KeyStore = (function () {
-    var keyStoreFuture = new Future(null),
-        KEYMGR_URI = "palm://com.palm.keymanager/",
+    "use strict";
+    var KEYMGR_URI = "palm://com.palm.keymanager/",
         _putCredentials,
         _getCredentials,
         _deleteCredentials,
@@ -28,7 +30,7 @@ var KeyStore = (function () {
                 future.result = {};
             } else {
                 keydata = JSON.parse(result.keydata);
-                
+
                 // Remove the key with this accountId, so it can be replaced
                 //console.log("------>made API _putCredentials call remove");
                 future.nest(PalmCall.call(KEYMGR_URI, "remove", {
@@ -109,17 +111,40 @@ var KeyStore = (function () {
     };
 
     return {
+        /**
+         * check if the key was stored in DB
+         * @key key, i.e. accountId
+         * @return future
+         */
         checkKey: function (key) {
             return _hasCredentials(Base64.encode(key));
         },
+        /**
+         * puts new key into db
+         * @param key, i.e the accountId
+         * @param dataValue, the data to store encrypted
+         * @return future
+         */
         putKey: function (key, dataValue) {
             return _putCredentials(Base64.encode(key), dataValue);
         },
+        /**
+         * get & decrypted content from the db.
+         * @key key, i.e. accountId
+         * @return future
+         */
         getKey: function (key) {
             return _getCredentials(Base64.encode(key));
         },
+        /**
+         * delete key from db
+         * @key key, i.e. accountId
+         * @return future
+         */
         deleteKey: function (key) {
             return _deleteCredentials(Base64.encode(key));
         }
     };
 }());
+
+module.exports = KeyStore;
