@@ -45,6 +45,94 @@ var UrlSchemes = {
             calendar:          "%URL_PREFIX%dav/%USERNAME%/Calendar/",
             contact:           "%URL_PREFIX%dav/%USERNAME%/Contacts/",
             checkCredentials:  "%URL_PREFIX%dav/%USERNAME%/"
+        },
+        {
+            keys:              ["/sabredav/"],
+            calendar:          "%URL_PREFIX%calendarserver.php/calendars/%USERNAME%/default/",
+            contact:           "%URL_PREFIX%addressbookserver.php/addressbooks/%USERNAME%/",
+            checkCredentials:  "%URL_PREFIX%calendarserver.php/calendars/%USERNAME%/default/"
+        },
+        { //GoDaddy
+            keys:              [".secureserver.net/"],
+            calendar:          "https://caldav.secureserver.net/principals/users/",
+            checkCredentials:  "https://caldav.secureserver.net/principals/users/"
+        },
+        { //Meeting Maker Server
+            keys:              ["/mmcaldav/"],
+            calendar:          "%URL_PREFIX%dav/%USERNAME%/",
+            checkCredentials:  "%URL_PREFIX%dav/%USERNAME%/"
+        },
+        {
+            keys:              [".folio.fabasoft.com"],
+            calendar:          "https://at.folio.fabasoft.com/folio/caldav/",
+            checkCredentials:  "https://at.folio.fabasoft.com/folio/caldav/"
+        },
+        {
+            keys:              ["terminland.de"],
+            calendar:          "https://www.terminland.de/%USERNAME%/dav/",
+            checkCredentials:  "https://www.terminland.de/%USERNAME%/dav/"
+        },
+        {
+            keys:              ["mykolab.com"],
+            calendar:          "https://caldav.mykolab.com/calendars/%USERNAME%%40mykolab.com/",
+            contact:           "https://carddav.mykolab.com/addressbooks/%USERNAME%%40mykolab.com/",
+            checkCredentials:  "https://caldav.mykolab.com/calendars/%USERNAME%%40mykolab.com/"
+        },
+        {
+            keys:              [".mail.de"],
+            calendar:          "https://kalender.mail.de/calendars/%USERNAME%/",
+            contact:           "https://adressbuch.mail.de/addressbooks/%USERNAME%/",
+            checkCredentials:  "https://kalender.mail.de/calendars/%USERNAME%/"
+        },
+        {
+            keys:              ["posteo.de"],
+            calendar:          "https://posteo.de:8443/calendars/%USERNAME%/",
+            contact:           "https://posteo.de:8843/addressbooks/%USERNAME%/",
+            checkCredentials:  "https://posteo.de:8443/calendars/"
+        },
+        {
+            keys:              ["/horde/"],
+            calendar:          "%URL_PREFIX%rpc.php/calendars/%USERNAME%/",
+            contact:           "%URL_PREFIX%rpc.php/principals/%USERNAME%/",
+            checkCredentials:  "%URL_PREFIX%rpc.php/calendars/%USERNAME%/"
+        },
+        {
+            keys:              [".telnet.be"],
+            calendar:          "https://mail.telenet.be/dav/%USERNAME%/",
+            checkCredentials:  "https://mail.telenet.be/dav/"
+        },
+        {
+            keys:              [".web.de"],
+            calendar:          "https://caldav.web.de/%USERNAME%/",
+            checkCredentials:  "https://caldav.web.de/"
+        },
+        {
+            keys:              [".yandex.ru"],
+            calendar:          "https://caldav.yandex.ru/",
+            contact:           "https://carddav.yandex.ru/",
+            checkCredentials:  "https://caldav.yandex.ru/"
+        },
+        {
+            keys:              [".aol.com"],
+            calendar:          "https://caldav.aol.com/",
+            contact:           "https://carddav.aol.com/",
+            checkCredentials:  "https://caldav.aol.com/"
+        },
+        {
+            keys:              [".lms.at/", "//lms.at/"],
+            checkCredentials:  "https://lms.at/xocal-dav/"
+        },
+        {
+            keys:              [".lms.at/", "//lms.at/"],
+            checkCredentials:  "https://lms.at/xocal-dav/"
+        },
+        {
+            keys:              [".fruux.com"],
+            checkCredentials:  "https://dav.fruux.com/"
+        },
+        {
+            keys:              [".mailbox.org"],
+            checkCredentials:  "https://dav.mailbox.org/"
         }
     ],
 
