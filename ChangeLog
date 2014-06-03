@@ -1,3 +1,12 @@
+0.3.5:
+    o fixed possible dns issue that could hang the service for ever.
+    o optimizations in loading routine.
+2014-05-30: Achim Königs <garfonso@mobo.info>
+
+0.3.4:
+    o fixed possible connection issue that could hang the service for ever.
+2014-05-30: Achim Königs <garfonso@mobo.info>
+
 0.3.3:
     o fixed possible crash in service with brittle network connections
     o fixed contact sync not working after reboot

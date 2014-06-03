@@ -1,10 +1,14 @@
-/*jslint sloppy: true, node: true, nomen: true */
-/*global Base64, CalDav, DB, searchAccountConfig, Future, Log, KeyStore, UrlSchemes, Transport, checkResult */
+/*jslint nomen: true */
+/*global CalDav, DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, servicePath */
+/*exported checkCredentialsAssistant*/
+var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
+var Base64 = require(servicePath + "/javascript/utils/Base64.js");
 
 /* Validate contact username/password */
-var checkCredentialsAssistant = function () {};
+var checkCredentialsAssistant = function () { "use strict"; };
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
+    "use strict";
     var args = this.controller.args, base64Auth, future = new Future(), url = args.url, name = args.name;
     //debug("Account args =", args);
 

@@ -54,18 +54,6 @@
         "source": "javascript/utils/accountConfigUtils.js"
     },
     {
-        "source": "javascript/utils/encodingStuff.js"
-    },
-    {
-        "source": "javascript/utils/keymanager.js"
-    },
-    {
-        "source": "javascript/utils/iCal.js"
-    },
-    {
-        "source": "javascript/utils/vCard.js"
-    },
-    {
         "source": "javascript/assistants/checkcredentialsassistant.js"
     },
     {

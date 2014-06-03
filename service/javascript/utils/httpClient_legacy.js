@@ -1,9 +1,14 @@
-/*jslint node: true */
-/*global Future, Log, url, xml, http */
+/*global Future, Log, IMPORTS, checkResult */
+
+var xml = IMPORTS["foundations.xml"];
+var http = require("http");
+var url = require("url"); //required to parse urls
+var dns = require("dns"); //resolve dns manually, because some errors are not caught by httpClient in 0.2.3.
 
 var httpClient = (function () {
     "use strict";
     var httpClientCache = {},
+        dnsCache = {},
         proxyHost,
         proxyPort,
         haveProxy = false,
@@ -53,10 +58,47 @@ var httpClient = (function () {
         }
     }
 
-    function getHttpClient(options) {
+    function addListenerOnlyOnce(emitter, type, callback) {
+        var listeners = emitter.listeners(type), i, strCB = callback.toString();
+        for (i = listeners.length - 1; i >= 0; i -= 1) {
+            if (listeners[i].toString() === strCB) {
+                listeners.splice(i, 1);
+            }
+        }
+        emitter.on(type, callback);
+    }
+
+    function resolveDomain(host) {
+        var future = new Future();
+        if (haveProxy) {
+            host = proxyHost;
+        }
+
+        if (dnsCache[host]) {
+            future.result = {returnValue: true, ip: dnsCache[host]};
+        } else {
+            dns.lookup(host, function (err, address) {
+                if (err) {
+                    future.result = {returnValue: false};
+                } else {
+                    dnsCache[host] = address;
+                    future.result = {returnValue: true, ip: address};
+                }
+            });
+        }
+
+        return future;
+    }
+
+    function getHttpClient(options, host) {
         var key = options.prefix;
         if (haveProxy) {
             key = proxyHost + ":" + proxyPort;
+        }
+
+        function errorCB(e) {
+            Log.log_calDavDebug("Error in http connection: ", e);
+            httpClientCache[key].connected = false;
         }
 
         if (!httpClientCache[key]) {
@@ -72,21 +114,13 @@ var httpClient = (function () {
                 httpClientCache[key].connected = true; //connected is not 100% true anymore. But can't really check for connection without adding unnecessary requests.
             } else {
                 Log.log_calDavDebug("Creating connection from ", options.port, options.headers.host, options.protocol === "https:");
-                httpClientCache[key].client = http.createClient(options.port, options.headers.host, options.protocol === "https:");
+                httpClientCache[key].client = http.createClient(options.port, host || options.headers.host, options.protocol === "https:");
                 httpClientCache[key].connected = true; //connected is not 100% true anymore. But can't really check for connection without adding unnecessary requests.
             }
+
+            addListenerOnlyOnce(httpClientCache[key].client, "error", errorCB);
         }
         return httpClientCache[key].client;
-    }
-
-    function addListenerOnlyOnce(emitter, type, callback) {
-        var listeners = emitter.listeners(type), i, strCB = callback.toString();
-        for (i = listeners.length - 1; i >= 0; i -= 1) {
-            if (listeners[i].toString() === strCB) {
-                listeners.splice(i, 1);
-            }
-        }
-        emitter.on(type, callback);
     }
 
     function sendRequestImpl(options, data, retry) {
@@ -97,8 +131,7 @@ var httpClient = (function () {
             res,
             reqNum = globalReqNum,
             received = false,
-            retrying = false,
-            dataBuffer = new Buffer(data, 'utf8');
+            retrying = false;
 
         globalReqNum += 1;
 
@@ -135,7 +168,8 @@ var httpClient = (function () {
 
         function errorCB(e) {
             Log.log("Error in connection for ", reqNum, ": ", e);
-            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED");
+            //errno === 4 => EDOMAINNOTFOUND error
+            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED" || e.errno === 4);
         }
 
         function dataCB(chunk) {
@@ -251,7 +285,7 @@ var httpClient = (function () {
         function drainCB(e) { Log.log_calDavDebug("request", reqNum, "-drain:", e); }
 
         function doSendRequest() {
-            options.headers["Content-Length"] = Buffer.byteLength(data, 'utf8'); //get length of string encoded as utf8 string.
+            options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
 
             Log.log_calDavDebug("Sending request ", reqNum, " with data ", data, " to server.");
             Log.log_calDavDebug("Options: ", options);
@@ -262,7 +296,7 @@ var httpClient = (function () {
                 options.path = options.prefix + options.path;
             }
             req = httpClient.request(options.method, options.path, options.headers);
-            addListenerOnlyOnce(req, 'response', responseCB);
+            addListenerOnlyOnce(req, "response", responseCB);
 
             addListenerOnlyOnce(req, "error", errorCB);
 
@@ -304,11 +338,19 @@ var httpClient = (function () {
             req.end();
         }
 
-        httpClient = getHttpClient(options);
+        future.nest(resolveDomain(options.headers.host));
+        future.then(function () {
+            var result = checkResult(future);
+            if (result.returnValue === true) {
+                httpClient = getHttpClient(options, result.ip);
+                addListenerOnlyOnce(httpClient, "error", errorCB);
 
-        addListenerOnlyOnce(httpClient, "error", errorCB);
+                doSendRequest();
+            } else {
+                future.result = { returnValue: false, msg: "DNS lookup failed." };
+            }
+        });
 
-        doSendRequest();
         return future;
     }
 

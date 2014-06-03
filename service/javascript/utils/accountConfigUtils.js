@@ -1,20 +1,21 @@
-/*jslint sloppy: true, nomen: true */
 /*global Future, DB, Log, Kinds, checkResult */
+/*exported lockCreateAssistant, unlockCreateAssistant, getTransportObjByAccountId, searchAccountConfig */
 
 //prevents the creation of multiple transport objects on webOS 2.2.4
 var createLocks = {};
 var lockCreateAssistant = function (accountId, name) {
+    "use strict";
     Log.debug("Locking account ", accountId, " for creation from ", name);
     if (createLocks[accountId] && createLocks[accountId] !== name) {
         Log.debug("Already locked by ", createLocks[accountId]);
         return false;
-    } else {
-        createLocks[accountId] = name;
-        return true;
     }
+    createLocks[accountId] = name;
+    return true;
 };
 
 var unlockCreateAssistant = function (accountId) {
+    "use strict";
     if (createLocks[accountId]) {
         Log.debug("Unlocking account ", accountId, " for creation.");
         delete createLocks[accountId];
@@ -27,6 +28,7 @@ var unlockCreateAssistant = function (accountId) {
 //be careful with manipulations on that obj:
 //This object get's deleted on some occasions!
 var getTransportObjByAccountId = function (args, kind) {
+    "use strict";
     var query = {"from": kind}, future = new Future();
 
     if (args.id) {
@@ -63,6 +65,7 @@ var getTransportObjByAccountId = function (args, kind) {
 
 //recursive method to search in config db. Will return a future that get's the config object as result.
 var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
+    "use strict";
     var future = new Future(), outerFuture = new Future();
     if (!param) { //exit condition.
         Log.log("Could not find any information about account ", config.accountId, " in config db.");
@@ -108,6 +111,7 @@ var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 //searches account info from all possible places.
 //will also transfer old config storage into new one.
 var searchAccountConfig = function (args, override) {
+    "use strict";
     var outerFuture = new Future(), future = new Future();
 
     if (createLocks[args.accountId] && !override) {

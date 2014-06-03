@@ -1,8 +1,10 @@
-/*jslint sloppy: true, node: true, nomen: true */
+/*jslint nomen: true*/
 /*global Class, Sync, Future, Log, Kinds, lockCreateAssistant, searchAccountConfig, DB, unlockCreateAssistant, checkResult */
+/*exported OnCreate*/
 
 var OnCreate = Class.create(Sync.CreateAccountCommand, {
     run: function run(outerFuture) {
+        "use strict";
         var future = new Future(), checkRunning, config = this.client.config;
 
         //but we need only one config object:

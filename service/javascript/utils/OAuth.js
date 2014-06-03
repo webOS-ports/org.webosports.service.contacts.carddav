@@ -1,18 +1,20 @@
-/*jslint node: true */
 /*global Future, Log, httpClient, checkResult */
 
 var OAuth = (function () {
     "use strict";
     return {
+        /**
+         * Refreshes oauth token with server
+         * @param credObj that contains client_di, client_secrect, refresh_token, refresh_url.
+         * @return future with result.credentials the augmented credObj to store in DB.
+         */
         refreshToken: function (credObj) {
             var future = new Future(),
                 data = "client_id=" + credObj.client_id + "&client_secret=" + credObj.client_secret + "&refresh_token=" + credObj.refresh_token + "&grant_type=refresh_token",
                 options = { method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}};
 
-            Log.debug("Refreshing token from: ", credObj);
             //fill host and stuff.
             httpClient.parseURLIntoOptions(credObj.refresh_url, options);
-            Log.debug("Options: ", options);
 
             future.nest(httpClient.sendRequest(options, data));
 
@@ -40,13 +42,16 @@ var OAuth = (function () {
             return future;
         },
 
+        /**
+         * Checks credObj.expires if the tokens need a refresh
+         * @param credObj, necessary is the "expires" field,
+         *           which is a JS timestamp until when the token is valid.
+         * @return true, if a refrehs is needed.
+         */
         needsRefresh: function (credObj) {
             if (credObj.expires) {
                 if (Date.now() < credObj.expires) {
-                    Log.debug(Date.now(), " < ", credObj.expires, " => we can still use old token.");
                     return false;
-                } else {
-                    Log.debug(Date.now(), " > ", credObj.expires, " => we need new token!");
                 }
             }
             return true;

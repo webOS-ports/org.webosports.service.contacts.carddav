@@ -1,5 +1,5 @@
-/*jslint sloppy: true, node: true, nomen: true */
-/*global Class, Future, Log, PalmCall, Sync, checkResult */
+/*global Class, Log, PalmCall, Sync, checkResult */
+/*exported OnEnabled*/
 
 //This got necessary, because a bug in mojosync framework.
 //It only creates one sync-on-edit activity, which is randomly
@@ -10,10 +10,18 @@
 //manually here.
 var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
     run: function run(outerFuture) {
-        var future = new Future(), config = this.client.config, kind, name, cancelCalls = 0, enabled = this.controller.args.enabled, date;
+        "use strict";
+        var kind,
+            name,
+            cancelCalls = 0,
+            enabled = this.controller.args.enabled,
+            serviceName = this.controller.service.name,
+            accountId = this.client.clientId,
+            assistant = this;
         Log.debug("Arguments: ", this.controller.args);
 
         function cancelCB(f) {
+            var date;
             Log.debug("Result of cancel callback: ", checkResult(f));
 
             cancelCalls -= 1;
@@ -26,7 +34,7 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
                 date = new Date();
                 PalmCall.call("palm://com.palm.activitymanager", "create", {
                     activity: {
-                        name: "RecreatePeriodicSyncCapabilitieFix:" + this.controller.service.name + ":" + this.client.clientId,
+                        name: "RecreatePeriodicSyncCapabilitieFix:" + serviceName + ":" + accountId,
                         description: "Recreate Periodic Sync activity if other capabilities are still enabled.",
                         type: {
                             background: true,
@@ -42,17 +50,16 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
                             local: true
                         },
                         callback: {
-                            method: "palm://" + this.controller.service.name + "/sync",
-                            params: {accountId: this.client.clientId}
+                            method: "palm://" + serviceName + "/sync",
+                            params: {accountId: accountId}
                         }
                     },
                     start: true,
                     replace: true
-                }).then(this, function activityCreateCB(f) {
+                }).then(function activityCreateCB(f) {
                     var result = checkResult(f);
                     Log.debug("Result of checkPeriodicSync-Activity: ", result);
-                    this.$super(run)(outerFuture);
-                    Log.debug("??");
+                    assistant.$super(run)(outerFuture);
                 });
             } else {
                 Log.debug("Still waiting for ", cancelCalls, " cancel callbacks.");
@@ -65,7 +72,7 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
             for (kind in this.client.kinds.objects) {
                 if (this.client.kinds.objects.hasOwnProperty(kind) && this.client.kinds.objects[kind].allowUpsync) {
                     Log.debug("Kind ", kind, " has upsync, cancelling its activity.");
-                    name = "SyncOnEdit:" + this.controller.service.name + ":" + this.client.clientId + ":" + this.client.kinds.objects[kind].name;
+                    name = "SyncOnEdit:" + serviceName + ":" + accountId + ":" + this.client.kinds.objects[kind].name;
                     cancelCalls += 1;
                     PalmCall.call("palm://com.palm.activitymanager", "cancel", { activityName: name }).then(this, cancelCB);
                 }

@@ -1,28 +1,14 @@
-//JSLint stuff:
-/*jslint sloppy: true, nomen: true, regexp: true, node: true */
-/*global Contacts, fs, Log, Future, path, MimeTypes, quoted_printable_decode, quoted_printable_encode, quote, Base64, Buffer, fold, checkResult */
+/*jslint regexp: true */
+/*global Contacts, fs, Log, Future, servicePath, Buffer, checkResult */
+
+var path = require("path"); //required for vCard converter.
+var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
 
 var vCard = (function () {
+    "use strict";
     var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
         photoPath = "/media/internal/.caldav_photos/",
         vCardIndex = 0;
-
-    function cleanUpEmptyFields(obj) {
-        var field;
-        if (typeof obj === "object") {
-            for (field in obj) {
-                if (obj.hasOwnProperty(field)) {
-                    if (typeof obj[field] === "string") {
-                        if (obj[field] === "") {
-                            delete obj[field];
-                        }
-                    } else if (typeof obj[field] === "object") {
-                        cleanUpEmptyFields(obj[field]);
-                    }
-                }
-            }
-        }
-    }
 
     function extractPhotoType(line) {
         var startIndex, endIndex, endIndex2, type;
@@ -81,7 +67,7 @@ var vCard = (function () {
                 } else {
                     Log.log_icalDebug("Photo read...");
                     blob = "PHOTO;ENCODING=b;TYPE=" + photoType + ":" + data.toString("base64");
-                    blob = fold(blob) + "\r\n";
+                    blob = Quoting.fold(blob) + "\r\n";
                     Log.log_icalDebug("Blob: \n", blob);
 
                     future.result = {blob: blob};
@@ -107,6 +93,11 @@ var vCard = (function () {
 
     //public interface:
     return {
+        /**
+         * Required for initialisation of vCard parser. Will basically create
+         * a temporary directory in /tmp
+         * @return future wait for future result to be sure that this is ready.
+         */
         initialize: function () {
             var photo = false, tmp = false, future = new Future(), finished = function () {
                 if (tmp && photo) {
@@ -122,7 +113,7 @@ var vCard = (function () {
             //check that a temporary file path exists to save/read vcards to.
             path.exists(tmpPath, function (exists) {
                 if (!exists) {
-                    fs.mkdir(tmpPath, 0777, function (error) {
+                    fs.mkdir(tmpPath, parseInt("777", 8), function (error) {
                         if (error) {
                             Log.log("Could not create tmp-path, error:", error);
                         }
@@ -138,7 +129,7 @@ var vCard = (function () {
             //create path for photos:
             path.exists(photoPath, function (exists) {
                 if (!exists) {
-                    fs.mkdir(photoPath, 0777, function (error) {
+                    fs.mkdir(photoPath, parseInt("777", 8), function (error) {
                         if (error) {
                             Log.log("Could not create photo-path, error:", error);
                         }
@@ -154,10 +145,11 @@ var vCard = (function () {
             return future;
         },
 
-        //parameters:
-        //vcard = text representation of vcard
-        //account = full account object.
-        //serverData = configuration data of the server..
+        /**
+         * parses a vcard into a webOS data object.
+         * @param input text representation of vcard
+         * @return future, result.result will contain the object uppon success.
+         */
         parseVCard: function (input) {
             var resFuture = new Future(),
                 filename = tmpPath + (input.account.name || "nameless") + "_" + vCardIndex + ".vcf",
@@ -186,10 +178,10 @@ var vCard = (function () {
                 version = "3.0";
             } else if (input.vCard.indexOf("VERSION:2.1") > -1) {
                 version = "2.1";
-                input.vCard = input.vCard.replace(/\=\r?\n/g, ''); //replace all =\n, those are newlines in datablocks
+                input.vCard = input.vCard.replace(/\=\r?\n/g, ""); //replace all =\n, those are newlines in datablocks
             }
 
-            input.vCard = input.vCard.replace(/\r?\n /g, ''); //replace all \n+space, those are newlines in datablocks
+            input.vCard = input.vCard.replace(/\r?\n /g, ""); //replace all \n+space, those are newlines in datablocks
             lines = input.vCard.split(/\r?\n/);
             data = [];
             for (i = 0; i < lines.length; i += 1) {
@@ -204,12 +196,6 @@ var vCard = (function () {
 
                     //log("PhotoData: " + photoData);
                 } else if (!emptyLine.test(currentLine)) {
-                    if (version === "2.1") {
-                        //log("Decode, because version " + version);
-                        currentLine = quoted_printable_decode(currentLine);
-                        currentLine = currentLine.replace(/\r?\n=?/g, '\\n');
-                    }
-                    //currentLine = unquote(currentLine);
                     data.push(currentLine);
                 } else {
                     Log.log_icalDebug("Skipping empty line", currentLine);
@@ -246,14 +232,12 @@ var vCard = (function () {
                             delete obj.syncSource;
 
                             Log.log("Contact:", obj);
-                            //cleanUpEmptyFields(obj);
-                            //Log.log("Contact after cleanup:", obj);
                             fs.unlink(filename);
 
                             Log.log("PhotoData Length:", photoData.length);
                             if (photoData.length > 0) { //got a photo!! :)
                                 Log.log("Writing photo!");
-                                buff = new Buffer(photoData, 'base64');
+                                buff = new Buffer(photoData, "base64");
                                 filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photoType;
                                 Log.log("writing photo to:", filename);
                                 fs.writeFile(filename, buff, function (err) {
@@ -278,8 +262,11 @@ var vCard = (function () {
             return resFuture;
         },
 
-        //input:
-        //contactId
+        /**
+         * generates a textual vCard from webOS contact object
+         * @param input webOS contact object
+         * @return future, result.result will contain the text representation uppon success
+         */
         generateVCard: function (input) {
             var resFuture = new Future(), note,
                 filename = tmpPath + (input.accountName || "nameless") + "_" + vCardIndex + ".vcf",
@@ -311,7 +298,7 @@ var vCard = (function () {
                             if (note) {
                                 note.replace(/[^\r]\n/g, "\r\n");
                             }
-                            note = fold(quote(note));
+                            note = Quoting.fold(Quoting.quote(note));
                             Log.log("Having note:", note);
                             data = data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
                         }
@@ -336,27 +323,8 @@ var vCard = (function () {
             });
 
             return resFuture;
-        },
-
-        cleanUp: function (account) {
-            var future = new Future();
-            Log.log("Contact cleanup called for", tmpPath);
-            fs.readdir(tmpPath, function (err, files) {
-                var i, name = (account.name || "nameless") + "_", filename;
-                for (i = 0; i < files.length; i += 1) {
-                    filename = files[i];
-                    Log.log("Filename:", filename);
-                    if (filename.indexOf(name) === 0) {
-                        Log.log("Deleting", filename);
-                        fs.unlink(tmpPath + filename);
-                    } else {
-                        Log.log("Not deleting file", filename, "in temp path. Match results:", filename.indexOf(name));
-                    }
-                }
-                future.result = { returnValue: true };
-            });
-            Log.log("Returninig future");
-            return future;
         }
     }; //end of public interface
 }());
+
+module.exports = vCard;
