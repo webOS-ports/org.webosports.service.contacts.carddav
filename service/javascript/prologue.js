@@ -19,7 +19,7 @@ var Activity = Foundations.Control.Activity;
 var PalmCall = Foundations.Comms.PalmCall;
 
 //now add some node.js imports:
-if (require === undefined) {
+if (typeof require === "undefined") {
     require = IMPORTS.require;
 }
 var querystring = require("querystring");
