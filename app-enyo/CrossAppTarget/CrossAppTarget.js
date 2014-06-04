@@ -157,13 +157,15 @@ enyo.kind({
                         "address": "palm://org.webosports.cdav.service/checkCredentials",
                         "customUI": {
                             "appId": "org.webosports.cdav.app",
-                            "name": "index.html"
+                            "name": "CrossAppTarget/index.html"
                         }
                     },
                     "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
                     "loc_usernameLabel": "Username",
                     "icon": {
-                        "loc_32x32": "images/webos-ports32.png"
+                        "loc_32x32": "images/caldav-32.png",
+                        "loc_48x48": "images/caldav-48.png",
+                        "loc_1024x1024": "images/caldav-1024.png"
                     },
                     "capabilityProviders": [
                         {
