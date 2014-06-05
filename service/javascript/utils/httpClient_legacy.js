@@ -274,7 +274,6 @@ var httpClient = (function () {
 
             addListenerOnlyOnce(res, "error", errorCB);
             addListenerOnlyOnce(res, "close", closeCB);
-            addListenerOnlyOnce(res, "end", closeCB); //if connection is directly closed, something went wrong.
             res.resume(); //just a try ;)
         }
 
