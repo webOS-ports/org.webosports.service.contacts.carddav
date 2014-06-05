@@ -1,4 +1,4 @@
-/*jslint sloppy: true */
+/*jslint sloppy: true, browser: true */
 /*global enyo, $L, console, setTimeout, PalmSystem */
 
 function log(msg) {
@@ -60,10 +60,43 @@ enyo.kind({
             url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
         }
 
-        this.$.webView.setUrl(url);
-        //authWin = window.open(url);
-        //authWin.addEventListener("change", this.gotAuthToken.bind(this), false);
+        //title polling function, used because events somehow go missing.
+        function pollTitle() {
+            if (!this.doing) {
+                this.gotAuthToken({}, authWin.document.title);
 
+                setTimeout(pollTitle.bind(this), 500);
+            } else {
+                authWin.close();
+            }
+        }
+
+        if (false) { //TODO: find out how to determine if we are in legacy!
+            //is legacy webos:
+            this.$.webView.setUrl(url);
+        } else {
+            //is LuneOS:
+            this.log("Poping up Google page with OAuth request.");
+            authWin = window.open(url);
+            console.log(authWin);
+
+
+            if (authWin) {
+                this.log("Adding listener for change messages to new window.");
+                //somehow those get deleted quite fast.. why?
+                authWin.onload = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+                authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+
+                setTimeout(pollTitle.bind(this), 500);
+
+                authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+                authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+
+
+            } else {
+                this.error("No authWin!!! AHRGS.");
+            }
+        }
 
         console.error("<<<<<<<<<<<<<<<<<<<< create");
     },
