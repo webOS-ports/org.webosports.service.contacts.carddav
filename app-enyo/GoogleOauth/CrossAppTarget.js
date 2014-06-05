@@ -121,8 +121,8 @@ enyo.kind({
             };
         if (!template) {
             template = {
-                "templateId": "org.webosports.cdav.account",
-                "loc_name": "C+DAV Connector",
+                "templateId": "org.webosports.cdav.account.google",
+                "loc_name": "C+DAV Google",
                 "readPermissions": [
                     "org.webosports.cdav.service",
                     "com.palm.service.contacts",
@@ -138,13 +138,20 @@ enyo.kind({
                     "address": "palm://org.webosports.cdav.service/checkCredentials",
                     "customUI": {
                         "appId": "org.webosports.cdav.app",
-                        "name": "index.html"
+                        "name": "GoogleOauth/index.html"
                     }
                 },
                 "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
-                "loc_usernameLabel": "Username",
+                "loc_usernameLabel": "Google-Mail",
                 "icon": {
-                    "loc_32x32": "images/webos-ports32.png"
+                    "loc_32x32": "images/google_32.png",
+                    "loc_64x64": "images/google_64.png",
+                    "loc_128x128": "images/google_128x128.png",
+                    "loc_256x256": "images/google_256x256.png"
+                },
+                "config": {
+                    "name": "C+DAV Google",
+                    "url": "https://www.googleapis.com/caldav/v2"
                 },
                 "capabilityProviders": [
                     {
@@ -154,7 +161,7 @@ enyo.kind({
                         "onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
                         "onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
                         "sync": "palm://org.webosports.cdav.service/sync",
-                        "loc_name": "CardDAV Contacts",
+                        "loc_name": "Google Contacts",
                         "dbkinds": {
                             "contactset": "org.webosports.cdav.contactset:1",
                             "contact": "org.webosports.cdav.contact:1"
@@ -167,7 +174,7 @@ enyo.kind({
                         "onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
                         "onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
                         "sync": "palm://org.webosports.cdav.service/sync",
-                        "loc_name": "CalDav Calendar",
+                        "loc_name": "Google Calendar",
                         "dbkinds": {
                             "calendar": "org.webosports.cdav.calendar:1",
                             "calendarevent": "org.webosports.cdav.calendarevent:1"
@@ -193,6 +200,13 @@ enyo.kind({
                 template.capabilityProviders[i].loc_name = "Google Calendar";
                 break;
             }
+        }
+
+        if (!template.config) {
+            template.config = {
+                "name": "C+DAV Google",
+                "url": "https://www.googleapis.com/caldav/v2"
+            };
         }
 
         template.config.credentials = credentials;
