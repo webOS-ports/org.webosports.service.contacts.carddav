@@ -1,6 +1,5 @@
-/*global Future, Log, IMPORTS, checkResult */
+/*global Future, Log, xml, checkResult */
 
-var xml = IMPORTS["foundations.xml"];
 var http = require("http");
 var url = require("url"); //required to parse urls
 var dns = require("dns"); //resolve dns manually, because some errors are not caught by httpClient in 0.2.3.

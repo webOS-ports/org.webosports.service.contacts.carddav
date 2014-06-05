@@ -10,13 +10,14 @@ var Sync = IMPORTS["mojoservice.transport.sync"];
 var Foundations = IMPORTS.foundations;
 var Contacts = IMPORTS.contacts;
 var Calendar = IMPORTS.calendar;
-var Globalization = IMPORTS.globalization.Globalization;
+//var Globalization = IMPORTS.globalization.Globalization;
 
 var Class = Foundations.Class;
 var DB = Foundations.Data.DB;
 var Future = Foundations.Control.Future;
 var Activity = Foundations.Control.Activity;
 var PalmCall = Foundations.Comms.PalmCall;
+var xml = IMPORTS["foundations.xml"];
 
 //now add some node.js imports:
 if (typeof require === "undefined") {
