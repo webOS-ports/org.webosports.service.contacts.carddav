@@ -31,7 +31,12 @@ var servicePath = fs.realpathSync(".");
 console.log("Service Path: " + servicePath);
 var Log = require(servicePath + "/javascript/utils/Log.js");
 var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
-var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
+if (nodejsMajorVersion >= 4) {
+    var httpClient = require(servicePath + "/javascript/utils/httpClient.js");
+} else {
+    var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+}
 
 console.error("--------->Loaded Libraries OK1");
 
