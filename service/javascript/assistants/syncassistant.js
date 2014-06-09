@@ -140,15 +140,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     /*
      * Sets error = true for kindName. Makes sure that object is saved in database.
      */
-    _saveErrorState: function (kindName) {
+    _saveErrorState: function (kindName, errorState) {
         "use strict";
-        this.client.transport.syncKey[kindName].error = true; //trigger "slow" sync.
-        this.handler.putAccountTransportObject(this.client.transport).then(function putCB(f) {
-            var result = checkResult(f);
+        this.client.transport.syncKey[kindName].error = (errorState === undefined || errorState); //trigger "slow" sync.
+        var future = this.handler.putAccountTransportObject(this.client.transport);
+
+        future.then(this, function putCB() {
+            var result = checkResult(future);
+            Log.debug("Update TransportObject result: ", result);
             if (!result.length) {
                 Log.log("Could not store config object: ", result);
+            } else {
+                Log.debug("Updating transport rev from ", this.client.transport._rev, " to ", result[0].rev);
+                this.client.transport._rev = result[0].rev;
             }
+            //future.nest(this.handler.getAccountTransportObject(this.client.cliendId));
+            future.result = {returnValue: true};
         });
+
+        return future;
     },
 
     /*
@@ -428,8 +438,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 home = this.client.config.url;
             }
 
-            this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+            future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+        });
 
+        future.then(this, function saveTransportCB() {
+            checkResult(future); //will always be true.
             future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
         });
 
@@ -533,10 +546,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             this.params.cardDav = false;
         }
 
-        this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+        future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
-        Log.debug("Starting sync for ", folder.name);
-        future.nest(this._initCollectionId(kindName));
+        future.then(this, function saveTransportCB() {
+            checkResult(future); //will always be true.
+            Log.debug("Starting sync for ", folder.name);
+            future.nest(this._initCollectionId(kindName));
+        });
         future.then(this, function () {
             if (folder.entries &&
                     folder.entries.length > 0) {
@@ -604,7 +620,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     _updateCollectionsConfig: function (kindName, remoteFolders) {
         "use strict";
         var i, subKind = Kinds.objects[kindName].connected_kind, folders, folder,
-            remoteFolder, change = false, future = new Future(), outerFuture = new Future(), toBeDeleted = [];
+            remoteFolder, change = false, future = new Future(), deleteFuture = new Future(), outerFuture = new Future(), toBeDeleted = [];
 
         folders = this.client.transport.syncKey[subKind].folders;
 
@@ -656,7 +672,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     deleteContent(ids);
                 });
             } else {
-                outerFuture.result = {returnValue: true};
+                deleteFuture.result = {returnValue: true};
             }
         }
 
@@ -664,8 +680,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         //now save config:
         if (change) {
-            this._saveErrorState(subKind); //trigger slow sync for subKind because of collection changes.
-            delete this.collectionIds; //reset this for orphaned checks.
+            deleteFuture.then(this, function deleteCB() {
+                checkResult(deleteFuture);
+                deleteFuture.nest(this._saveErrorState(subKind)); //trigger slow sync for subKind because of collection changes.
+                delete this.collectionIds; //reset this for orphaned checks.
+            });
+
+            deleteFuture.then(this, function saveCB() {
+                checkResult(deleteFuture);
+                outerFuture.result = {returnValue: true};
+            });
+        } else {
+            outerFuture.result = {returnValue: true};
         }
 
         return outerFuture;
@@ -912,10 +938,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         //add this here to also track errors during upsync => will trigger comparison of all etags on next downsync.
         if (results.length > 0) {
-            this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+            future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+
+            future.then(this, function saveStateCB() {
+                checkResult(future);
+                future.result = results;
+            });
+        } else {
+            future.result = results; //imideately resume.
         }
 
-        future.result = results;
         return future;
     },
 
