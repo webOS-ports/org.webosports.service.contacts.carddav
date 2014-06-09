@@ -1,3 +1,14 @@
+0.3.7:
+    o fixed issue with upload
+    o sync on edit now only syncs the edited capability
+    o implemented proper exception handling for recurring events
+    o fixed ical parsing error
+    o reworked timezone handling in ical parsing, should prevent NaN-errors in calendar
+    o accept delete as succesful if server can't find object
+    o prevent possible rev-errors in put db, might have caused issues with synconedit syncs
+    o some code refactoring in syncassistant.
+2014-06-09: Achim Königs <garfonso@mobo.info>
+
 0.3.6:
     o fixed possible sync-endless loop because of wrong sync on edit activity creation
 2014-06-03: Achim Königs <garfonso@mobo.info>
