@@ -226,13 +226,17 @@ var iCal = (function () {
         return 0;
     }
 
-    function parseDATEARRAY(str) {
+    function parseDATEARRAY(str, exdates) {
         var parts, times = [], i;
         parts = str.split(",");
         for (i = 0; i < parts.length; i += 1) {
             if (DATE.test(parts[i]) || DATETIME.test(parts[i])) { //skip empty / false values.
                 times.push(parts[i]);
             }
+        }
+
+        if (exdates && exdates.concat) {
+            return exdates.concat(times);
         }
         return times;
     }
@@ -744,10 +748,10 @@ var iCal = (function () {
                 event.attach.push(lObj.value);
                 break;
             case "EXDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
-                event.exdates = parseDATEARRAY(lObj.value); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
+                event.exdates = parseDATEARRAY(lObj.value, event.exdates); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
                 break;
             case "RDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
-                event.rdates = parseDATEARRAY(lObj.value); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
+                event.rdates = parseDATEARRAY(lObj.value, event.rdates); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
                 break;
             case "BEGIN": //ignore begins other than ALARM.
                 if (lObj.value === "VALARM") {
