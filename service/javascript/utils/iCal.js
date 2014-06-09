@@ -401,7 +401,7 @@ var iCal = (function () {
                 rrule.interval = kv[1];
                 break;
             case "WKST":
-                rrule.wkst = dayToNum(kv[1]);
+                rrule.wkst = dayToNum[kv[1]];
                 break;
             case "BYDAY":
             case "BYMONTHDAY":
@@ -492,7 +492,7 @@ var iCal = (function () {
             obj.dtstart = lObj.value;
             break;
         default:
-            if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM") {
+            if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM" && lObj.key !== "RDATE") {
                 Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
             }
             break;
@@ -532,7 +532,7 @@ var iCal = (function () {
             }
             break;
         default:
-            if (lObj.key !== "X-LIC-LOCATION") {
+            if (lObj.key !== "X-LIC-LOCATION" && lObj.key !== "RDATE") {
                 Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
             }
             break;
@@ -683,32 +683,32 @@ var iCal = (function () {
         //more complex objects: ATTENDEES, ORGANIZER, BEGIN:VALARM, RRULE
         translation = {
             "CATEGORIES"    :    "categories",
-            "CLASS"            :    "classification",
-            "GEO"            :    "geo",
-            "CONTACT"        :    "contact",
-            "PRIORITY"        :    "priority",
+            "CLASS"         :    "classification",
+            "GEO"           :    "geo",
+            "CONTACT"       :    "contact",
+            "PRIORITY"      :    "priority",
             "RELATED-TO"    :    "relatedTo",
             "STATUS"        :    "requestStatus",
-            "RESOURCES"        :    "resources",
-            "SEQUENCE"        :    "sequence",
+            "RESOURCES"     :    "resources",
+            "SEQUENCE"      :    "sequence",
             "TRANSP"        :    "transp",
-            "TZID"            :    "tzId",
-            "URL"            :    "url",
-            "RECURRENCE-ID"    :    "recurrenceId",
-            "UID"            :    "uId" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
+            "TZID"          :    "tzId",
+            "URL"           :    "url",
+            "RECURRENCE-ID" :    "recurrenceId",
+            "UID"           :    "uId" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
         };
         translationQuote = {
-            "COMMENT"        :    "comment",
-            "DESCRIPTION"    :    "note",
-            "LOCATION"        :    "location",
-            "SUMMARY"        :    "subject"
+            "COMMENT"       :    "comment",
+            "DESCRIPTION"   :    "note",
+            "LOCATION"      :    "location",
+            "SUMMARY"       :    "subject"
         };
         transTime = {
-            "DTSTAMP"        :    "dtstamp",
-            "DTSTART"        :    "dtstart",
-            "DTEND"            :    "dtend",
-            "CREATED"        :    "created",
-            "LAST-MODIFIED"    :    "lastModified"
+            "DTSTAMP"       :    "dtstamp",
+            "DTSTART"       :    "dtstart",
+            "DTEND"         :    "dtend",
+            "CREATED"       :    "created",
+            "LAST-MODIFIED" :    "lastModified"
         };
         //most parameters ignored for the simple objects... hm. But they mostly have none, right?
         if (lObj.key === "TZID") {
