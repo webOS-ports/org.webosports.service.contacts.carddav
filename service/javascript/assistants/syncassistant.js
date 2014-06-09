@@ -6,8 +6,8 @@
 /*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, servicePath */
 /*exported SyncAssistant */
 
-var url = require("url");   //required to parse urls
 var vCard = require(servicePath + "/javascript/utils/vCard.js");
+var ID = require(servicePath + "/javascript/utils/ID.js");
 var SyncKey = require(servicePath + "/javascript/utils/SyncKey.js");
 var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
 
@@ -136,23 +136,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         return "CALENDAR, CONTACTS, TASKS";
     },
 
-    _uriToRemoteId: function (uri) {
-        "use strict";
-        var i;
-        if (!uri) {
-            return undefined;
-        }
-
-        if (this.client.config.preventDuplicateCalendarEntries) {
-            for (i = uri.length - 1; i >= 0; i -= 1) {
-                if (uri.charAt(i) === "/") {
-                    return uri.substring(i + 1);
-                }
-            }
-        }
-        return uri; //fallback
-    },
-
     /*
      * Sets error = true for kindName. Makes sure that object is saved in database.
      */
@@ -205,77 +188,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             prefix = this.SyncKey.getFolder(kindName, 0).uri;
         }
         this.params.path = prefix;
-    },
-
-    /*
-     * This method is used to find the correct URI from a local/remote object pair.
-     */
-    _findURIofRemoteObject: function (kindName, obj) {
-        "use strict";
-        Log.log("\n\n**************************SyncAssistant: _findURIofRemoteObject *****************************");
-        var uri, prefix, remoteId, i;
-
-        if (!obj) {
-            obj = { local: {}, remote: {} };
-        }
-
-        uri = obj.local.uri;
-        if (!uri) {
-
-            //get the URL of a addressbook or calendar.
-            if (obj.local.calendarId) {
-                for (i = 0; i < this.client.transport.syncKey[kindName].folders.length; i += 1) {
-                    if (this.client.transport.syncKey[kindName].folders[i].collectionId === obj.local.calendarId) {
-                        prefix = this.client.transport.syncKey[kindName].folders[i].uri;
-                        break;
-                    }
-                }
-            }
-
-            if (!prefix) {
-                //if no collection, use first folder. This should not happen. But it happened due to bug with calendar-deletion.
-                Log.debug("Had no folder for collectionId ", obj.local.calendarId);
-                prefix = this.client.transport.syncKey[kindName].folders[0].uri;
-                obj.local.calendarId = this.client.transport.syncKey[kindName].folders[0].collectionId;
-            }
-
-            prefix = url.parse(prefix).pathname || "/";
-
-            if (prefix.charAt(prefix.length - 1) !== "/") {
-                prefix += "/";
-            }
-
-            //if we already have a remoteId somewhere, keep it.
-            if (obj.remote.remoteId) {
-                remoteId = obj.remote.remoteId;
-            } else if (obj.local.remoteId) {
-                remoteId = obj.local.remoteId;
-            }
-
-            if (!remoteId) {
-                //generate a "random" uri.
-                remoteId = this.getNewRemoteObject();
-            }
-
-            //we assume that getNewRemoteObject() was called before and did not create a full URI remote id.
-            uri = prefix + remoteId;
-        } else {
-            remoteId = obj.local.remoteId;
-            if (!remoteId) {
-                remoteId = this._uriToRemoteId(uri);
-            }
-        }
-
-        obj.remote.uri = uri;
-        if (this.client.config.preventDuplicateCalendarEntries) {
-            obj.remote.remoteId = remoteId;
-            obj.local.remoteId = remoteId;
-        } else {
-            obj.remote.remoteId = uri;
-            obj.local.remoteId = uri;
-        }
-        obj.local.uri = uri;
-        obj.local.uId = remoteId;
     },
 
     /*
@@ -1200,7 +1112,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         future.then(this, function oneObjectCallback() {
             var result = checkResult(future), rid;
 
-            rid = this._uriToRemoteId(result.uri);
+            rid = ID.uriToRemoteId(result.uri, this.client.config);
             Log.debug("Have rid ", rid, " from ", result.uri);
 
             if (result.returnValue === true) {
@@ -1256,14 +1168,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     _putOneRemoteObject: function (obj, kindName) {
         "use strict";
         Log.log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
-        var future = new Future();
+        var future = new Future(), self = this;
 
         //check if URI is present. If not, get URI.
         if (!obj.remote.uri) { //this always happens for new objects and deleted objects.
             if (!obj.remote.add && obj.operation === "save") {
                 Log.debug("===================== NO URI FOR CHANGED OBJECT!!");
             }
-            this._findURIofRemoteObject(kindName, obj);
+            ID.findURIofRemoteObject(kindName, obj, this.SyncKey);
         }
 
         //copy uri and etag over to remote object:
@@ -1287,10 +1199,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
             if (!obj.remote.uri) {
                 Log.log("Did not have uri in converted object. How can that happen?");
-                SyncAssistant._findURIofRemoteObject(kindName, obj);
+                ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
             }
 
-            future.nest(SyncAssistant._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+            future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
         }
 
         if (obj.operation === "save") {
