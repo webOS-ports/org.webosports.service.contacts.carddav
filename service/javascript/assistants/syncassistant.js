@@ -1313,13 +1313,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.nest(CalDav.deleteObject(this.params, obj.remote));
                 future.then(this, function deleteCB() {
                     var result = checkResult(future);
-                    if (result.returnValue === true) {
-                        //everything fine, continue.
-                        future.result = result;
-                    } else {
-                        Log.log("Could not delete object: ", obj);
-                        future.result = result;
+                    if (result.returnValue !== true) {
+                        if (result.returnCode === 404) {
+                            Log.debug("Object not found on server => do not delete anymore.");
+                            result.returnValue = true;
+                        } else {
+                            Log.log("Could not delete object: ", obj, " => ", result);
+                        }
                     }
+                    future.result = result;
                 });
             } else {
                 //send dummy result.
@@ -1428,7 +1430,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             future.result = { returnValue: true};
         } else {
             if (syncObj.allowUpsync && (!this.client.transport.syncKey[syncObj.name] || !this.client.transport.syncKey[syncObj.name].error)) {
-                //only redo upsync if not in error state?
+                //only redo upsync if not in error state
 
                 rev = this.client.transport.modnum;
                 name = "SyncOnEdit:" + this.controller.service.name + ":" + this.client.clientId + ":" + syncObj.name;
