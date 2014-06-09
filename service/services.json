@@ -66,6 +66,11 @@
                     "public": true
                 },
                 {
+                    "name": "addEvent",
+                    "assistant": "AddEventAssistant",
+                    "public": true
+                },
+                {
                     "name": "resources",
                     "assistant": "Resources",
                     "public": false
