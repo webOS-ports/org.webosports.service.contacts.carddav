@@ -7,6 +7,7 @@
 /*exported SyncAssistant */
 
 var vCard = require(servicePath + "/javascript/utils/vCard.js");
+var ETag = require(servicePath + "/javascript/utils/ETag.js");
 var ID = require(servicePath + "/javascript/utils/ID.js");
 var SyncKey = require(servicePath + "/javascript/utils/SyncKey.js");
 var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
@@ -261,7 +262,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 to.etag = from.etag;
                 to.uri = from.uri;
                 if (!to.remoteId) {
-                    to.remoteId = this._uriToRemoteId(from.uri);
+                    to.remoteId = ID.uriToRemoteId(from.uri, this.client.config);
                 }
 
                 return from.obj;
@@ -321,7 +322,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             return obj.remoteId; //use uri, it is unique and constant.
         }
         if (obj.uri && (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name)) {
-            obj.remoteId = this._uriToRemoteId(obj.uri);
+            obj.remoteId = ID.uriToRemoteId(obj.uri, this.client.config);
             return obj.remoteId;
         }
 
@@ -429,7 +430,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
             this._saveErrorState(kindName); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
-            future.nest(this._getLocalEtags(kindName));
+            future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
         });
 
         future.then(this, function handleLocalFolders() {
@@ -467,7 +468,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     });
                 }
 
-                entries = this._parseEtags(rFolders, localFolders, "uri");
+                entries = ETag.parseEtags(rFolders, localFolders, this.currentCollectionId, this.SyncKey, "uri");
 
                 //if collection changed, we also need to sync from different folders.
                 //update the config here.
@@ -609,7 +610,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         for (i = 0; i < remoteFolders.length; i += 1) {
             remoteFolder = remoteFolders[i];
-            folder = this._findMatch(remoteFolder.uri, folders, "uri");
+            folder = ETag.findMatch(remoteFolder.uri, folders, "uri");
 
             if (!folder) { //folder not found => need to add.
                 Log.debug("Need to add remote folder: ", remoteFolder);
@@ -624,7 +625,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         for (i = 0; i < folders.length; i += 1) {
             folder = folders[i];
-            remoteFolder = this._findMatch(folder.uri, remoteFolders, "uri");
+            remoteFolder = ETag.findMatch(folder.uri, remoteFolders, "uri");
 
             if (!remoteFolder) { //folder not found => need to delete.
                 Log.debug("Need to delete local folder ", folder);
@@ -668,25 +669,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         }
 
         return outerFuture;
-    },
-
-    /*
-     * Gets etags and uris from the db. etags and uris are currently saved together with the
-     * database objects (i.e. with the contact or calendarevent).
-     * It will return a future wich has the array of { etag, uri } objects as result.results field.
-     */
-    _getLocalEtags: function (kindName) {
-        "use strict";
-        var query =
-            {
-                from: Kinds.objects[kindName].id,
-                //we could filter for calendarId here. Issue is that we then get adds, if
-                //collections overlap, i.e. if events/contacts are in multiple collections on the server
-                //at the same time.
-                where: [ { prop: "accountId", op: "=", val: this.client.clientId } ],
-                select: ["etag", "remoteId", "_id", "uri", "calendarId"]
-            };
-        return DB.find(query, false, false);
     },
 
     /*
@@ -755,9 +737,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             if (result.returnValue === true) {
                 remoteEtags = result.etags;
                 for (i = 0; i < remoteEtags.length; i += 1) {
-                    remoteEtags[i].remoteId = this._uriToRemoteId(remoteEtags[i].uri);
+                    remoteEtags[i].remoteId = ID.uriToRemoteId(remoteEtags[i].uri, this.client.config);
                 }
-                future.nest(this._getLocalEtags(kindName));
+                future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
             } else {
                 Log.log("Could not download etags. Reason: ", result);
                 future.result = { returnValue: false };
@@ -796,8 +778,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     error: true
                 };
             } else {
-                Log.debug("Folder: ", this.client.transport.syncKey[kindName].folders[this.client.transport.syncKey[kindName].folderIndex].uri);
-                entries = this._parseEtags(result.remoteEtags, result.localEtags);
+                Log.debug("Folder: ", this.SyncKey.currentFolder(kindName).uri);
+                entries = ETag.parseEtags(result.remoteEtags, result.localEtags, this.currentCollectionId, this.SyncKey);
                 this.SyncKey.currentFolder(kindName).entries = entries;
 
                 //now download object data and transfer it into webos datatypes.
@@ -805,138 +787,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             }
         });
         return future;
-    },
-
-    /*
-     * Finds an form an array by remoteId.
-     * Used for etag directories and collections.
-     */
-    _findMatch: function (remoteId, objs, key) {
-        "use strict";
-        var i;
-        if (!key) {
-            key = "remoteId";
-        }
-        for (i = 0; i < objs.length; i += 1) {
-            if (objs[i][key] === remoteId) {
-                objs._macht_index = i; //small hack. But obj is not stored anywhere, so should be fine.
-                return objs[i];
-            }
-        }
-    },
-
-    /*
-     * Method to test for orphaned objects, i.e. objects not in an existing collection anymore.
-     * Hopefully this will be unnecessary sometime in the future, but currently I
-     * observe objects not getting deleted if calendar/contactset get's removed.
-     * This happens only sometimes. Maybe failure somewhere during sync is involved.
-     */
-    _isOrphanedEntry: function (l) {
-        "use strict";
-        var i, j, key, folders;
-
-        if (!this.collectionIds) {
-            this.collectionIds = [];
-            for (key in Kinds.objects) {
-                if (Kinds.objects.hasOwnProperty(key)) {
-                    folders = this.client.transport.syncKey[key].folders;
-                    for (j = 0; j < folders.length; j += 1) {
-                        this.collectionIds.push(folders[j].collectionId);
-                    }
-                }
-            }
-        }
-
-        if (l.calendarId) {
-            l.doDelete = true;
-            for (i = 0; i < this.collectionIds.length; i += 1) {
-                if (l.calendarId === this.collectionIds[i]) {
-                    l.doDelete = false;
-                    break;
-                }
-            }
-
-            if (l.doDelete) {
-                Log.debug(l.remoteId, " seems to be orphaned entry left from collection change. Do delete.");
-                return true;
-            }
-        }
-        return false;
-    },
-
-    /*
-     * just parses the local & remote etag lists and determines which objects to add/update or delete.
-     */
-    _parseEtags: function (remoteEtags, localEtags, key) {
-        "use strict";
-        var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0, orphaned: 0};
-        Log.log("Got local etags: ", localEtags.length);
-        Log.log("Got remote etags: ", remoteEtags.length);
-
-        if (!key) {
-            key = "etag";
-        }
-
-        //we need update. Determine which objects to update.
-        //1. get etags and uris from server.
-        //2. get local etags and uris from device db => include deleted!
-        //compare the sets.
-        //uri only on server => needs to be added
-        //uri on server & local, etag same => no (remote) change.
-        //uri on server & local, but etag differs => needs to be updated (local changes might be lost)
-        //local with uri, but not on server => deleted on server, delete local (local changes might be lost)
-        //two local with same uri: delete one..
-        for (i = 0; i < localEtags.length; i += 1) {
-            l = localEtags[i];
-            if (l.remoteId) {
-
-                //filter orphaned entries in different collections.
-                if (!this._isOrphanedEntry(l)) {
-                    found = false;
-                    r = this._findMatch(l.remoteId, remoteEtags);
-
-                    if (r) {
-                        if (r.found) {
-                            Log.log("Found local duplicate.");
-                        } else {
-                            found = true;
-                            r.found = true;
-                            if (l[key] !== r[key]) { //have change on server => need update.
-                                entries.push(r);
-                                stats.update += 1;
-                            } else {
-                                stats.noChange += 1;
-                            }
-                        }
-                    }
-
-                    //not found => deleted on server.
-                    if (!found) {
-                        //only delete if object is in same collection.
-                        if (!l.calendarId || l.calendarId === this.currentCollectionId) {
-                            l.doDelete = true;
-                            stats.del += 1;
-                            entries.push(l);
-                        }
-                    }
-                } else {
-                    stats.orphaned += 1;
-                }
-            }
-        }
-
-        //find completely new remote objects
-        for (i = 0; i < remoteEtags.length; i += 1) {
-            r = remoteEtags[i];
-            if (!r.found) { //was not found localy, need add!
-                stats.add += 1;
-                r.add = true;
-                entries.push(r);
-            }
-        }
-
-        Log.log("Got ", entries.length, " remote changes: ", stats);
-        return entries;
     },
 
     /*
