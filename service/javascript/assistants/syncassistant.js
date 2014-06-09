@@ -7,8 +7,8 @@
 /*exported SyncAssistant */
 
 var url = require("url");   //required to parse urls
-var iCal = require(servicePath + "/javascript/utils/iCal.js");
 var vCard = require(servicePath + "/javascript/utils/vCard.js");
+var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
     run: function run(outerfuture) {
@@ -1084,7 +1084,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         if (kindName === Kinds.objects.calendarevent.name) {
                             //transform recevied iCal to webos calendar object:
                             Log.debug("Starting iCal conversion");
-                            future.nest(iCal.parseICal(result.data, {serverId: "" }));
+                            future.nest(CalendarEventHandler.parseICal(result.data));
                         } else if (kindName === Kinds.objects.contact.name) {
                             Log.debug("Starting vCard conversion");
                             future.nest(vCard.parseVCard({account: { name: this.client.config.name,
@@ -1103,12 +1103,36 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                                 obj.etag = entries[entriesIndex].etag;
                                 entries[entriesIndex].collectionId = this.client.transport.syncKey[kindName].folders[fi].collectionId;
                                 entries[entriesIndex].obj = obj;
+
+                                if (result.hasExceptions) {
+                                    //is calendarevent with rrule and exceptions
+
+                                    //add the exceptions to the end of the entries, indicating that they are already downloaded.
+                                    result.exceptions.forEach(function (event, index) {
+                                        entries.push({
+                                            alreadyDownloaded: true,
+                                            obj: event,
+                                            uri: entries[entriesIndex].uri + "exception" + index,
+                                            etag: entries[entriesIndex].etag
+                                        });
+                                    });
+
+                                    future.nest(CalendarEventHandler.fillParentIds(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config),
+                                                                        result,result, result.exceptions));
+
+
+                                } else {
+                                    future.result = { returnValue: true };
+                                }
                             } else {
                                 Log.log("Could not convert object ", entriesIndex, " - trying next one. :(");
+                                future.result = { returnValue: false };
                             }
 
-                            //done with this object, do next one.
-                            future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
+                            future.then(this, function () {
+                                //done with this object, do next one.
+                                future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
+                            });
                         });
 
                     } else {
@@ -1304,7 +1328,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         if (obj.operation === "save") {
             if (kindName === Kinds.objects.calendarevent.name) {
-                future.nest(iCal.generateICal(obj.local, {}));
+                future.nest(CalendarEventHandler.buildIcal(obj.local));
             } else if (kindName === Kinds.objects.contact.name) {
                 future.nest(vCard.generateVCard({accountName: this.client.config.name,
                                                 contact: obj.local, kind: Kinds.objects[kindName].id}));
