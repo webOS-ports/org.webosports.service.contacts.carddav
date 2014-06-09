@@ -675,8 +675,8 @@ var iCal = (function () {
         return res;
     }
 
-    function parseLineIntoObject(lObj, event, afterTZ) {
-        var translation, translationQuote, transTime, year, future;
+    function parseLineIntoObject(lObj, event) {
+        var translation, translationQuote, transTime, year;
         //not in webOs: UID
         //in webos but not iCal: allDay, calendarID, parentId, parentDtStart (???)
         //string arrays: attach, exdates, rdates
@@ -710,46 +710,31 @@ var iCal = (function () {
             "CREATED"       :    "created",
             "LAST-MODIFIED" :    "lastModified"
         };
-        //most parameters ignored for the simple objects... hm. But they mostly have none, right?
-        if (lObj.key === "TZID") {
-            //log_icalDebug("Got TZID: " + lObj.value);
-            event.tzId = lObj.value;
-            future = TZManager.loadTimezones([event.tzId, localTzId]);
-            future.then(afterTZ);
-            future.onError(function (f) {
-                Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
-                future.result = { returnValue: false };
-            });
-        }
 
         if (translation[lObj.key]) {
             event[translation[lObj.key]] = lObj.value;
         } else if (translationQuote[lObj.key]) {
             event[translationQuote[lObj.key]] = Quoting.unquote(lObj.value);
         } else if (transTime[lObj.key]) {
-            //log_icalDebug("Should call TZManager.loadTimezones for " + event.subject);
-            event[transTime[lObj.key]] = lObj.value;
-            //log_icalDebug("Trying to load Timezones...")
-            year = parseInt(lObj.value.substr(0, 4), 10);
-            //log_icalDebug("For year " + year);
-            if (!event.tzId && event.tz) {
-                event.tzId = event.tz.tzId;
-            }
-            if (!event.tzId && lObj.parameters.tzid) {
-                event.tzId = lObj.parameters.tzid;
-            }
-            if (event.tzId) {
-                future = TZManager.loadTimezones([event.tzId, localTzId], [year]);
-                future.then(afterTZ);
-                future.onError(function (f) {
-                    Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
-                    future.result = { returnValue: false };
-                });
+            if (lObj.parameters.tzid) {
+                Log.log_icalDebug("Having Timezone: ", lObj.parameters.tzid);
+                if (lObj.value.charAt(lObj.value.length - 1) === "Z") {
+                    Log.log_icalDebug("Z in time with TZID?? Should not happen!!");
+                }
+
+                if (!event.tzId) {
+                    event.tzId = lObj.parameters.tzid;
+                }
+                if (!event.tzId && event.tz) {
+                    event.tzId = event.tz.tzId;
+                }
+
+                year = parseInt(lObj.value.substr(0, 4), 10);
+                event[transTime[lObj.key]] = {tzId: lObj.parameters.tzid, year: year, value: lObj.value};
             } else {
-                event.loadTimezones -= 1;
-                //log_icalDebug("No Timezone in event. Assuming local.");
+                //UTC or floating time!
+                event[transTime[lObj.key]] = {tzId: false, value: lObj.value};
             }
-            //log_icalDebug("TZManager.loadTimezones ok for " + event.subject);
         } else { //one of the more complex cases.
             switch (lObj.key) {
             case "ATTACH": //I still don't get why this is an array?
@@ -770,11 +755,18 @@ var iCal = (function () {
                     event.alarmMode = true;
                 } else if (lObj.value === "VTIMEZONE") {
                     event.tzMode = true;
-                } else if (lObj.value === "VTODO" || lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
+                } else if (lObj.value === "VTODO") {
+                    event.ignoreMode = true; //TODO: add todo support here.
+                } else if (lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
                     event.ignoreMode = lObj.value;
                 } else if (lObj.value === "VEVENT") {
                     event.valid = true;
                 } //will ignore begins of VTIMEZONE and VCALENDAR.
+                break;
+            case "END":
+                if (lObj.value === "VEVENT") {
+                    event.finished = true;
+                }
                 break;
             case "ORGANIZER":
                 //organizer is a full attendee again. Problem: This might cause duplicate attendees!
@@ -812,7 +804,6 @@ var iCal = (function () {
             case "DURATION":
                 //this can be specified instead of DTEND.
                 event.duration = lObj.value;
-                event.loadTimezones -= 1;
                 break;
             default:
                 if (lObj.key !== "PRODID" && lObj.key !== "METHOD" && lObj.key !== "END") {
@@ -821,6 +812,7 @@ var iCal = (function () {
                 break;
             }
         }
+
         return event;
     }
 
@@ -897,49 +889,97 @@ var iCal = (function () {
         return revent;
     }
 
-    function convertTimestamps(event) {
-        var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false;
+    function convertTimestamps(events, index) {
+        var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false, tzs = [localTzId], years = [], future = new Future(), event;
+        event = events[index];
+
+        if (!event) {
+            if (index >= events.length) {
+                future.result = {returnValue: true};
+                return future;
+            }
+        }
+
         makeAllDay = event.allDay; //keep allDay setting from possible other cues.
         //log_icalDebug("Converting timestamps for " + event.subject);
-        if (!event.tz) {
-            if (event.tzId) {
-                //log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
-                event.tz = { tzId: event.tzId };
-            }
-        }
-        if (event.dtstart.indexOf("000000") !== -1 &&
-                ((event.dtend.indexOf("235900") !== -1) ||
-                 (event.dtend.indexOf("235959") !== -1) ||
-                 (event.dtend.indexOf("000000") !== -1))) {
-            makeAllDay = true;
-        }
-        for (i = 0; i < directTS.length; i += 1) {
-            if (event[directTS[i]]) {
-                t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
-                event[directTS[i]] = t.ts;
-                if (directTS[i] === "dtstart") {
-                    event.tzId = t.tzId;
-                    event.allDay = t.allDayCue;
+
+        directTS.forEach(function buildYearsAndTZs (field) {
+            if (event[field]) {
+                if (event[field].tzId) {
+                    tzs.push(event[field].tzId);
+                    years.push(event[field].year);
                 }
+                event[field] = event[field].value;
             }
+        });
+
+        event.originalDtstart = event.dtstart; //keep this for recurrence stuff
+
+        Log.log_icalDebug("Got tzIds and years for tzmanager: ", tzs, " ", years);
+        if (years.length > 0) {
+            if (event.tzId) {
+                tzs.push(event.tzId);
+            }
+            if (event.tz && event.tz.tzId) {
+                tzs.push(event.tz.tzId);
+            }
+
+            future.nest(TZManager.loadTimezones(tzs, years));
+        } else {
+            future.result = {returnValue: true};
         }
 
-        if (!event.dtend && event.duration) {
-            event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
-            Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
-            delete event.duration;
-        }
+        future.then(function () {
+            var result = checkResult(future);
+            Log.log_icalDebug("TZ Result: ", result);
+            if (result.returnValue) {
+                if (!event.tz) {
+                    if (event.tzId) {
+                        //log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
+                        event.tz = { tzId: event.tzId };
+                    }
+                }
+                if (event.dtstart.indexOf("000000") !== -1 &&
+                    ((event.dtend.indexOf("235900") !== -1) ||
+                     (event.dtend.indexOf("235959") !== -1) ||
+                     (event.dtend.indexOf("000000") !== -1))) {
+                    makeAllDay = true;
+                }
+                for (i = 0; i < directTS.length; i += 1) {
+                    if (event[directTS[i]]) {
+                        t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
+                        event[directTS[i]] = t.ts;
+                        if (directTS[i] === "dtstart") {
+                            event.tzId = t.tzId;
+                            event.allDay = t.allDayCue;
+                        }
+                    }
+                }
 
-        if (event.rrule && event.rrule.until) {
-            t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
-            event.rrule.until = t.ts;
-            event.rrule.untilOffset = t.offset;
-        }
+                if (!event.dtend && event.duration) {
+                    event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
+                    Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
+                    delete event.duration;
+                }
 
-        if (makeAllDay) {
-            event.allDay = true;
-        }
-        return event;
+                if (event.rrule && event.rrule.until) {
+                    t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
+                    event.rrule.until = t.ts;
+                    event.rrule.untilOffset = t.offset;
+                }
+
+                if (makeAllDay) {
+                    event.allDay = true;
+                }
+
+                applyHacks(event);
+
+                future.nest(convertTimestamps(events, index + 1)); //try next event
+            } else {
+                future.result = result;
+            }
+        });
+        return future;
     }
 
     function applyHacks(event) {
@@ -1028,6 +1068,41 @@ var iCal = (function () {
         return event;
     }
 
+    function fillYearsTZids(event, tzids, years) {
+        if (event.tzId && event.tzId !== localTzId && event.tzId !== "UTC") {
+            years.push(new Date(event.dtstart).getFullYear());
+            years.push(new Date(event.dtend).getFullYear());
+            if (event.lastModified) {
+                years.push(new Date(event.lastModified).getFullYear());
+            }
+            if (event.created) {
+                years.push(new Date(event.created).getFullYear());
+            }
+            tzids.push(event.tzId);
+        }
+    }
+
+    function prepareTZManager(event, children) {
+        var future = new Future(), years = [], tzids = [];
+
+        fillYearsTZids(event, tzids, years);
+
+        if (children) {
+            children.forEach(function (e) {
+                fillYearsTZids(e, tzids, years);
+            });
+        }
+
+        if (years.length > 0) {
+            tzids.push(localTzId);
+            future = TZManager.loadTimezones(tzids, years);
+        } else {
+            future.result = {returnValue: true};
+        }
+
+        return future;
+    }
+
     function generateICalIntern(event) {
         var field = "", i, text = [], translation, translationQuote, transTime, allDay, result;
         //not in webOs: UID
@@ -1071,10 +1146,6 @@ var iCal = (function () {
             event.tzId = localTzId;
         }*/
         Log.log_icalDebug("Generating iCal for event", event);
-        text.push("BEGIN:VCALENDAR");
-        text.push("VERSION:2.0");
-        //text.push("PRODID:MOBO.SYNCML.0.0.3");
-        text.push("METHOD:PUBLISH");
         text.push("BEGIN:VEVENT");
         for (field in event) {
             if (event.hasOwnProperty(field)) {
@@ -1117,10 +1188,11 @@ var iCal = (function () {
                         break;
                     default:
                         if (field !== "_id" && field !== "_kind" && field !== "_rev" && field !== "parentId" && field !== "allDay" &&
+                                field !== "remoteId" && field !== "uri" && field !== "tzId" && field !== "etag" &&
                                 field !== "eventDisplayRevset" && field !== "parentDtstart" && field !== "calendarId" &&
                                 field !== "transp" && field !== "accountId" && field !== "dtstamp" && field !== "created" &&
                                 field !== "lastModified" && field !== "tz" && event[field] !== "") {
-                            Log.log_icalDebug("Unknown field", field, "in event object with value", event[field]);
+                            Log.log_icalDebug("Unknown field ", field, " in event object with value ", event[field]);
                         }
                         break;
                     }
@@ -1132,7 +1204,6 @@ var iCal = (function () {
         text.push("X-MICROSOFT-CDO-ALLDAYEVENT:" + (event.allDay ? "TRUE" : "FALSE"));
         text.push("X-AllDayEvent:" + (event.allDay ? "TRUE" : "FALSE"));
         text.push("END:VEVENT");
-        text.push("END:VCALENDAR");
 
         //lines "should not" be longer than 75 chars in icalendar spec.
         for (i = 0; i < text.length; i += 1) {
@@ -1140,6 +1211,40 @@ var iCal = (function () {
         }
         result = text.join("\r\n");
         Log.log_icalDebug("Resulting iCal: " + result);
+        return result;
+    }
+
+    function getNewEvent() {
+        return {
+            alarm: [],
+            comment: "",
+            note: "",
+            location: "",
+            subject: "",
+            attendees: [],
+            rrule: null
+        };
+    }
+
+    function preProcessIcal(ical) {
+        var i, j, lines, lines2, line, result = [], proc;
+        proc = ical.replace(/\r\n /g, ""); //remove line breaks in key:value pairs.
+        proc = proc.replace(/\n /g, ""); //remove line breaks in key:value pairs.
+        proc = proc.replace(/\=\r\n/g, ""); //remove old line breaks in key:value pairs.
+        proc = proc.replace(/\=\n/g, ""); //remove old line breaks in key:value pairs.
+
+        lines = proc.split("\r\n"); //now every line contains a key:value pair => split them. somehow the \r seems to get lost somewhere?? is this always the case?
+
+        for (i = 0; i < lines.length; i += 1) {
+            lines2 = lines[i].split("\n");
+            for (j = 0; j < lines2.length; j += 1) {
+                line = lines2[j];
+                if (line !== "") {
+                    result.push(line);
+                }
+            }
+        }
+
         return result;
     }
 
