@@ -425,8 +425,9 @@ var CalDav = (function () {
 
             //maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
             //be sure to not delete local objects that are beyond that timerange! ;)
+            startVal = String(date.getUTCFullYear() - 1) + (date.getUTCMonth() < 9 ? "0" : "") + String(date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + String(date.getUTCDate()) + "T000000Z";
 
-            data = "<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
+            data = "<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"><c:time-range start=\"" + startVal + "\" /></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
             if (params.cardDav) {
                 //no filtering required for contacts, i.e. do propfind request.
                 options.method = "PROPFIND";
