@@ -143,16 +143,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     _saveErrorState: function (kindName, errorState) {
         "use strict";
         this.client.transport.syncKey[kindName].error = (errorState === undefined || errorState); //trigger "slow" sync.
-        var future = this.handler.putAccountTransportObject(this.client.transport);
+        var future = this.handler.updateAccountTransportObject(this.client.transport, {syncKey: this.client.transport.syncKey});
 
         future.then(this, function putCB() {
             var result = checkResult(future);
             Log.debug("Update TransportObject result: ", result);
-            if (!result.length) {
+            if (!result.results.length) {
                 Log.log("Could not store config object: ", result);
             } else {
-                Log.debug("Updating transport rev from ", this.client.transport._rev, " to ", result[0].rev);
-                this.client.transport._rev = result[0].rev;
+                Log.debug("Updating transport rev from ", this.client.transport._rev, " to ", result.results[0].rev);
+                this.client.transport._rev = result.results[0].rev;
             }
             //future.nest(this.handler.getAccountTransportObject(this.client.cliendId));
             future.result = {returnValue: true};
