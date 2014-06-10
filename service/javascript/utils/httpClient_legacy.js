@@ -197,7 +197,6 @@ var httpClient = (function () {
         function endCB() {
             var result;
             Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
-            Log.debug("Retries direcotry: ", retries, " origin: ", origin, " retry: ", retry);
             if (retries[origin].received) {
                 Log.log_calDavDebug("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
                 return;

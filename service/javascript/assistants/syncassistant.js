@@ -867,6 +867,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                                     result.exceptions.forEach(function (event, index) {
                                         event.collectionId = entries[entriesIndex].collectionId;
                                         event.uId = entries[entriesIndex].uId;
+                                        event.remoteId = entries[entriesIndex].remoteId;
                                         entries.push({
                                             alreadyDownloaded: true,
                                             obj: event,
@@ -876,8 +877,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                                         });
                                     });
 
-                                    future.nest(CalendarEventHandler.fillParentIds(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config),
-                                                                        result,result, result.exceptions));
+                                    future.nest(CalendarEventHandler.fillParentIds(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config), result, result.exceptions));
 
 
                                 } else {

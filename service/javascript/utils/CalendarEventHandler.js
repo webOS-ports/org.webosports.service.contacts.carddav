@@ -135,6 +135,8 @@ var CalendarEventHandler = (function () {
                         parentEvent = result.parent;
                         future.nest(getChildren(parentEvent));
                     }
+                } else {
+                    future.result = result;
                 }
             });
 

@@ -857,8 +857,8 @@ var iCal = (function () {
         }
         Log.log_icalDebug("Have parent ", revent, " and ", events.length, " children.");
 
-        if (!event.exdates) {
-            event.exdates = [];
+        if (!revent.exdates) {
+            revent.exdates = [];
         }
 
         for (i = 0; i < events.length; i += 1) {
@@ -1249,60 +1249,55 @@ var iCal = (function () {
         parseICal: function (ical) {
             var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, events = [];
 
-            try {
-                lines = preProcessIcal(ical);
+            lines = preProcessIcal(ical);
 
-                for (i = 0; i < lines.length; i += 1) {
-                    lObj = parseOneLine(lines[i]);
-                    if (event.alarmMode) {
-                        alarm = parseAlarm(lObj, event.alarm[event.alarm.length - 1]);
-                        if (alarm) {
-                            event.alarm[event.alarm.length - 1] = alarm;
-                        } else {
-                            delete event.alarmMode; //switch off alarm mode.
-                        }
-                    } else if (event.tzMode) {
-                        tzContinue = parseTimezone(lObj, tz);
-                        if (!tzContinue) {
-                            delete event.tzMode;
-                        }
-                    } else if (event.ignoreMode) {
-                        if (lObj.key === "END" && event.ignoreMode === lObj.value) { //make sure you ignore from the correct begin to the correct end.
-                            delete event.ignoreMode;
-                        }
+            for (i = 0; i < lines.length; i += 1) {
+                lObj = parseOneLine(lines[i]);
+                if (event.alarmMode) {
+                    alarm = parseAlarm(lObj, event.alarm[event.alarm.length - 1]);
+                    if (alarm) {
+                        event.alarm[event.alarm.length - 1] = alarm;
                     } else {
-                        event = parseLineIntoObject(lObj, event);
+                        delete event.alarmMode; //switch off alarm mode.
                     }
-
-                    //END:VEVENT read. Prepare for next event.
-                    if (event.finished) {
-                        events.push(event);
-                        event = getNewEvent();
+                } else if (event.tzMode) {
+                    tzContinue = parseTimezone(lObj, tz);
+                    if (!tzContinue) {
+                        delete event.tzMode;
                     }
+                } else if (event.ignoreMode) {
+                    if (lObj.key === "END" && event.ignoreMode === lObj.value) { //make sure you ignore from the correct begin to the correct end.
+                        delete event.ignoreMode;
+                    }
+                } else {
+                    event = parseLineIntoObject(lObj, event);
                 }
-                Log.log_icalDebug("Parsing finished, event:", events);
 
-                convertTimestamps(events, 0).then(function (future) {
-                    var result = checkResult(future), exceptions = [], revent;
-                    if (result.returnValue) {
-                        revent = tryToFillParentIds(events, exceptions);
-                        if (!revent.valid) {
-                            Log.log("VCALENDAR Object did not contain VEVENT.");
-                            outerFuture.result = {returnValue: false};
-                        }
-                        events.forEach(function (event) {
-                            delete event.valid;
-                        });
-                        Log.log_icalDebug("After TZ conversion:", events);
-                        outerFuture.result = {returnValue: true, result: revent, hasExceptions: exceptions.length > 0, exceptions: exceptions};
-                    } else {
-                        outerFuture.result = result;
-                    }
-                });
-            } catch (e) {
-                outerFuture.result = {returnValue: false, result: event};
-                Log.log(e);
+                //END:VEVENT read. Prepare for next event.
+                if (event.finished) {
+                    events.push(event);
+                    event = getNewEvent();
+                }
             }
+            Log.log_icalDebug("Parsing finished, event:", events);
+
+            convertTimestamps(events, 0).then(function (future) {
+                var result = checkResult(future), exceptions = [], revent;
+                if (result.returnValue) {
+                    revent = tryToFillParentIds(events, exceptions);
+                    if (!revent.valid) {
+                        Log.log("VCALENDAR Object did not contain VEVENT.");
+                        outerFuture.result = {returnValue: false};
+                    }
+                    events.forEach(function (event) {
+                        delete event.valid;
+                    });
+                    Log.log_icalDebug("After TZ conversion:", events);
+                    outerFuture.result = {returnValue: true, result: revent, hasExceptions: exceptions.length > 0, exceptions: exceptions};
+                } else {
+                    outerFuture.result = result;
+                }
+            });
 
             return outerFuture;
         },

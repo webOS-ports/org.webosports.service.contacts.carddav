@@ -81,13 +81,15 @@ var ETag = (function () {
 
             //we need update. Determine which objects to update.
             //1. get etags and uris from server.
-            //2. get local etags and uris from device db => include deleted!
+            //2. get local etags and uris from device db
             //compare the sets.
             //uri only on server => needs to be added
             //uri on server & local, etag same => no (remote) change.
             //uri on server & local, but etag differs => needs to be updated (local changes might be lost)
             //local with uri, but not on server => deleted on server, delete local (local changes might be lost)
-            //two local with same uri: delete one..
+            //two local with same uri: delete one
+            //locally deleted object are downloaded, deleted on server and then delete is downloaded again. Need more investigation
+            //DO NOT INCLUDE DELETED HERE!
             for (i = 0; i < localEtags.length; i += 1) {
                 l = localEtags[i];
                 if (l.remoteId) {
@@ -155,16 +157,20 @@ var ETag = (function () {
                     //collections overlap, i.e. if events/contacts are in multiple collections on the server
                     //at the same time.
                     where: [ { prop: "accountId", op: "=", val: clientId } ],
+                    incDel: false, //DO NOT INCLUDE DELETED HERE! Leads to a ton of issues and deleted stuff on server!
                     select: ["etag", "remoteId", "_id", "uri", "calendarId", "parentId"]
                 }, future;
             future =  DB.find(query, false, false);
 
             future.then(function () {
                 var result = checkResult(future), results = [];
-                if (result.retunValue) {
+                if (result.returnValue === true) {
+                    Log.debug("Got ", result.results.length, " etags.");
                     result.results.forEach(function (obj) {
                         if (!obj.parentId) { //remove exceptions of events, because they share the same URI.
                             results.push(obj);
+                        } else {
+                            Log.debug("Skipped child event.");
                         }
                     });
                     future.result = {returnValue: true, results: results};
