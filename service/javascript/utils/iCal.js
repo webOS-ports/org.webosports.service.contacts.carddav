@@ -834,7 +834,7 @@ var iCal = (function () {
         var i, event, revent, parentdtstart;
         //try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
 
-        if (events.length === 1) {
+        if (events.length <= 1) {
             return events[0]; //only one event, no exceptions.
         }
 
@@ -855,6 +855,12 @@ var iCal = (function () {
                 delete revent.originalDtstart; //clean that up
             }
         }
+
+        if (!revent) {
+            Log.log_icalDebug("Got no recurring event. No events at all? ", events);
+            return;
+        }
+
         Log.log_icalDebug("Have parent ", revent, " and ", events.length, " children.");
 
         if (!revent.exdates) {
@@ -885,9 +891,12 @@ var iCal = (function () {
         var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false, tzs = [localTzId], years = [], future = new Future(), event;
         event = events[index];
 
-        if (!event) {
+        if (!event || !event.valid) {
             if (index >= events.length) {
                 future.result = {returnValue: true};
+                return future;
+            } else {
+                future.nest(convertTimestamps(events, index + 1)); //try next event
                 return future;
             }
         }
@@ -1285,8 +1294,8 @@ var iCal = (function () {
                 var result = checkResult(future), exceptions = [], revent;
                 if (result.returnValue) {
                     revent = tryToFillParentIds(events, exceptions);
-                    if (!revent.valid) {
-                        Log.log("VCALENDAR Object did not contain VEVENT.");
+                    if (!revent || !revent.valid) {
+                        Log.log("VCALENDAR Object did not contain valid VEVENT.");
                         outerFuture.result = {returnValue: false};
                     }
                     events.forEach(function (event) {
