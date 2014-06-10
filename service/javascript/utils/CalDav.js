@@ -119,8 +119,16 @@ var CalDav = (function () {
         }
     }
 
-    function getETags(body) {
-        var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag;
+    function getETags(body, blacklisted) {
+        var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag, found = false;
+
+        function checkBlacklist(b) {
+            if (responses[i].href === b) {
+                Log.debug("Filtering etag ", responses[i].href, " from blacklist.");
+                found = true;
+            }
+        }
+
         for (i = 0; i < responses.length; i += 1) {
             for (j = 0; j < responses[i].propstats.length; j += 1) {
                 prop = responses[i].propstats[j].prop;
@@ -133,7 +141,13 @@ var CalDav = (function () {
                     }
                 }
                 if (etag) { //add found etags with uri
-                    eTags.push({etag: etag, uri: responses[i].href});
+                    if (blacklisted) { //filter for possibly blacklisted strings
+                        found = false;
+                        blacklisted.forEach(checkBlacklist);
+                    }
+                    if (!found) {
+                        eTags.push({etag: etag, uri: responses[i].href});
+                    }
                 }
             }
         }
@@ -403,10 +417,11 @@ var CalDav = (function () {
          * @return future result.etags will contain the etag directory of uri<=>etag objects
          */
         downloadEtags: function (params) {
-            var options = preProcessOptions(params), future = new Future(), data;
+            var options = preProcessOptions(params), future = new Future(), data, date = new Date(), startVal, blacklist = params.blacklist || [];
             options.method = "REPORT";
             options.headers.Depth = 1;
             options.parse = true;
+            blacklist.push(options.path);
 
             //maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
             //be sure to not delete local objects that are beyond that timerange! ;)
@@ -423,7 +438,7 @@ var CalDav = (function () {
             future.then(function () {
                 var result = checkResult(future), etags;
                 if (result.returnValue) {
-                    etags = getETags(result.parsedBody);
+                    etags = getETags(result.parsedBody, blacklist);
                     future.result = { returnValue: true, etags: etags };
                 } else {
                     future.result = { returnValue: false };

@@ -388,7 +388,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             return future;
         }
 
-        this.params = { authToken: this.client.userAuth.authToken, path: path };
+        if (!this.blacklist) {
+            this.blacklist = [];
+        }
+
+        this.params = { authToken: this.client.userAuth.authToken, path: path, blacklist: this.blacklist };
 
         this.SyncKey.prepare(kindName, state);
 
@@ -885,6 +889,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                                 }
                             } else {
                                 Log.log("Could not convert object ", entriesIndex, " - trying next one. :(");
+                                this.params.blacklist.push(entries[entriesIndex].uri);
                                 future.result = { returnValue: false };
                             }
 
