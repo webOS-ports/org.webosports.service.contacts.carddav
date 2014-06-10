@@ -699,7 +699,7 @@ var iCal = (function () {
             "TZID"          :    "tzId",
             "URL"           :    "url",
             "RECURRENCE-ID" :    "recurrenceId",
-            "UID"           :    "uId" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
+            "UID"           :    "uId"
         };
         translationQuote = {
             "COMMENT"       :    "comment",
@@ -831,7 +831,7 @@ var iCal = (function () {
     }
 
     function tryToFillParentIds(events, exceptions) {
-        var i, event, revent, recurrenceId, parentdtstart;
+        var i, event, revent, parentdtstart;
         //try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
 
         if (events.length === 1) {
@@ -849,16 +849,7 @@ var iCal = (function () {
             if (events[i].rrule) {
                 revent = events[i];
                 parentdtstart = revent.dtstart;
-                recurrenceId = revent.originalDtstart;
-                if (recurrenceId.charAt(parentdtstart.length - 1) !== "Z") {
-                    Log.log_icalDebug("dtstart ", recurrenceId, " not UTC, try to generate TZID param.");
-                    if (revent.tzId) {
-                        recurrenceId = "TZID=" + revent.tzId + ":" + recurrenceId;
-                        Log.log_icalDebug("Parentdtstart now is " + recurrenceId);
-                    } else {
-                        Log.log_icalDebug("Floating time? ", revent);
-                    }
-                }
+
                 events.splice(i, 1); //remove this event.
 
                 delete revent.originalDtstart; //clean that up
@@ -872,9 +863,6 @@ var iCal = (function () {
 
         for (i = 0; i < events.length; i += 1) {
             event = events[i];
-
-            //set recurrenceId: (somehow webos makes errors here)
-            event.recurrenceId = recurrenceId;
 
             //need to fill _id after insertion into db.
             if (revent._id) {

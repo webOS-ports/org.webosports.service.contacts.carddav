@@ -865,10 +865,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                                     //add the exceptions to the end of the entries, indicating that they are already downloaded.
                                     result.exceptions.forEach(function (event, index) {
+                                        event.collectionId = entries[entriesIndex].collectionId;
+                                        event.uId = entries[entriesIndex].uId;
                                         entries.push({
                                             alreadyDownloaded: true,
                                             obj: event,
                                             uri: entries[entriesIndex].uri + "exception" + index,
+                                            collectionId: entries[entriesIndex].collectionId,
                                             etag: entries[entriesIndex].etag
                                         });
                                     });
@@ -1077,6 +1080,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             var result = checkResult(f);
             if (result.returnValue === true) {
                 obj.remote.data = result.result; //copy vCard/iCal result into obj.
+
+                if (result.uri) {
+                    obj.remote.uri = result.uri;
+                }
+                if (result.etag) {
+                    obj.remote.etag = result.etag;
+                }
             }
 
             if (!obj.remote.uri) {
