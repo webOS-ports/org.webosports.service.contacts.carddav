@@ -901,7 +901,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     } else {
                         Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
-                        future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
+                        entries.splice(entriesIndex, 1);
+                        future.nest(this._downloadData(kindName, entries, entriesIndex));
                     }
                 });
             } //end update
