@@ -1,3 +1,12 @@
+0.3.8:
+    o reworked retry mechanism a bit (still not sure why that is needed at all)
+    o fixed some more issues with recurring events
+    o fxied issues with no events at all
+    o added filter to get events only one year back (do I need to make that configurable?), future should still be included completely
+    o fixed another possible sync-endless loop
+    o fixed issue with ical parsing if no event was received at all
+2014-06-10: Achim Königs <garfonso@mobo.info>
+
 0.3.7:
     o fixed issue with upload
     o sync on edit now only syncs the edited capability
