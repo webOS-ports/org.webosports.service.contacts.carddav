@@ -421,7 +421,6 @@ var CalDav = (function () {
             options.method = "REPORT";
             options.headers.Depth = 1;
             options.parse = true;
-            blacklist.push(options.path);
 
             //maybe add sensible timerange here: <C:time-range start="20040902T000000Z" end="20040903T000000Z"/>
             //be sure to not delete local objects that are beyond that timerange! ;)
