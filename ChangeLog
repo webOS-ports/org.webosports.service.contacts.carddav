@@ -1,3 +1,8 @@
+0.3.9:
+    o made newer http.request method work on TouchPad, too (previously was tailered only to OWO)
+    o fixed an issue where the service sometimes deleted just upsynced objects from device
+2014-06-11: Achim Königs <garfonso@mobo.info>
+
 0.3.8:
     o reworked retry mechanism a bit (still not sure why that is needed at all)
     o fixed some more issues with recurring events
