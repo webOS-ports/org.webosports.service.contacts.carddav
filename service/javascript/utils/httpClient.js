@@ -4,6 +4,10 @@ var http = require("http");
 var https = require("https");
 var url = require("url"); //required to parse urls
 
+if (!console.trace) {
+    console.trace = function () {};
+}
+
 var httpClient = (function () {
     "use strict";
     var proxy = {port: 0, host: "", valid: false},
@@ -30,6 +34,17 @@ var httpClient = (function () {
     if (process.env.https_proxy) {
         setProxy(process.env.https_proxy, httpsProxy);
         Log.log("Got https-proxy: ", httpsProxy.host, ":", httpsProxy.port);
+    }
+
+    function setTimeout(obj, callback) {
+        if (obj.setTimeout) {
+            obj.setTimeout(60000, callback);
+        } else if (obj.connection) {
+            obj.connection.setTimeout(60000, callback);
+        } else {
+            Log.log("Error: Could not setTimeout!!");
+        }
+
     }
 
     function parseURLIntoOptionsImpl(inUrl, options) {
@@ -77,7 +92,7 @@ var httpClient = (function () {
         }
 
         //handle proxy connect
-        if ((options.protocol === "https:" && httpsProxy.valid || proxy.valid) && !options.socket) {
+        if (((options.protocol === "https:" && httpsProxy.valid) || proxy.valid) && !options.socket) {
             Log.debug("Need to create proxy connection.");
             p = httpsProxy;
             if (options.protocol !== "https" || !p.valid) {
@@ -115,7 +130,7 @@ var httpClient = (function () {
                     future.result = {returnValue: false};
                 }
             });*/
-            connectReq.setTimeout(60000, connReqError);
+            setTimeout(connectReq, connectReq);
 
             connectReq.on("connect", function proxyConnectCB(res, socket) {
                 returned = true;
@@ -223,13 +238,12 @@ var httpClient = (function () {
                 //check if redirected to identical location
                 if (res.headers.location === options.prefix + options.path || //if strings really are identical
                     //or we have default port and string without port is identical:
-                    (
                         (
-                            (options.port === 80 && options.protocol === "http:") ||
-                            (options.port === 443 && options.protocol === "https:")
-                        ) &&
-                        res.headers.location === options.protocol + "//" + options.headers.host + options.path
-                    )) {
+                            (
+                                (options.port === 80 && options.protocol === "http:") ||
+                                (options.port === 443 && options.protocol === "https:")
+                            ) && res.headers.location === options.protocol + "//" + options.headers.host + options.path
+                        )) {
                     //don't run into redirection endless loop:
                     Log.log("Preventing enless redirect loop, because of redirection to identical location: " + res.headers.location + " === " + options.prefix + options.path);
                     result.returnValue = false;
@@ -273,7 +287,7 @@ var httpClient = (function () {
 
             res.once("error", errorCB);
             res.once("close", closeCB);
-            res.setTimeout(60000, timeoutCB);
+            setTimeout(res, timeoutCB);
 
             //in theory we do not need them. Need to test.
             //res.socket.once("error", errorCB);
@@ -285,9 +299,8 @@ var httpClient = (function () {
             future.nest(prepareProxy(options, errorCB, closeCB, timeoutCB));
 
             future.then(function () {
-                var result = checkResult(future);
+                var result = checkResult(future), req;
                 if (result.returnValue) {
-                    var req;
                     options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
 
                     Log.log_calDavDebug("Sending request ", reqNum, " with data ", data, " to server.");
@@ -299,8 +312,7 @@ var httpClient = (function () {
                     } else {
                         req = http.request(options, responseCB);
                     }
-                    req.setTimeout(60000, timeoutCB);
-                    req.setSocketKeepAlive(true);
+                    setTimeout(req, timeoutCB);
                     req.once("error", errorCB);
 
                     //hopefuly we do not need that with newer node versions, need to test.
