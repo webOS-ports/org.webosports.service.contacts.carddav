@@ -19,7 +19,6 @@ var ETag = (function () {
             }
             for (i = 0; i < objs.length; i += 1) {
                 if (objs[i][key] === remoteId) {
-                    objs._macht_index = i; //small hack. But obj is not stored anywhere, so should be fine.
                     return objs[i];
                 }
             }
@@ -180,7 +179,7 @@ var ETag = (function () {
             });
 
             return future;
-        },
+        }
     };
 }());
 
