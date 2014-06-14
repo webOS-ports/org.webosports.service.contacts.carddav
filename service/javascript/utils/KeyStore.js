@@ -29,12 +29,10 @@ var KeyStore = (function () {
                 keydata = {};
                 future.result = {};
             } else {
-                keydata = JSON.parse(result.keydata);
-
                 // Remove the key with this accountId, so it can be replaced
                 //console.log("------>made API _putCredentials call remove");
                 future.nest(PalmCall.call(KEYMGR_URI, "remove", {
-                    "keyname": accountId
+                    keyname: accountId
                 }));
             }
         });
@@ -47,8 +45,8 @@ var KeyStore = (function () {
             future.nest(PalmCall.call(KEYMGR_URI, "store", {
                 keyname: accountId,
                 keydata: JSON.stringify(keydata),
-                type:        "ASCIIBLOB",
-                nohide:    true
+                type:    "ASCIIBLOB",
+                nohide:  true
             }));
         });
         return future;
@@ -62,7 +60,7 @@ var KeyStore = (function () {
         future.then(function () {
             var success, credentials, result = checkResult(future);
 
-            if (result.returnValue !== false) {
+            if (result.returnValue !== false && result.keydata) {
                 credentials = JSON.parse(result.keydata);
 
                 if (credentials) {
