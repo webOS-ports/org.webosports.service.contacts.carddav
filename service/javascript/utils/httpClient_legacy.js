@@ -241,6 +241,7 @@ var httpClient = (function () {
                 }
                 parseURLIntoOptionsImpl(res.headers.location, options);
                 Log.log_calDavDebug("Redirected to ", res.headers.location);
+                retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
                 sendRequestImpl(options, data, 0, origin).then(function (f) {
                     future.result = f.result; //transfer future result.
                 });

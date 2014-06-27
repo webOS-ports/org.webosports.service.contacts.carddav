@@ -1,5 +1,6 @@
 0.3.10:
     o fixed google login issue on TouchPad
+    o fixed an issue with redirects in 2.x
     o renamed google & yahoo accounts
 2014-06-27: Achim Königs <garfonso@mobo.info>
 
