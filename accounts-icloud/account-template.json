@@ -1,6 +1,6 @@
 {
     "templateId": "org.webosports.cdav.account.icloud",
-    "loc_name": "C+DAV iCloud",
+    "loc_name": "iCloud C+DAV",
     "readPermissions": [
         "org.webosports.cdav.service",
         "com.palm.service.contacts",
