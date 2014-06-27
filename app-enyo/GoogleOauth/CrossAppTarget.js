@@ -71,7 +71,7 @@ enyo.kind({
             }
         }
 
-        if (false) { //TODO: find out how to determine if we are in legacy!
+        if (window.PalmSystem && PalmSystem.deviceInfo && JSON.parse(PalmSystem.deviceInfo).platformVersionMajor === 3) {
             //is legacy webos:
             this.$.webView.setUrl(url);
         } else {
@@ -84,13 +84,13 @@ enyo.kind({
             if (authWin) {
                 this.log("Adding listener for change messages to new window.");
                 //somehow those get deleted quite fast.. why?
-                authWin.onload = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
-                authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+                authWin.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
+                authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
 
                 setTimeout(pollTitle.bind(this), 500);
 
-                authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
-                authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+                authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
+                authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
 
 
             } else {
