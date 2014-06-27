@@ -1,6 +1,6 @@
 {
     "templateId": "org.webosports.cdav.account.google",
-    "loc_name": "Google C+DAVC*",
+    "loc_name": "Google C+DAV",
     "readPermissions": [
         "org.webosports.cdav.service",
         "com.palm.service.contacts",
