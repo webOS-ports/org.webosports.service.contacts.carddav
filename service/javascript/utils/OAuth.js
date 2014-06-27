@@ -34,7 +34,7 @@ var OAuth = (function () {
                         future.result = {returnValue: false};
                     }
                 } else {
-                    Log.log("Could not refresh_token: ", result.returnCode);
+                    Log.log("Could not refresh_token: ", result);
                     future.result = {returnValue: false};
                 }
             });

@@ -54,6 +54,15 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 }
             }
 
+            if (launchArgs.$activity && launchArgs.$activity.name && launchArgs.$activity.name.indexOf("SyncOnEdit") === 0) {
+                Log.log("SyncOnEdit => run only this sync!");
+                if (launchArgs.$activity.name.indexOf("contact") > 0) {
+                    launchArgs.capability = "CONTACTS";
+                } else if (launchArgs.$activity.name.indexOf("calendarevent") > 0) {
+                    launchArgs.capability = "CALENDAR";
+                }
+            }
+
             if (launchConfig.name.indexOf("Calendar") >= 0 || launchArgs.capability === "CALENDAR") {
                 Log.debug("Setting Kinds to Calendar.");
                 this.kinds = KindsCalendar;

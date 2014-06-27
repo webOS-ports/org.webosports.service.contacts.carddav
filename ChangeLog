@@ -1,3 +1,28 @@
+0.3.9:
+    o made newer http.request method work on TouchPad, too (previously was tailered only to OWO)
+    o fixed an issue where the service sometimes deleted just upsynced objects from device
+2014-06-11: Achim Königs <garfonso@mobo.info>
+
+0.3.8:
+    o reworked retry mechanism a bit (still not sure why that is needed at all)
+    o fixed some more issues with recurring events
+    o fxied issues with no events at all
+    o added filter to get events only one year back (do I need to make that configurable?), future should still be included completely
+    o fixed another possible sync-endless loop
+    o fixed issue with ical parsing if no event was received at all
+2014-06-10: Achim Königs <garfonso@mobo.info>
+
+0.3.7:
+    o fixed issue with upload
+    o sync on edit now only syncs the edited capability
+    o implemented proper exception handling for recurring events
+    o fixed ical parsing error
+    o reworked timezone handling in ical parsing, should prevent NaN-errors in calendar
+    o accept delete as succesful if server can't find object
+    o prevent possible rev-errors in put db, might have caused issues with synconedit syncs
+    o some code refactoring in syncassistant.
+2014-06-09: Achim Königs <garfonso@mobo.info>
+
 0.3.6:
     o fixed possible sync-endless loop because of wrong sync on edit activity creation
 2014-06-03: Achim Königs <garfonso@mobo.info>

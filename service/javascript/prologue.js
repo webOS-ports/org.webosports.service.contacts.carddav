@@ -10,13 +10,14 @@ var Sync = IMPORTS["mojoservice.transport.sync"];
 var Foundations = IMPORTS.foundations;
 var Contacts = IMPORTS.contacts;
 var Calendar = IMPORTS.calendar;
-var Globalization = IMPORTS.globalization.Globalization;
+//var Globalization = IMPORTS.globalization.Globalization;
 
 var Class = Foundations.Class;
 var DB = Foundations.Data.DB;
 var Future = Foundations.Control.Future;
 var Activity = Foundations.Control.Activity;
 var PalmCall = Foundations.Comms.PalmCall;
+var xml = IMPORTS["foundations.xml"];
 
 //now add some node.js imports:
 if (typeof require === "undefined") {
@@ -30,7 +31,12 @@ var servicePath = fs.realpathSync(".");
 console.log("Service Path: " + servicePath);
 var Log = require(servicePath + "/javascript/utils/Log.js");
 var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
-var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
+if (nodejsMajorVersion >= 4) {
+    var httpClient = require(servicePath + "/javascript/utils/httpClient.js");
+} else {
+    var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+}
 
 console.error("--------->Loaded Libraries OK1");
 

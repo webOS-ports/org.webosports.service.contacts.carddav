@@ -88,7 +88,6 @@ var iCal = (function () {
         //Usually the Z at the end of DATE-TIME should say that it's UTC. But I'm quite sure that most programs do this wrong... :(
         //there is a timezone property that could be set.
         //it could also be a comma seperated list of dates / date times. But we don't support that, yet.. ;)
-        recurringEvents = [], //this is used to try to get parentIds. This will only work, if the recurring event is processed in the same session as the exception..
         //used to try timeZone correction...
         localTzId = "UTC",
         TZManager = Calendar.TimezoneManager(),
@@ -227,13 +226,17 @@ var iCal = (function () {
         return 0;
     }
 
-    function parseDATEARRAY(str) {
+    function parseDATEARRAY(str, exdates) {
         var parts, times = [], i;
         parts = str.split(",");
         for (i = 0; i < parts.length; i += 1) {
             if (DATE.test(parts[i]) || DATETIME.test(parts[i])) { //skip empty / false values.
                 times.push(parts[i]);
             }
+        }
+
+        if (exdates && exdates.concat) {
+            return exdates.concat(times);
         }
         return times;
     }
@@ -402,7 +405,7 @@ var iCal = (function () {
                 rrule.interval = kv[1];
                 break;
             case "WKST":
-                rrule.wkst = dayToNum(kv[1]);
+                rrule.wkst = dayToNum[kv[1]];
                 break;
             case "BYDAY":
             case "BYMONTHDAY":
@@ -493,7 +496,7 @@ var iCal = (function () {
             obj.dtstart = lObj.value;
             break;
         default:
-            if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM") {
+            if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM" && lObj.key !== "RDATE") {
                 Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
             }
             break;
@@ -533,7 +536,7 @@ var iCal = (function () {
             }
             break;
         default:
-            if (lObj.key !== "X-LIC-LOCATION") {
+            if (lObj.key !== "X-LIC-LOCATION" && lObj.key !== "RDATE") {
                 Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
             }
             break;
@@ -676,81 +679,66 @@ var iCal = (function () {
         return res;
     }
 
-    function parseLineIntoObject(lObj, event, afterTZ) {
-        var translation, translationQuote, transTime, year, future;
+    function parseLineIntoObject(lObj, event) {
+        var translation, translationQuote, transTime, year;
         //not in webOs: UID
         //in webos but not iCal: allDay, calendarID, parentId, parentDtStart (???)
         //string arrays: attach, exdates, rdates
         //more complex objects: ATTENDEES, ORGANIZER, BEGIN:VALARM, RRULE
         translation = {
             "CATEGORIES"    :    "categories",
-            "CLASS"            :    "classification",
-            "GEO"            :    "geo",
-            "CONTACT"        :    "contact",
-            "PRIORITY"        :    "priority",
+            "CLASS"         :    "classification",
+            "GEO"           :    "geo",
+            "CONTACT"       :    "contact",
+            "PRIORITY"      :    "priority",
             "RELATED-TO"    :    "relatedTo",
             "STATUS"        :    "requestStatus",
-            "RESOURCES"        :    "resources",
-            "SEQUENCE"        :    "sequence",
+            "RESOURCES"     :    "resources",
+            "SEQUENCE"      :    "sequence",
             "TRANSP"        :    "transp",
-            "TZID"            :    "tzId",
-            "URL"            :    "url",
-            "RECURRENCE-ID"    :    "recurrenceId",
-            "UID"            :    "uId" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
+            "TZID"          :    "tzId",
+            "URL"           :    "url",
+            "RECURRENCE-ID" :    "recurrenceId",
+            "UID"           :    "uId"
         };
         translationQuote = {
-            "COMMENT"        :    "comment",
-            "DESCRIPTION"    :    "note",
-            "LOCATION"        :    "location",
-            "SUMMARY"        :    "subject"
+            "COMMENT"       :    "comment",
+            "DESCRIPTION"   :    "note",
+            "LOCATION"      :    "location",
+            "SUMMARY"       :    "subject"
         };
         transTime = {
-            "DTSTAMP"        :    "dtstamp",
-            "DTSTART"        :    "dtstart",
-            "DTEND"            :    "dtend",
-            "CREATED"        :    "created",
-            "LAST-MODIFIED"    :    "lastModified"
+            "DTSTAMP"       :    "dtstamp",
+            "DTSTART"       :    "dtstart",
+            "DTEND"         :    "dtend",
+            "CREATED"       :    "created",
+            "LAST-MODIFIED" :    "lastModified"
         };
-        //most parameters ignored for the simple objects... hm. But they mostly have none, right?
-        if (lObj.key === "TZID") {
-            //log_icalDebug("Got TZID: " + lObj.value);
-            event.tzId = lObj.value;
-            future = TZManager.loadTimezones([event.tzId, localTzId]);
-            future.then(afterTZ);
-            future.onError(function (f) {
-                Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
-                future.result = { returnValue: false };
-            });
-        }
 
         if (translation[lObj.key]) {
             event[translation[lObj.key]] = lObj.value;
         } else if (translationQuote[lObj.key]) {
             event[translationQuote[lObj.key]] = Quoting.unquote(lObj.value);
         } else if (transTime[lObj.key]) {
-            //log_icalDebug("Should call TZManager.loadTimezones for " + event.subject);
-            event[transTime[lObj.key]] = lObj.value;
-            //log_icalDebug("Trying to load Timezones...")
-            year = parseInt(lObj.value.substr(0, 4), 10);
-            //log_icalDebug("For year " + year);
-            if (!event.tzId && event.tz) {
-                event.tzId = event.tz.tzId;
-            }
-            if (!event.tzId && lObj.parameters.tzid) {
-                event.tzId = lObj.parameters.tzid;
-            }
-            if (event.tzId) {
-                future = TZManager.loadTimezones([event.tzId, localTzId], [year]);
-                future.then(afterTZ);
-                future.onError(function (f) {
-                    Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
-                    future.result = { returnValue: false };
-                });
+            if (lObj.parameters.tzid) {
+                Log.log_icalDebug("Having Timezone: ", lObj.parameters.tzid);
+                if (lObj.value.charAt(lObj.value.length - 1) === "Z") {
+                    Log.log_icalDebug("Z in time with TZID?? Should not happen!!");
+                }
+
+                if (!event.tzId) {
+                    event.tzId = lObj.parameters.tzid;
+                }
+                if (!event.tzId && event.tz) {
+                    event.tzId = event.tz.tzId;
+                }
+
+                year = parseInt(lObj.value.substr(0, 4), 10);
+                event[transTime[lObj.key]] = {tzId: lObj.parameters.tzid, year: year, value: lObj.value};
             } else {
-                event.loadTimezones -= 1;
-                //log_icalDebug("No Timezone in event. Assuming local.");
+                //UTC or floating time!
+                event[transTime[lObj.key]] = {tzId: false, value: lObj.value};
             }
-            //log_icalDebug("TZManager.loadTimezones ok for " + event.subject);
         } else { //one of the more complex cases.
             switch (lObj.key) {
             case "ATTACH": //I still don't get why this is an array?
@@ -760,10 +748,10 @@ var iCal = (function () {
                 event.attach.push(lObj.value);
                 break;
             case "EXDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
-                event.exdates = parseDATEARRAY(lObj.value); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
+                event.exdates = parseDATEARRAY(lObj.value, event.exdates); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
                 break;
             case "RDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
-                event.rdates = parseDATEARRAY(lObj.value); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
+                event.rdates = parseDATEARRAY(lObj.value, event.rdates); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
                 break;
             case "BEGIN": //ignore begins other than ALARM.
                 if (lObj.value === "VALARM") {
@@ -771,11 +759,18 @@ var iCal = (function () {
                     event.alarmMode = true;
                 } else if (lObj.value === "VTIMEZONE") {
                     event.tzMode = true;
-                } else if (lObj.value === "VTODO" || lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
+                } else if (lObj.value === "VTODO") {
+                    event.ignoreMode = true; //TODO: add todo support here.
+                } else if (lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
                     event.ignoreMode = lObj.value;
                 } else if (lObj.value === "VEVENT") {
                     event.valid = true;
                 } //will ignore begins of VTIMEZONE and VCALENDAR.
+                break;
+            case "END":
+                if (lObj.value === "VEVENT") {
+                    event.finished = true;
+                }
                 break;
             case "ORGANIZER":
                 //organizer is a full attendee again. Problem: This might cause duplicate attendees!
@@ -813,7 +808,6 @@ var iCal = (function () {
             case "DURATION":
                 //this can be specified instead of DTEND.
                 event.duration = lObj.value;
-                event.loadTimezones -= 1;
                 break;
             default:
                 if (lObj.key !== "PRODID" && lObj.key !== "METHOD" && lObj.key !== "END") {
@@ -822,91 +816,171 @@ var iCal = (function () {
                 break;
             }
         }
+
         return event;
     }
 
-    function tryToFillParentId(event) {
-        var i, j, revent, ts,    thisTS;
-        //try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
-        if (event.exdates && event.exdates.length > 0) {
-            //Log.log_icalDebug("Event has exdates:", event.exdates, "remembering it as recurring.");
-            event.recurringId = recurringEvents.length; //save index for recurring event to add ids later.
-            recurringEvents.push(event);
-        }
-
-        //this will only work, if parent was processed before... :(
-        if (event.recurrenceId) {
-            thisTS = event.recurrenceId; //from webOs-docs recurrenceId is DATETIME not webOs-timestamp.
-            for (i = 0; i < recurringEvents.length; i += 1) {
-                revent = recurringEvents[i];
-                //Log.log_icalDebug("Checking if event is exception for", revent.exdates);
-                for (j = 0; j < revent.exdates.length; j += 1) {
-                    ts = revent.exdates[j];
-                    //log_icalDebug("Matching TS: " + ts + " = " + thisTS);
-                    if (ts === thisTS) {
-                        event.parentDtstart = revent.dtstart;
-                        event.parentId = revent._id;
-                        if (!event.parentId) {
-                            Log.log("Need to add parentId later, because it does not exist, yet. Saving this element as child for parent " + i);
-                            event.parentLocalId = i;
-                        } else {
-                            Log.log_icalDebug("Found parent event with eventId " + revent._id + " ts: " + ts + " this ts " + event.recurrenceId);
-                        }
-                        event.relatedTo = revent.uId;
-                        return event;
-                    }
-                }
+    function addToExdates(exdates, stamp) {
+        var i;
+        for (i = 0; i < exdates.length; i += 1) {
+            if (exdates[i] === stamp) {
+                return;
             }
         }
-        if (event.recurrenceId) {
-            Log.log("Did not find parent event. :(");
-        }
-        return event;
+        exdates.push(stamp);
     }
 
-    function convertTimestamps(event) {
-        var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false;
+    function tryToFillParentIds(events, exceptions) {
+        var i, event, revent, parentdtstart;
+        //try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
+
+        if (events.length <= 1) {
+            return events[0]; //only one event, no exceptions.
+        }
+
+        //search for original event, should usually be the first event.
+        Log.log_icalDebug("processing ", events.length, " events in search of parentids.");
+        for (i = events.length - 1 ; i >= 0; i -= 1) {
+            if (!events[i].valid) {
+                Log.log_icalDebug("Event ", events[i], " was invalid.");
+                events.splice(i, 1);
+            }
+
+            if (events[i].rrule) {
+                revent = events[i];
+                parentdtstart = revent.dtstart;
+
+                events.splice(i, 1); //remove this event.
+
+                delete revent.originalDtstart; //clean that up
+            }
+        }
+
+        if (!revent) {
+            Log.log_icalDebug("Got no recurring event. No events at all? ", events);
+            return;
+        }
+
+        Log.log_icalDebug("Have parent ", revent, " and ", events.length, " children.");
+
+        if (!revent.exdates) {
+            revent.exdates = [];
+        }
+
+        for (i = 0; i < events.length; i += 1) {
+            event = events[i];
+
+            //need to fill _id after insertion into db.
+            if (revent._id) {
+                event.parentId = revent._id;
+            }
+            event.parentDtstart = parentdtstart;
+            event.relatedTo = revent.uId;
+
+            addToExdates(revent.exdates, event.originalDtstart);
+
+            exceptions.push(event);
+
+            delete event.originalDtstart; //clean that up
+        }
+
+        return revent;
+    }
+
+    function convertTimestamps(events, index) {
+        var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false, tzs = [localTzId], years = [], future = new Future(), event;
+        event = events[index];
+
+        if (!event || !event.valid) {
+            if (index >= events.length) {
+                future.result = {returnValue: true};
+                return future;
+            } else {
+                future.nest(convertTimestamps(events, index + 1)); //try next event
+                return future;
+            }
+        }
+
         makeAllDay = event.allDay; //keep allDay setting from possible other cues.
         //log_icalDebug("Converting timestamps for " + event.subject);
-        if (!event.tz) {
-            if (event.tzId) {
-                //log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
-                event.tz = { tzId: event.tzId };
-            }
-        }
-        if (event.dtstart.indexOf("000000") !== -1 &&
-                ((event.dtend.indexOf("235900") !== -1) ||
-                 (event.dtend.indexOf("235959") !== -1) ||
-                 (event.dtend.indexOf("000000") !== -1))) {
-            makeAllDay = true;
-        }
-        for (i = 0; i < directTS.length; i += 1) {
-            if (event[directTS[i]]) {
-                t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
-                event[directTS[i]] = t.ts;
-                if (directTS[i] === "dtstart") {
-                    event.tzId = t.tzId;
-                    event.allDay = t.allDayCue;
+
+        directTS.forEach(function buildYearsAndTZs (field) {
+            if (event[field]) {
+                if (event[field].tzId) {
+                    tzs.push(event[field].tzId);
+                    years.push(event[field].year);
                 }
+                event[field] = event[field].value;
             }
+        });
+
+        event.originalDtstart = event.dtstart; //keep this for recurrence stuff
+
+        Log.log_icalDebug("Got tzIds and years for tzmanager: ", tzs, " ", years);
+        if (years.length > 0) {
+            if (event.tzId) {
+                tzs.push(event.tzId);
+            }
+            if (event.tz && event.tz.tzId) {
+                tzs.push(event.tz.tzId);
+            }
+
+            future.nest(TZManager.loadTimezones(tzs, years));
+        } else {
+            future.result = {returnValue: true};
         }
 
-        if (!event.dtend && event.duration) {
-            event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
-            Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
-            delete event.duration;
-        }
+        future.then(function () {
+            var result = checkResult(future);
+            Log.log_icalDebug("TZ Result: ", result);
+            if (result.returnValue) {
+                if (!event.tz) {
+                    if (event.tzId) {
+                        //log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
+                        event.tz = { tzId: event.tzId };
+                    }
+                }
+                if (event.dtstart.indexOf("000000") !== -1 &&
+                    ((event.dtend.indexOf("235900") !== -1) ||
+                     (event.dtend.indexOf("235959") !== -1) ||
+                     (event.dtend.indexOf("000000") !== -1))) {
+                    makeAllDay = true;
+                }
+                for (i = 0; i < directTS.length; i += 1) {
+                    if (event[directTS[i]]) {
+                        t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
+                        event[directTS[i]] = t.ts;
+                        if (directTS[i] === "dtstart") {
+                            event.tzId = t.tzId;
+                            event.allDay = t.allDayCue;
+                        }
+                    }
+                }
 
-        if (event.rrule && event.rrule.until) {
-            t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
-            event.rrule.until = t.ts;
-            event.rrule.untilOffset = t.offset;
-        }
+                if (!event.dtend && event.duration) {
+                    event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
+                    Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
+                    delete event.duration;
+                }
 
-        if (makeAllDay) {
-            event.allDay = true;
-        }
-        return event;
+                if (event.rrule && event.rrule.until) {
+                    t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
+                    event.rrule.until = t.ts;
+                    event.rrule.untilOffset = t.offset;
+                }
+
+                if (makeAllDay) {
+                    event.allDay = true;
+                }
+
+                applyHacks(event);
+
+                future.nest(convertTimestamps(events, index + 1)); //try next event
+            } else {
+                future.result = result;
+            }
+        });
+        return future;
     }
 
     function applyHacks(event) {
@@ -995,6 +1069,41 @@ var iCal = (function () {
         return event;
     }
 
+    function fillYearsTZids(event, tzids, years) {
+        if (event.tzId && event.tzId !== localTzId && event.tzId !== "UTC") {
+            years.push(new Date(event.dtstart).getFullYear());
+            years.push(new Date(event.dtend).getFullYear());
+            if (event.lastModified) {
+                years.push(new Date(event.lastModified).getFullYear());
+            }
+            if (event.created) {
+                years.push(new Date(event.created).getFullYear());
+            }
+            tzids.push(event.tzId);
+        }
+    }
+
+    function prepareTZManager(event, children) {
+        var future = new Future(), years = [], tzids = [];
+
+        fillYearsTZids(event, tzids, years);
+
+        if (children) {
+            children.forEach(function (e) {
+                fillYearsTZids(e, tzids, years);
+            });
+        }
+
+        if (years.length > 0) {
+            tzids.push(localTzId);
+            future = TZManager.loadTimezones(tzids, years);
+        } else {
+            future.result = {returnValue: true};
+        }
+
+        return future;
+    }
+
     function generateICalIntern(event) {
         var field = "", i, text = [], translation, translationQuote, transTime, allDay, result;
         //not in webOs: UID
@@ -1038,10 +1147,6 @@ var iCal = (function () {
             event.tzId = localTzId;
         }*/
         Log.log_icalDebug("Generating iCal for event", event);
-        text.push("BEGIN:VCALENDAR");
-        text.push("VERSION:2.0");
-        //text.push("PRODID:MOBO.SYNCML.0.0.3");
-        text.push("METHOD:PUBLISH");
         text.push("BEGIN:VEVENT");
         for (field in event) {
             if (event.hasOwnProperty(field)) {
@@ -1084,10 +1189,11 @@ var iCal = (function () {
                         break;
                     default:
                         if (field !== "_id" && field !== "_kind" && field !== "_rev" && field !== "parentId" && field !== "allDay" &&
+                                field !== "remoteId" && field !== "uri" && field !== "tzId" && field !== "etag" &&
                                 field !== "eventDisplayRevset" && field !== "parentDtstart" && field !== "calendarId" &&
                                 field !== "transp" && field !== "accountId" && field !== "dtstamp" && field !== "created" &&
                                 field !== "lastModified" && field !== "tz" && event[field] !== "") {
-                            Log.log_icalDebug("Unknown field", field, "in event object with value", event[field]);
+                            Log.log_icalDebug("Unknown field ", field, " in event object with value ", event[field]);
                         }
                         break;
                     }
@@ -1099,7 +1205,6 @@ var iCal = (function () {
         text.push("X-MICROSOFT-CDO-ALLDAYEVENT:" + (event.allDay ? "TRUE" : "FALSE"));
         text.push("X-AllDayEvent:" + (event.allDay ? "TRUE" : "FALSE"));
         text.push("END:VEVENT");
-        text.push("END:VCALENDAR");
 
         //lines "should not" be longer than 75 chars in icalendar spec.
         for (i = 0; i < text.length; i += 1) {
@@ -1110,99 +1215,98 @@ var iCal = (function () {
         return result;
     }
 
+    function getNewEvent() {
+        return {
+            alarm: [],
+            comment: "",
+            note: "",
+            location: "",
+            subject: "",
+            attendees: [],
+            rrule: null
+        };
+    }
+
+    function preProcessIcal(ical) {
+        var i, j, lines, lines2, line, result = [], proc;
+        proc = ical.replace(/\r\n /g, ""); //remove line breaks in key:value pairs.
+        proc = proc.replace(/\n /g, ""); //remove line breaks in key:value pairs.
+        proc = proc.replace(/\=\r\n/g, ""); //remove old line breaks in key:value pairs.
+        proc = proc.replace(/\=\n/g, ""); //remove old line breaks in key:value pairs.
+
+        lines = proc.split("\r\n"); //now every line contains a key:value pair => split them. somehow the \r seems to get lost somewhere?? is this always the case?
+
+        for (i = 0; i < lines.length; i += 1) {
+            lines2 = lines[i].split("\n");
+            for (j = 0; j < lines2.length; j += 1) {
+                line = lines2[j];
+                if (line !== "") {
+                    result.push(line);
+                }
+            }
+        }
+
+        return result;
+    }
+
     return {
         /**
          * parses text representation of iCal into webOS calendarevent
          * @param ical the ical string
          * @return future that will contain the webOS object in result.result
          */
-        parseICal: function (ical) { // 6 === 1 + transTime.length in parseLineIntoObj, this is important.
-            var proc, lines, lines2, line, j, i, lObj, event = {alarm: [], loadTimezones: 6,
-                    comment: "", note: "", location: "", subject: "", attendees: [], rrule: null}, alarm, tzContinue, afterTZ, outerFuture = new Future();
-            //used for timezone mangling.
-            afterTZ = function () {
-                try {
-                    event.loadTimezones -= 1;
-                    if (event.loadTimezones === 0) {
-                        delete event.loadTimezones;
-                        event = convertTimestamps(event);
-                        event = applyHacks(event);
-                        outerFuture.result = {returnValue: true, result: event};
+        parseICal: function (ical) {
+            var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, events = [];
+
+            lines = preProcessIcal(ical);
+
+            for (i = 0; i < lines.length; i += 1) {
+                lObj = parseOneLine(lines[i]);
+                if (event.alarmMode) {
+                    alarm = parseAlarm(lObj, event.alarm[event.alarm.length - 1]);
+                    if (alarm) {
+                        event.alarm[event.alarm.length - 1] = alarm;
+                    } else {
+                        delete event.alarmMode; //switch off alarm mode.
                     }
-                } catch (e) {
-                    outerFuture.result = {returnValue: false, result: event};
-                    Log.log(e);
-                }
-            };
-
-            try {
-                proc = ical.replace(/\r\n /g, ""); //remove line breaks in key:value pairs.
-                proc = proc.replace(/\n /g, ""); //remove line breaks in key:value pairs.
-                proc = proc.replace(/\=\r\n/g, ""); //remove old line breaks in key:value pairs.
-                proc = proc.replace(/\=\n/g, ""); //remove old line breaks in key:value pairs.
-                //log_icalDebug("Incomming iCal: " + ical);
-                lines = proc.split("\r\n"); //now every line contains a key:value pair => split them. somehow the \r seems to get lost somewhere?? is this always the case?
-                for (i = 0; i < lines.length; i += 1) {
-                    lines2 = lines[i].split("\n");
-                    for (j = 0; j < lines2.length; j += 1) {
-                        line = lines2[j];
-                        if (line !== "") { //filter possible empty lines.
-                            lObj = parseOneLine(line);
-                            if (event.alarmMode) {
-                                alarm = parseAlarm(lObj, event.alarm[event.alarm.length - 1]);
-                                if (alarm) {
-                                    event.alarm[event.alarm.length - 1] = alarm;
-                                } else {
-                                    delete event.alarmMode; //switch off alarm mode.
-                                }
-                            } else if (event.tzMode) {
-                                if (!event.tz) {
-                                    event.tz = {};
-                                }
-                                tzContinue = parseTimezone(lObj, event.tz);
-                                if (!tzContinue) {
-                                    delete event.tzMode;
-                                }
-                            } else if (event.ignoreMode) {
-                                if (lObj.key === "END" && event.ignoreMode === lObj.value) { //make sure you ignore from the correct begin to the correct end.
-                                    delete event.ignoreMode;
-                                }
-                            } else {
-                                event = parseLineIntoObject(lObj, event, afterTZ);
-                            }
-                        }
+                } else if (event.tzMode) {
+                    tzContinue = parseTimezone(lObj, tz);
+                    if (!tzContinue) {
+                        delete event.tzMode;
                     }
+                } else if (event.ignoreMode) {
+                    if (lObj.key === "END" && event.ignoreMode === lObj.value) { //make sure you ignore from the correct begin to the correct end.
+                        delete event.ignoreMode;
+                    }
+                } else {
+                    event = parseLineIntoObject(lObj, event);
                 }
-                Log.log_icalDebug("Parsing finished, event:", event);
 
-                if (!event.valid) {
-                    Log.log("VCALENDAR Object did not contain VEVENT.");
-                    outerFuture.result = {returnValue: false};
+                //END:VEVENT read. Prepare for next event.
+                if (event.finished) {
+                    events.push(event);
+                    event = getNewEvent();
                 }
-
-                event = tryToFillParentId(event);
-
-                if (!event.dtstamp) {
-                    event.loadTimezones -= 1;
-                }
-                if (!event.created) {
-                    event.loadTimezones -= 1;
-                }
-                if (!event.lastModified) {
-                    event.loadTimezones -= 1;
-                }
-                event.loadTimezones -= 1; //signal that we are finished with everything else.
-                //see future of loadTimezones!
-                if (event.loadTimezones <= 0) {
-                    delete event.loadTimezones;
-                    event = convertTimestamps(event);
-                    event = applyHacks(event);
-                    outerFuture.result = {returnValue: true, result: event};
-                } //else, wait for TZManager to load up tz information.
-            } catch (e) {
-                outerFuture.result = {returnValue: false, result: event};
-                Log.log(e);
             }
+            Log.log_icalDebug("Parsing finished, event:", events);
+
+            convertTimestamps(events, 0).then(function (future) {
+                var result = checkResult(future), exceptions = [], revent;
+                if (result.returnValue) {
+                    revent = tryToFillParentIds(events, exceptions);
+                    if (!revent || !revent.valid) {
+                        Log.log("VCALENDAR Object did not contain valid VEVENT.");
+                        outerFuture.result = {returnValue: false};
+                    }
+                    events.forEach(function (event) {
+                        delete event.valid;
+                    });
+                    Log.log_icalDebug("After TZ conversion:", events);
+                    outerFuture.result = {returnValue: true, result: revent, hasExceptions: exceptions.length > 0, exceptions: exceptions};
+                } else {
+                    outerFuture.result = result;
+                }
+            });
 
             return outerFuture;
         },
@@ -1213,42 +1317,55 @@ var iCal = (function () {
          * @return future with the text in result.result
          */
         generateICal: function (event) {
-            var years = [], outerFuture = new Future(), future, result;
-            try {
-                event = removeHacks(event);
+            var future;
 
-                if (event.tzId && event.tzId !== localTzId && event.tzId !== "UTC") {
-                    years.push(new Date(event.dtstart).getFullYear());
-                    years.push(new Date(event.dtend).getFullYear());
-                    if (event.lastModified) {
-                        years.push(new Date(event.lastModified).getFullYear());
-                    }
-                    if (event.created) {
-                        years.push(new Date(event.created).getFullYear());
-                    }
-                    //for timezone mangling.
-                    future = TZManager.loadTimezones([event.tzId, localTzId], years);
-                    future.then(this, function () {
-                        try {
-                            result = generateICalIntern(event);
-                            outerFuture.result = { returnValue: true, result: result};
-                        } catch (e) {
-                            Log.log("Error in generateICal (intern): ", e);
-                        }
-                    });
-                    future.onError(function (f) {
-                        Log.log("Error in TZManager.loadTimezones-future: " + f.exeption);
-                        future.result = { returnValue: false };
-                    });
-                } else {
-                    result = generateICalIntern(event);
-                    outerFuture.result = { returnValue: true, result: result};
-                }
-            } catch (e) {
-                Log.log("Error in generateICal:", e);
+            removeHacks(event);
+
+            future = prepareTZManager(event);
+
+            future.then(this, function () {
+                checkResult(future);
+                var result = generateICalIntern(event);
+                result = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:WEBOS.0.3.7\r\nMETHOD:PUBLISH\r\n" + result + "\r\nEND:VCALENDAR";
+                future.result = { returnValue: true, result: result};
+            });
+
+            return future;
+        },
+
+        /**
+         * generates text representation of webOS calendarevent
+         * @param event the event object
+         * @return future with the text in result.result
+         */
+        generateICalWithExceptions: function (event, children) {
+            var future;
+
+            if (!children) {
+                children = [];
             }
 
-            return outerFuture;
+            removeHacks(event);
+            children.forEach(function (e) {
+                removeHacks(e);
+            });
+
+            future = prepareTZManager(event, children);
+            future.then(function tzManagerCB() {
+                checkResult(future);
+
+                var result = "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:WEBOS.0.3.7\r\nMETHOD:PUBLISH\r\n";
+                result += generateICalIntern(event);
+
+                children.forEach(function (e) {
+                    result += "\r\n" + generateICalIntern(e);
+                });
+
+                result += "\r\nEND:VCALENDAR";
+                future.result = { returnValue: true, result: result};
+            });
+
+            return future;
         },
 
         initialize: function () {

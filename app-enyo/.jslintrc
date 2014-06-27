@@ -1,0 +1,8 @@
+{
+    "predef": ["enyo"],
+    "node": false,
+    "sloppy": true,
+    "browser": true,
+    "devel": true,
+    "indent": 4
+}

@@ -79,7 +79,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function credentialsCheckCB() {
-        var result = checkResult(future), authToken, msg, exception;
+        var result = checkResult(future), authToken, msg, exception, returnCode;
         // Check if we are getting a good return code for success
         if (result.returnValue === true) {
             // Pass back credentials and config (username/password/url);
@@ -100,7 +100,11 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
         } else {
             Log.debug("Password rejected");
-            switch (result.exception.returnCode) {
+            returnCode = result.returnCode;
+            if (!returnCode && result.exception) {
+                returnCode = result.exception.returnCode;
+            }
+            switch (returnCode) {
             case 404:
                 msg = "URL wrong, document not found. - URL: " + result.uri;
                 exception = new Transport.BadRequestError(msg);

@@ -74,6 +74,14 @@
                     "name": "parentId"
                 }
             ]
+        },
+        {
+            "name": "remoteId",
+            "props": [
+                {
+                    "name": "remoteId"
+                }
+            ]
         }
     ]
 }

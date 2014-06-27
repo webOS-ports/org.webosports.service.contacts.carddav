@@ -1,4 +1,4 @@
-/*jslint sloppy: true */
+/*jslint sloppy: true, browser: true */
 /*global enyo, $L, console, setTimeout, PalmSystem */
 
 function log(msg) {
@@ -60,10 +60,43 @@ enyo.kind({
             url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
         }
 
-        this.$.webView.setUrl(url);
-        //authWin = window.open(url);
-        //authWin.addEventListener("change", this.gotAuthToken.bind(this), false);
+        //title polling function, used because events somehow go missing.
+        function pollTitle() {
+            if (!this.doing) {
+                this.gotAuthToken({}, authWin.document.title);
 
+                setTimeout(pollTitle.bind(this), 500);
+            } else {
+                authWin.close();
+            }
+        }
+
+        if (false) { //TODO: find out how to determine if we are in legacy!
+            //is legacy webos:
+            this.$.webView.setUrl(url);
+        } else {
+            //is LuneOS:
+            this.log("Poping up Google page with OAuth request.");
+            authWin = window.open(url);
+            console.log(authWin);
+
+
+            if (authWin) {
+                this.log("Adding listener for change messages to new window.");
+                //somehow those get deleted quite fast.. why?
+                authWin.onload = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+                authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+
+                setTimeout(pollTitle.bind(this), 500);
+
+                authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+                authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title);}.bind(this);
+
+
+            } else {
+                this.error("No authWin!!! AHRGS.");
+            }
+        }
 
         console.error("<<<<<<<<<<<<<<<<<<<< create");
     },
@@ -121,8 +154,8 @@ enyo.kind({
             };
         if (!template) {
             template = {
-                "templateId": "org.webosports.cdav.account",
-                "loc_name": "C+DAV Connector",
+                "templateId": "org.webosports.cdav.account.google",
+                "loc_name": "C+DAV Google",
                 "readPermissions": [
                     "org.webosports.cdav.service",
                     "com.palm.service.contacts",
@@ -138,13 +171,20 @@ enyo.kind({
                     "address": "palm://org.webosports.cdav.service/checkCredentials",
                     "customUI": {
                         "appId": "org.webosports.cdav.app",
-                        "name": "index.html"
+                        "name": "GoogleOauth/index.html"
                     }
                 },
                 "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
-                "loc_usernameLabel": "Username",
+                "loc_usernameLabel": "Google-Mail",
                 "icon": {
-                    "loc_32x32": "images/webos-ports32.png"
+                    "loc_32x32": "images/google_32.png",
+                    "loc_64x64": "images/google_64.png",
+                    "loc_128x128": "images/google_128x128.png",
+                    "loc_256x256": "images/google_256x256.png"
+                },
+                "config": {
+                    "name": "C+DAV Google",
+                    "url": "https://www.googleapis.com/caldav/v2"
                 },
                 "capabilityProviders": [
                     {
@@ -154,7 +194,7 @@ enyo.kind({
                         "onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
                         "onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
                         "sync": "palm://org.webosports.cdav.service/sync",
-                        "loc_name": "CardDAV Contacts",
+                        "loc_name": "Google Contacts",
                         "dbkinds": {
                             "contactset": "org.webosports.cdav.contactset:1",
                             "contact": "org.webosports.cdav.contact:1"
@@ -167,7 +207,7 @@ enyo.kind({
                         "onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
                         "onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
                         "sync": "palm://org.webosports.cdav.service/sync",
-                        "loc_name": "CalDav Calendar",
+                        "loc_name": "Google Calendar",
                         "dbkinds": {
                             "calendar": "org.webosports.cdav.calendar:1",
                             "calendarevent": "org.webosports.cdav.calendarevent:1"
@@ -193,6 +233,13 @@ enyo.kind({
                 template.capabilityProviders[i].loc_name = "Google Calendar";
                 break;
             }
+        }
+
+        if (!template.config) {
+            template.config = {
+                "name": "C+DAV Google",
+                "url": "https://www.googleapis.com/caldav/v2"
+            };
         }
 
         template.config.credentials = credentials;

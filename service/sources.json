@@ -54,6 +54,9 @@
         "source": "javascript/utils/accountConfigUtils.js"
     },
     {
+        "source": "javascript/assistants/addeventassistant.js"
+    },
+    {
         "source": "javascript/assistants/checkcredentialsassistant.js"
     },
     {
