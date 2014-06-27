@@ -1,6 +1,6 @@
 {
     "templateId": "org.webosports.cdav.account.google",
-    "loc_name": "C+DAV Google",
+    "loc_name": "Google C+DAVC*",
     "readPermissions": [
         "org.webosports.cdav.service",
         "com.palm.service.contacts",
@@ -28,7 +28,7 @@
         "loc_256x256": "images/google_256x256.png"
     },
     "config": {
-        "name": "C+DAV Google",
+        "name": "Google C+DAV",
         "url": "https://www.googleapis.com/caldav/v2"
     },
     "capabilityProviders": [
