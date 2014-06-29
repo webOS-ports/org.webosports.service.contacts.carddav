@@ -13,6 +13,7 @@ exports.unquote = function (string) {
     string = string.replace(/\\\\/gmi, "\\");
     string = string.replace(/\\,/gmi, ",");
     string = string.replace(/\\;/gmi, ";");
+    string = string.replace(/\\:/gmi, ":");
     string = string.replace(/\\n/gmi, "\n");
     string = string.replace(/\\r/gmi, "\r");
     string = string.replace(/&amp;/gmi, "&");

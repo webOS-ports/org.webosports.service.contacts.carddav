@@ -290,7 +290,7 @@ var vCard = (function () {
                         Log.log("Read vCard from " + filename + ": " + data);
 
                         data = applyHacks(data, input.server);
-                        data = data.replace(/\nTYPE=:/g, "URL:"); //repair borked up URL thing on webOS 3.X. Omitting type here..
+                        data = data.replace(/\nTYPE=:/g, "\nURL:"); //repair borked up URL thing on webOS 3.X. Omitting type here..
 
                         //webos seems to "forget" the note field.. add it here.
                         if (input.contact && input.contact.note) {
