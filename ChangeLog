@@ -1,3 +1,13 @@
+0.3.11:
+    o removed wrong unescaping in vCard processing.
+2014-06-27: Achim Königs <garfonso@mobo.info>
+
+0.3.10:
+    o fixed google login issue on TouchPad
+    o fixed an issue with redirects in 2.x
+    o renamed google & yahoo accounts
+2014-06-27: Achim Königs <garfonso@mobo.info>
+
 0.3.9:
     o made newer http.request method work on TouchPad, too (previously was tailered only to OWO)
     o fixed an issue where the service sometimes deleted just upsynced objects from device

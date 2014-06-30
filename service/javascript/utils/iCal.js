@@ -440,7 +440,7 @@ var iCal = (function () {
         }
         //first part can contain parameters which are seperated from key and themselves with ;
         parameters = parts[0].split(";");
-        lObj.key = parameters[0]; //now key is the first part of the parameters, allways.
+        lObj.key = parameters[0].toUpperCase(); //now key is the first part of the parameters, allways.
         for (i = 1; i < parameters.length; i += 1) {
             //have a look at the rest of the parameters, they now have the form KEY=VALUE.
             paramParts = parameters[i].split("=");
@@ -797,8 +797,8 @@ var iCal = (function () {
                     event.allDay = false;
                 }
                 break;
+            case "X-ALLDAYEVENT":
             case "X-MICROSOFT-CDO-ALLDAYEVENT":
-            case "X-AllDayEvent":
                 if (lObj.value.toLowerCase() === "true") {
                     event.allDay = true;
                 } else {
@@ -1203,7 +1203,7 @@ var iCal = (function () {
 
         text.push("X-FUNAMBOL-ALLDAY:" + (event.allDay ? "1" : "0"));
         text.push("X-MICROSOFT-CDO-ALLDAYEVENT:" + (event.allDay ? "TRUE" : "FALSE"));
-        text.push("X-AllDayEvent:" + (event.allDay ? "TRUE" : "FALSE"));
+        text.push("X-ALLDAYEVENT:" + (event.allDay ? "TRUE" : "FALSE"));
         text.push("END:VEVENT");
 
         //lines "should not" be longer than 75 chars in icalendar spec.

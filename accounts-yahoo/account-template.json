@@ -1,6 +1,6 @@
 {
     "templateId": "org.webosports.cdav.account.yahoo",
-    "loc_name": "C+DAV Yahoo",
+    "loc_name": "Yahoo C+DAV",
     "readPermissions": [
         "org.webosports.cdav.service",
         "com.palm.service.contacts",
