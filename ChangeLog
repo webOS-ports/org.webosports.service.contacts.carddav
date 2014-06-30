@@ -1,3 +1,7 @@
+0.3.12:
+    o changed getting username from google, now retrieves e-mail address and works with google plus deactivated, too.
+2014-06-30: Achim Königs <garfonso@mobo.info>
+
 0.3.11:
     o removed wrong unescaping in vCard processing.
 2014-06-27: Achim Königs <garfonso@mobo.info>
