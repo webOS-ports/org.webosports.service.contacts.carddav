@@ -754,11 +754,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 Log.log("Starting download.");
                 future.nest(this._downloadData(kindName, entries, 0));
                 return future;
+            } else {
+                //download etags and trigger next callback
+                entries = [];
+                future.nest(CalDav.downloadEtags(this.params));
             }
-
-            //download etags and trigger next callback
-            entries = [];
-            future.nest(CalDav.downloadEtags(this.params));
         }
 
         future.then(this, function handleRemoteEtags() {
@@ -780,7 +780,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             var result = checkResult(future);
             Log.log("---------------------->handleLocalEtags()");
             if (result.returnValue === true) {
-                future.result = { //trigger next then ;)
+                future.result = {
                     returnValue: true,
                     localEtags: result.results,
                     remoteEtags: remoteEtags
@@ -788,7 +788,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             } else {
                 Log.log("Could not get local etags, reason: ", result.exception);
                 Log.log("Result: ", result);
-                future.result = { //trigger next then ;)
+                future.result = {
                     returnValue: false,
                     localEtags: [],
                     remoteEtags: remoteEtags
