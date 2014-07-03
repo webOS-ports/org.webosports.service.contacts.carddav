@@ -592,12 +592,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         result.more = this.SyncKey.hasMoreFolders(kindName);
                     }
 
-                    if (!result.error) {
-                        //save ctag to fastly determine if sync is necessary at all
+                    //if downloads failed or had error => check etags next time, again.
+                    folder.ctag = 0;
+                    if (!result.error && !folder.downloadsFailed) {
+                        //all went well, save ctag to fastly determine if sync is necessary at all
                         folder.ctag = ctag;
-                    } else {
+                    }
+
+                    if (result.error) {
                         Log.log("Error in _doUpdate, returning empty set.");
-                        folder.ctag = 0; //remove ctag so next time a full sync is tried.
                         result.entries = [];
                     }
 
@@ -901,6 +904,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     } else {
                         Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
+                            this.SyncKey.currentFolder(kindName).downloadsFailed = true;
                         entries.splice(entriesIndex, 1);
                         future.nest(this._downloadData(kindName, entries, entriesIndex));
                     }
