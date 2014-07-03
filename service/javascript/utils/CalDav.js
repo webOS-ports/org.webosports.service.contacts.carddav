@@ -12,7 +12,11 @@ var CalDav = (function () {
         for (f in obj) {
             if (obj.hasOwnProperty(f)) {
                 if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
-                    return obj[f];
+                    if(typeof obj[f] === "string") {
+                        return decodeURIComponent(obj[f]);
+                    } else {
+                        return obj[f];
+                    }
                 }
             }
         }
