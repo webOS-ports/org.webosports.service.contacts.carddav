@@ -580,28 +580,28 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.then(this, function updateCB() {
                     var result = checkResult(future);
 
-                    if (!result.error) {
-                        if (!result.more) {
-                            Log.debug("Sync for folder ", folder.name, " finished.");
-                            this.SyncKey.nextFolder(kindName);
-                            result.more = this.SyncKey.hasMoreFolders(kindName);
-                        }
+                    //general cleanup:
+                    //this is required here to let next getRemoteChanges not run into error-case.
+                    this.client.transport.syncKey[kindName].error = false;
 
+                    delete this.collectionIds; //reset this for orphaned checks.
+
+                    if (!result.more) {
+                        Log.debug("Sync for folder ", folder.name, " finished.");
+                        this.SyncKey.nextFolder(kindName);
+                        result.more = this.SyncKey.hasMoreFolders(kindName);
+                    }
+
+                    if (!result.error) {
                         //save ctag to fastly determine if sync is necessary at all
                         folder.ctag = ctag;
-
-                        //this is required here to let next getRemoteChanges not run into error-case.
-                        this.client.transport.syncKey[kindName].error = false;
-                        delete this.collectionIds; //reset this for orphaned checks.
-
-                        future.result = result;
                     } else {
                         Log.log("Error in _doUpdate, returning empty set.");
-                        future.result = {
-                            more: false,
-                            entries: []
-                        };
+                        folder.ctag = 0; //remove ctag so next time a full sync is tried.
+                        result.entries = [];
                     }
+
+                    future.result = result;
                 });
             } else {
                 //we don't need an update, tell sync engine that we are finished.
