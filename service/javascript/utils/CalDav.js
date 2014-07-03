@@ -441,7 +441,7 @@ var CalDav = (function () {
                     etags = getETags(result.parsedBody, blacklist);
                     future.result = { returnValue: true, etags: etags };
                 } else {
-                    future.result = { returnValue: false };
+                    future.result = { returnValue: false, exception: result };
                     Log.log("Could not get eTags.");
                 }
             });

@@ -772,7 +772,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
             } else {
                 Log.log("Could not download etags. Reason: ", result);
-                future.result = { returnValue: false };
+                future.result = { returnValue: false, exception: result.exception };
             }
         });
 
