@@ -580,28 +580,31 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.then(this, function updateCB() {
                     var result = checkResult(future);
 
-                    if (!result.error) {
-                        if (!result.more) {
-                            Log.debug("Sync for folder ", folder.name, " finished.");
-                            this.SyncKey.nextFolder(kindName);
-                            result.more = this.SyncKey.hasMoreFolders(kindName);
-                        }
+                    //general cleanup:
+                    //this is required here to let next getRemoteChanges not run into error-case.
+                    this.client.transport.syncKey[kindName].error = false;
 
-                        //save ctag to fastly determine if sync is necessary at all
-                        folder.ctag = ctag;
+                    delete this.collectionIds; //reset this for orphaned checks.
 
-                        //this is required here to let next getRemoteChanges not run into error-case.
-                        this.client.transport.syncKey[kindName].error = false;
-                        delete this.collectionIds; //reset this for orphaned checks.
-
-                        future.result = result;
-                    } else {
-                        Log.log("Error in _doUpdate, returning empty set.");
-                        future.result = {
-                            more: false,
-                            entries: []
-                        };
+                    if (!result.more) {
+                        Log.debug("Sync for folder ", folder.name, " finished.");
+                        this.SyncKey.nextFolder(kindName);
+                        result.more = this.SyncKey.hasMoreFolders(kindName);
                     }
+
+                    //if downloads failed or had error => check etags next time, again.
+                    folder.ctag = 0;
+                    if (!result.error && !folder.downloadsFailed) {
+                        //all went well, save ctag to fastly determine if sync is necessary at all
+                        folder.ctag = ctag;
+                    }
+
+                    if (result.error) {
+                        Log.log("Error in _doUpdate, returning empty set.");
+                        result.entries = [];
+                    }
+
+                    future.result = result;
                 });
             } else {
                 //we don't need an update, tell sync engine that we are finished.
@@ -754,11 +757,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 Log.log("Starting download.");
                 future.nest(this._downloadData(kindName, entries, 0));
                 return future;
+            } else {
+                //download etags and trigger next callback
+                entries = [];
+                future.nest(CalDav.downloadEtags(this.params));
             }
-
-            //download etags and trigger next callback
-            entries = [];
-            future.nest(CalDav.downloadEtags(this.params));
         }
 
         future.then(this, function handleRemoteEtags() {
@@ -772,7 +775,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
             } else {
                 Log.log("Could not download etags. Reason: ", result);
-                future.result = { returnValue: false };
+                future.result = { returnValue: false, exception: result.exception };
             }
         });
 
@@ -780,7 +783,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             var result = checkResult(future);
             Log.log("---------------------->handleLocalEtags()");
             if (result.returnValue === true) {
-                future.result = { //trigger next then ;)
+                future.result = {
                     returnValue: true,
                     localEtags: result.results,
                     remoteEtags: remoteEtags
@@ -788,7 +791,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             } else {
                 Log.log("Could not get local etags, reason: ", result.exception);
                 Log.log("Result: ", result);
-                future.result = { //trigger next then ;)
+                future.result = {
                     returnValue: false,
                     localEtags: [],
                     remoteEtags: remoteEtags
@@ -901,6 +904,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     } else {
                         Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
+                            this.SyncKey.currentFolder(kindName).downloadsFailed = true;
                         entries.splice(entriesIndex, 1);
                         future.nest(this._downloadData(kindName, entries, entriesIndex));
                     }
