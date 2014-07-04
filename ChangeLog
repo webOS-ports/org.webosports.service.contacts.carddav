@@ -1,5 +1,8 @@
 0.3.13:
-    o
+    o fixed deleting accounts
+    o added uri component decoding where necessary, fixes some issues with virtual google-events (like weather or holydays)
+    o do slow check next time, if download of single items failed.
+    o go on if single addressbook / calendar fails (relevant for current bug in owncloud 6.0.3. with contact birthdays)
 2014-07-04: Achim Königs <garfonso@mobo.info>
 
 0.3.12:
