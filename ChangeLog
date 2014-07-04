@@ -1,3 +1,7 @@
+0.3.13:
+    o
+2014-07-04: Achim Königs <garfonso@mobo.info>
+
 0.3.12:
     o changed getting username from google, now retrieves e-mail address and works with google plus deactivated, too.
 2014-06-30: Achim Königs <garfonso@mobo.info>
