@@ -56,8 +56,8 @@ var ID = (function () {
                 if (!prefix) {
                     //if no collection, use first folder. This should not happen. But it happened due to bug with calendar-deletion.
                     Log.debug("Had no folder for collectionId ", obj.local.calendarId);
-                    prefix = SyncKey.getFoldeR(kindName, 0).uri;
-                    obj.local.calendarId = SyncKey.getFoldeR(kindName, 0).collectionId;
+                    prefix = SyncKey.getFolder(kindName, 0).uri;
+                    obj.local.calendarId = SyncKey.getFolder(kindName, 0).collectionId;
                 }
 
                 prefix = url.parse(prefix).pathname || "/";
