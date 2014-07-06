@@ -1161,7 +1161,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         future.nest(CalDav.putObject(this.params, obj));
 
         future.then(this, function putCB() {
-            var result = checkResult(future);
+            var result = checkResult(future), oldCardDav;
             if (result.returnValue === true) {
                 if (result.etag) { //server already delivered etag => no need to get it again.
                     Log.log("Already got etag in put response: ", result.etag);
@@ -1169,7 +1169,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 } else {
                     Log.log("Need to get new etag from server.");
                     this.params.path = result.uri; //this already is the complete URL.
+                    oldCardDav = this.params.cardDav;
+                    this.params.cardDav = true;
                     future.nest(CalDav.downloadEtags(this.params));
+                    this.params.cardDav = oldCardDav;
                 }
             } else {
                 Log.log("put object failed for ", obj.uri);
