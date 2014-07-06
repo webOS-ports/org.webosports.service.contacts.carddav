@@ -1,86 +1,16 @@
 /*jslint regexp: true */
-/*global Contacts, fs, Log, Future, servicePath, Buffer, checkResult */
+/*global Contacts, fs, Log, Future, servicePath, checkResult */
 
 var path = require("path"); //required for vCard converter.
 var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
+var vCardReader = require(servicePath + "/javascript/utils/vCardReader.js");
+var vCardWriter = require(servicePath + "/javascript/utils/vCardWriter.js");
 
 var vCard = (function () {
     "use strict";
     var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
         photoPath = "/media/internal/.caldav_photos/",
         vCardIndex = 0;
-
-    function extractPhotoType(line) {
-        var startIndex, endIndex, endIndex2, type;
-
-        startIndex = line.indexOf("TYPE=");
-        if (startIndex >= 0) {
-            startIndex += 5;
-            Log.log_icalDebug("StartIndex:", startIndex);
-
-            endIndex = line.indexOf(";", startIndex);
-            endIndex2 = line.indexOf(":", startIndex);
-
-            if (endIndex > 0 && endIndex2 > 0) {
-                endIndex = Math.min(endIndex, endIndex2);
-            } else if (endIndex2 > 0) {
-                endIndex = endIndex2;
-            }
-            type = line.substring(startIndex, endIndex);
-        }
-
-        if (type) {
-            type = "." + type.toLowerCase();
-        } else {
-            type = ".jpg";
-        }
-        Log.log_icalDebug("Read Photo Type:", type, "from", startIndex);
-        return type;
-    }
-
-    function createPhotoBlob(photos) {
-        var future = new Future(), blob = "", photo, i, photoType;
-        Log.log_icalDebug("Creating photo blob...");
-
-        for (i = 0; i < photos.length; i += 1) {
-            //Select smaller photo?
-            if (photos[i].type === "type_square") {
-                photo = photos[i];
-                break;
-            }
-        }
-        if (!photo) { //if no "square" photo, just take first one.
-            photo = photos[0];
-        }
-
-        Log.log_icalDebug("Photo:", photo);
-
-        //if we got a photo, build blob.
-        if (photo) {
-            photoType = photo.localPath.substring(photo.localPath.indexOf(".") + 1);
-            photoType = photoType.toUpperCase();
-
-            fs.readFile(photo.localPath, function (err, data) {
-                if (err) {
-                    Log.log("Could not read file", photo.localPath, ":", err);
-                    future.result = {blob: ""};
-                } else {
-                    Log.log_icalDebug("Photo read...");
-                    blob = "PHOTO;ENCODING=b;TYPE=" + photoType + ":" + data.toString("base64");
-                    blob = Quoting.fold(blob) + "\r\n";
-                    Log.log_icalDebug("Blob: \n", blob);
-
-                    future.result = {blob: blob};
-                }
-            });
-
-        } else {
-            Log.log_icalDebug("Urgs...??");
-            future.result = {blob: blob};
-        }
-
-        return future;
-    }
 
     function applyHacks(data, server) {
         if (server === "egroupware") {
@@ -89,6 +19,16 @@ var vCard = (function () {
         }
 
         return data;
+    }
+
+    function repairNote(note, data) {
+        //webos seems to "forget" the note field.. add it here.
+        if (note) {
+            note.replace(/[^\r]\n/g, "\r\n");
+        }
+        note = Quoting.fold(Quoting.quote(note));
+        Log.log("Having note:", note);
+        return data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
     }
 
     //public interface:
@@ -152,111 +92,105 @@ var vCard = (function () {
          */
         parseVCard: function (input) {
             var resFuture = new Future(),
+                future = new Future(),
                 filename = tmpPath + (input.account.name || "nameless") + "_" + vCardIndex + ".vcf",
                 vCardImporter,
-                currentLine,
-                lines,
-                data,
-                i,
                 version,
-                photoData = "",
-                emptyLine = /^[A-Za-z;\-_]*:[;]*$/,
-                //for extracting photo type.
-                photoType;
+                photo,
+                uid,
+                filewritten = false,
+                reader = new vCardReader();
 
             vCardIndex += 1;
-
             if (!input.vCard) {
                 Log.log("Empty vCard received.");
                 return new Future({returnValue: false});
             }
 
-            Log.log("Writing vCard to file", filename);
             Log.log_icalDebug("vCard data:", input.vCard);
 
             if (input.vCard.indexOf("VERSION:3.0") > -1) {
                 version = "3.0";
             } else if (input.vCard.indexOf("VERSION:2.1") > -1) {
                 version = "2.1";
-                input.vCard = input.vCard.replace(/\=\r?\n/g, ""); //replace all =\n, those are newlines in datablocks
             }
 
-            input.vCard = input.vCard.replace(/\r?\n /g, ""); //replace all \n+space, those are newlines in datablocks
-            lines = input.vCard.split(/\r?\n/);
-            data = [];
-            for (i = 0; i < lines.length; i += 1) {
-                currentLine = lines[i];
-                //log("CurrentLine: " + currentLine);
-                //check for start of photo mode
-                if (currentLine.indexOf("PHOTO") > -1) {
-                    Log.log("got photo...");
-                    photoData = currentLine.substring(currentLine.indexOf(":") + 1);
+            reader.processString(input.vCard, version);
+            photo = reader.extractPhoto();
+            uid = reader.extractUID();
 
-                    photoType = extractPhotoType(currentLine);
+            //setup importer
+            vCardImporter = new Contacts.vCardImporter({
+                filePath: filename,
+                importToAccountId: input.account.accountId,
+                version: version
+            });
 
-                    //log("PhotoData: " + photoData);
-                } else if (!emptyLine.test(currentLine)) {
-                    data.push(currentLine);
+            if (vCardImporter.setVCardFileReader) {
+                vCardImporter.setVCardFileReader(reader);
+                future.result = {returnValue: true};
+            } else {
+                Log.log("Patch not installed => Need to write vCard to file.");
+                future.nest(reader.writeToFile(filename));
+                filewritten = true;
+            }
+
+            //do import:
+            future.then(function () {
+                var result = checkResult(future);
+                if (result.returnValue) {
+                    future.nest(vCardImporter.readVCard());
                 } else {
-                    Log.log_icalDebug("Skipping empty line", currentLine);
+                    resFuture.result = {returnValue: false};
                 }
-            }
-            input.vCard = data.join("\r\n");
-            Log.log_icalDebug("vCard data cleaned up:", input.vCard);
-            fs.writeFile(filename, input.vCard, "utf-8", function (err) {
-                if (err) {
-                    Log.log("Could not write vCard to file:", filename, "Error:", err);
-                } else {
-                    Log.log("Saved vCard to", filename);
-                    //setup importer
-                    vCardImporter = new Contacts.vCardImporter({filePath: filename, importToAccountId: input.account.accountId, version: version});
-                    //do import:
-                    var future = vCardImporter.readVCard();
-                    future.then(function (f) {
-                        var result = checkResult(f), obj, key, buff;
-                        if (result[0]) {
-                            obj = result[0].getDBObject();
-                            obj._kind = input.account.kind;
+            });
 
-                            //prevent overriding of necessary stuff.
-                            for (key in obj) {
-                                if (obj.hasOwnProperty(key)) {
-                                    if (obj[key] === undefined || obj[key] === null) {
-                                        //log("Deleting entry " + key + " from obj.");
-                                        delete obj[key];
-                                    }
-                                }
+            future.then(function () {
+                var result = checkResult(future), obj, key;
+
+                if (filewritten) {
+                    fs.unlink(filename);
+                }
+
+                if (result[0]) { //result[0] is a Contact!
+                    obj = result[0].getDBObject();
+                    obj._kind = input.account.kind;
+
+                    //prevent overriding of necessary stuff.
+                    for (key in obj) {
+                        if (obj.hasOwnProperty(key)) {
+                            if (obj[key] === undefined || obj[key] === null) {
+                                //log("Deleting entry " + key + " from obj.");
+                                delete obj[key];
                             }
-                            delete obj.accounts;
-                            delete obj.accountId;
-                            delete obj.syncSource;
-
-                            Log.log("Contact:", obj);
-                            fs.unlink(filename);
-
-                            Log.log("PhotoData Length:", photoData.length);
-                            if (photoData.length > 0) { //got a photo!! :)
-                                Log.log("Writing photo!");
-                                buff = new Buffer(photoData, "base64");
-                                filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photoType;
-                                Log.log("writing photo to:", filename);
-                                fs.writeFile(filename, buff, function (err) {
-                                    if (err) {
-                                        Log.log("Could not write photo to file:", filename, "Error:", err);
-                                    }
-                                });
-                                obj.photos.push({localPath: filename, primary: false, type: "type_big"});
-                                obj.photos.push({localPath: filename, primary: false, type: "type_square"});
-                            }
-
-                            resFuture.result = {returnValue: true, result: obj};
-                        } else {
-                            Log.log("No result from conversion: ", result);
-                            fs.unlink(filename);
-                            resFuture.result = {returnValue: false, result: {}};
                         }
-                    });
+                    }
+                    delete obj.accounts;
+                    delete obj.accountId;
+                    delete obj.syncSource;
+                    obj.uId = uid;
+
+                    if (photo.photoData.length > 0) { //got a photo!! :)
+                        filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photo.photoType;
+                        reader.writePhoto(photo, filename).then(function () {
+                            obj.photos.push({localPath: filename, primary: false, type: "type_big"});
+                            obj.photos.push({localPath: filename, primary: false, type: "type_square"});
+                            future.result = {returnValue: true, obj: obj};
+                        });
+                    } else {
+                        //no photo, continue.
+                        future.result = {returnValue: true, obj: obj};
+                    }
+                } else { //no contact, some error must have happend.
+                    Log.log("No result from conversion: ", result);
+                    resFuture.result = {returnValue: false, result: {}};
                 }
+            });
+
+            future.then(function () {
+                var result = checkResult(future);
+                Log.debug("Result from write photo: ", result);
+                resFuture.result = {returnValue: true, result: result.obj};
             });
 
             return resFuture;
@@ -268,58 +202,81 @@ var vCard = (function () {
          * @return future, result.result will contain the text representation uppon success
          */
         generateVCard: function (input) {
-            var resFuture = new Future(), note,
+            var resFuture = new Future(),
+                future = new Future(),
                 filename = tmpPath + (input.accountName || "nameless") + "_" + vCardIndex + ".vcf",
                 version = "3.0",
+                data,
                 contactId = input.contact._id,
-                vCardExporter = new Contacts.VCardExporter({ filePath: filename, version: version });
-
-            vCardIndex += 1;
+                vCardExporter = new Contacts.VCardExporter({
+                    filePath: filename,
+                    version: version,
+                    charset: Contacts.VCard.CHARSET.UTF8,
+                    useFileCache: false,
+                }),
+                writer = new vCardWriter(),
+                filewritten = false,
+                contact = new Contacts.Contact(input.contact),
+                person = new Contacts.Person();
 
             Log.log("Got contact:", input.contact);
-            Contacts.Utils.defineConstant("kind", input.kind, Contacts.Person);
+            vCardIndex += 1;
+            person.populateFromContact(contact);
+
+            if (vCardExporter.setVCardFileWriter) {
+                vCardExporter.setVCardFileWriter(writer);
+            } else {
+                Contacts.Utils.defineConstant("kind", input.kind, Contacts.Person);
+                Log.log("Patch not installed => Need to write vCard to file.");
+                filewritten = true;
+            }
+
             Log.log("Get contact", contactId, "transfer it to version", version, "vCard.");
-            vCardExporter.exportOne(contactId, false).then(function (future) {
-                Log.log("webOS saved vCard to ", filename);
+            future.nest(vCardExporter.exportOne(contactId, false, person));
+
+            future.then(function () {
                 Log.log("result: ", checkResult(future));
-                fs.readFile(filename, "utf-8", function (err, data) {
-                    if (err) {
-                        Log.log("Could not read back vCard from", filename, ":", err);
-                        resFuture.result = { returnValue: false };
-                    } else {
-                        Log.log("Read vCard from " + filename + ": " + data);
+                if (filewritten) {
+                    Log.log("webOS saved vCard to ", filename);
+                    future.nest(writer.readFile(filename));
+                } else {
+                    future.result = {returnValue: true};
+                }
+            });
 
-                        data = applyHacks(data, input.server);
-                        data = data.replace(/\nTYPE=:/g, "\nURL:"); //repair borked up URL thing on webOS 3.X. Omitting type here..
+            future.then(function () {
+                var result = checkResult(future);
+                if (result.returnValue) {
+                    data = result.data;
+                    data = applyHacks(data, input.server);
+                    data = data.replace(/\nTYPE=:/g, "\nURL:"); //repair borked up URL thing on webOS 3.X. Omitting type here..
 
-                        //webos seems to "forget" the note field.. add it here.
-                        if (input.contact && input.contact.note) {
-                            note = input.contact.note;
-                            if (note) {
-                                note.replace(/[^\r]\n/g, "\r\n");
-                            }
-                            note = Quoting.fold(Quoting.quote(note));
-                            Log.log("Having note:", note);
-                            data = data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
-                        }
-
-                        if (input.contact && input.contact.uId) {
-                            data = data.replace("END:VCARD", "UID:" + input.contact.uId + "\r\nEND:VCARD");
-                        }
-
-                        if (input.contact && input.contact.photos && input.contact.photos.length > 0) {
-                            createPhotoBlob(input.contact.photos).then(this, function photoBlobCB(f) {
-                                var result = checkResult(f);
-                                data = data.replace("END:VCARD", result.blob + "END:VCARD");
-                                resFuture.result = { returnValue: true, result: data};
-                            });
-                        } else {
-                            Log.log("Modified data:", data);
-                            resFuture.result = { returnValue: true, result: data };
-                        }
+                    //repair note if patch was not applied.
+                    if (filewritten) {
+                        data = repairNote(input.contact.note, data);
                     }
-                    fs.unlink(filename);
-                });
+                    //need to add uId in any case:
+                    if (input.contact.uId) {
+                        data = data.replace("END:VCARD", "UID:" + input.contact.uId + "\r\nEND:VCARD");
+                    }
+
+                    if (input.contact.photos && input.contact.photos.length > 0) {
+                        future.nest(writer.createPhotoBlob(input.contact.photos));
+                    } else {
+                        future.result = { returnValue: true};
+                    }
+                } else {
+                    resFuture.result = { returnValue: false };
+                }
+            });
+
+            future.then(function photoBlobCB() {
+                var result = checkResult(future);
+                if (result.blob) {
+                    data = data.replace("END:VCARD", result.blob + "END:VCARD");
+                }
+                Log.debug("Modified data:", data);
+                resFuture.result = { returnValue: true, result: data };
             });
 
             return resFuture;
