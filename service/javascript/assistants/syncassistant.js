@@ -248,7 +248,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 var key, obj = from.obj;
 
                 if (!obj) {
-                    Log.log("ERROR: Incomming undefined!!", from, " => ", to);
+                    Log.log("ERROR: Incomming undefined!!", from, " = ", to);
                 }
 
                 //populate to object with data from event:
@@ -281,7 +281,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         if (name === "local2remote") {
             if (Kinds.objects[kindName].allowUpsync) { //configure upsync via kinds.js
-                return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback => no real conversion here.
+                return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback, no real conversion here.
                     Log.log("\n\n**************************SyncAssistant:_local2remote*****************************");
                     Log.debug("Transforming ", from);
                     Log.debug("To: ", to);
@@ -320,11 +320,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     },
 
     /*
-     * This is used for remote <=> local mapping. For CalDav/CardDav we use the URI as remote ID.
+     * This is used for remote <> local mapping. For CalDav/CardDav we use the URI as remote ID.
      * In CalDav RFC it is said that UID would be the remote ID, but at the same time URI for an
      * object is unique and does never change during it's lifetime. So we can use that as remote ID,
      * also. The big benefit is that we get the URI for free with etag check, but getting the UID
-     * means getting the whole dataset => not so nice for mobile data connections!
+     * means getting the whole dataset -> not so nice for mobile data connections!
      */
     getRemoteId: function (obj, kindName) {
         "use strict";
@@ -355,7 +355,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
     },
 
     /*
-     * This function should return a future which populates its results with entries: [] => an
+     * This function should return a future which populates its results with entries: [] -> an
      * array of objects that have changed on the server. For that we check the etag values.
      * Additionally the future.result can have a more-member, if that is truthy, the method will
      * be called again. That way changes can be delivered in batches.
@@ -592,7 +592,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                         result.more = this.SyncKey.hasMoreFolders(kindName);
                     }
 
-                    //if downloads failed or had error => check etags next time, again.
+                    //if downloads failed or had error -> check etags next time, again.
                     folder.ctag = 0;
                     if (!result.error && !folder.downloadsFailed) {
                         //all went well, save ctag to fastly determine if sync is necessary at all
@@ -635,7 +635,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             remoteFolder = remoteFolders[i];
             folder = ETag.findMatch(remoteFolder.uri, folders, "uri");
 
-            if (!folder) { //folder not found => need to add.
+            if (!folder) { //folder not found -> need to add.
                 Log.debug("Need to add remote folder: ", remoteFolder);
                 folders.push({remoteId: remoteFolder.uri, uri: remoteFolder.uri, name: remoteFolder.name});
                 change = true;
@@ -650,7 +650,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             folder = folders[i];
             remoteFolder = ETag.findMatch(folder.uri, remoteFolders, "uri");
 
-            if (!remoteFolder) { //folder not found => need to delete.
+            if (!remoteFolder) { //folder not found -> need to delete.
                 Log.debug("Need to delete local folder ", folder);
                 folders.splice(i, 1);
 
@@ -749,7 +749,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         if (folder.doDelete) {
             Log.debug("Server wants us to delete this collection. Tell webOS to delete all local entries.");
-            future.result = {returnValue: true, etags: []}; //emulate empty remote etags => will delete all local objects for this collection.
+            future.result = {returnValue: true, etags: []}; //emulate empty remote etags -> will delete all local objects for this collection.
         } else {
             entries = this.SyncKey.currentFolder(kindName).entries;
             if (entries && entries.length > 0) {
@@ -910,7 +910,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     }
                 });
             } //end update
-        } else { //entriesIndex >= entries.length => finished.
+        } else { //entriesIndex >= entries.length -> finished.
             Log.log(entriesIndex, " items received and converted.");
             resultEntries = entries.splice(0, entriesIndex);
 
@@ -949,7 +949,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             results.push({remoteId: remoteIds[i]});
         }
 
-        //add this here to also track errors during upsync => will trigger comparison of all etags on next downsync.
+        //add this here to also track errors during upsync -> will trigger comparison of all etags on next downsync.
         if (results.length > 0) {
             future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
@@ -1020,7 +1020,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 batch[index].local.uploadFailed = 1;
             }
 
-            //save remote id for local <=> remote mapping
+            //save remote id for local <-> remote mapping
             remoteIds[index] = rid;
 
             //save uri and etag in local object.
@@ -1129,10 +1129,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     var result = checkResult(future);
                     if (result.returnValue !== true) {
                         if (result.returnCode === 404) {
-                            Log.debug("Object not found on server => do not delete anymore.");
+                            Log.debug("Object not found on server -> do not delete anymore.");
                             result.returnValue = true;
                         } else {
-                            Log.log("Could not delete object: ", obj, " => ", result);
+                            Log.log("Could not delete object: ", obj, " -> ", result);
                         }
                     }
                     future.result = result;
@@ -1163,7 +1163,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         future.then(this, function putCB() {
             var result = checkResult(future), oldCardDav;
             if (result.returnValue === true) {
-                if (result.etag) { //server already delivered etag => no need to get it again.
+                if (result.etag) { //server already delivered etag -> no need to get it again.
                     Log.log("Already got etag in put response: ", result.etag);
                     future.result = { returnValue: true, uri: result.uri, etags: [{etag: result.etag, uri: result.uri}]};
                 } else {
@@ -1280,7 +1280,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     future.result = { returnValue: true };
                 });
             } else {
-                Log.debug("No upsync for ", syncObj.name, " => no SyncOnEdit activity");
+                Log.debug("No upsync for ", syncObj.name, ", no SyncOnEdit activity");
                 future.result = { returnValue: true };
             }
 
