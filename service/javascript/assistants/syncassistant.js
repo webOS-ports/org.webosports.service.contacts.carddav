@@ -867,26 +867,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                                 entries[entriesIndex].collectionId = this.SyncKey.currentFolder(kindName).collectionId;
                                 entries[entriesIndex].obj = obj;
 
-                                if (result.hasExceptions) {
-                                    //is calendarevent with rrule and exceptions
-
-                                    //add the exceptions to the end of the entries, indicating that they are already downloaded.
-                                    result.exceptions.forEach(function (event, index) {
-                                        event.collectionId = entries[entriesIndex].collectionId;
-                                        event.uId = entries[entriesIndex].uId;
-                                        event.remoteId = entries[entriesIndex].remoteId;
-                                        entries.push({
-                                            alreadyDownloaded: true,
-                                            obj: event,
-                                            uri: entries[entriesIndex].uri + "exception" + index,
-                                            collectionId: entries[entriesIndex].collectionId,
-                                            etag: entries[entriesIndex].etag
-                                        });
-                                    });
-
-                                    future.nest(CalendarEventHandler.fillParentIds(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config), result, result.exceptions));
-
-
+                                if (kindName === Kinds.objects.calendarevent.name) {
+                                    future.nest(CalendarEventHandler.processEvent(entries,
+                                                                                  entriesIndex,
+                                                                                  ID.uriToRemoteId(entries[entriesIndex].uri,
+                                                                                                   this.client.config),
+                                                                                  result));
                                 } else {
                                     future.result = { returnValue: true };
                                 }

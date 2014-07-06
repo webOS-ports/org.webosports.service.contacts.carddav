@@ -10,7 +10,7 @@ var CalendarEventHandler = (function () {
             parentEvent;
 
         if (event.parentId) {
-            Log.debug("===> Is child event.");
+            Log.debug("--> Is child event.");
             future.nest(DB.get([event.parentId]));
         } else {
             future.result = {returnValue: true, noChild: true};
@@ -22,7 +22,7 @@ var CalendarEventHandler = (function () {
             if (result.returnValue) {
                 if (result.noChild) {
                     if (event.rrule) {
-                        Log.debug("===> Is parent event.");
+                        Log.debug("--> Is parent event.");
                         parentEvent = event;
                     } else {
                         future.result = {returnValue: true, normalEvent: true};
@@ -57,6 +57,19 @@ var CalendarEventHandler = (function () {
         return future;
     }
 
+    function findEventByRemoteId(remoteId) {
+        return DB.find({
+            from: Kinds.objects.calendarevent.id,
+            where: [
+                {
+                    prop: "remoteId",
+                    op: "=",
+                    val: remoteId
+                }
+            ]
+        });
+    }
+
     return {
         /**
          * Generates remoteId string from uri
@@ -67,16 +80,7 @@ var CalendarEventHandler = (function () {
         fillParentIds: function (remoteId, event, children) {
             var future;
             //get parent Id:
-            future = DB.find({
-                from: Kinds.objects.calendarevent.id,
-                where: [
-                    {
-                        prop: "remoteId",
-                        op: "=",
-                        val: remoteId
-                    }
-                ]
-            });
+            future = findEventByRemoteId(remoteId);
 
             future.then(this, function getObjCB() {
                 var result = checkResult(future), r = result.results;
@@ -171,6 +175,74 @@ var CalendarEventHandler = (function () {
                 }
 
                 future.result = result;
+            });
+
+            return future;
+        },
+
+        processEvent: function (entries, entriesIndex, remoteId, result) {
+            var entry = entries[entriesIndex], future = new Future();
+
+            if (entry.obj.rrule) {
+                Log.debug("Event has rrule, deleting child events.", entry);
+                future.nest(findEventByRemoteId(remoteId));
+                future.then(function findByRemoteIdCB() {
+                    Log.debug("Find event returned: ");
+                    var result = checkResult(future);
+                    if (result.returnValue && result.results && result.results[0]) {
+                        future.nest(DB.merge(
+                            {
+                                from: Kinds.objects.calendarevent.id,
+                                where: [
+                                    {
+                                        prop: "parentId",
+                                        op: "=",
+                                        val: result.results[0]._id
+                                    }
+                                ]
+                            },
+                            {
+                                "_del": true,
+                                preventSync: true
+                            }
+                        ));
+                    } else {
+                        future.result = { returnValue: false};
+                    }
+
+                    future.then(function delChildrenCB() {
+                        var result = checkResult(future);
+                        Log.debug("Delete children result: ", result);
+                        future.result = {returnValue: true};
+                    });
+                });
+            } else {
+                future.result = {returnValue: true};
+            }
+
+            future.then(function () {
+                checkResult(future);
+                if (result.hasExceptions) {
+                    //is calendarevent with rrule and exceptions
+
+                    //add the exceptions to the end of the entries, indicating that they are already downloaded.
+                    result.exceptions.forEach(function (event, index) {
+                        event.collectionId = entries[entriesIndex].collectionId;
+                        event.uId = entries[entriesIndex].uId;
+                        event.remoteId = entries[entriesIndex].remoteId;
+                        entries.push({
+                            alreadyDownloaded: true,
+                            obj: event,
+                            uri: entries[entriesIndex].uri + "exception" + index,
+                            collectionId: entries[entriesIndex].collectionId,
+                            etag: entries[entriesIndex].etag
+                        });
+                    });
+
+                    future.nest(CalendarEventHandler.fillParentIds(remoteId, result, result.exceptions));
+                } else {
+                    future.result = {returnValue: true};
+                }
             });
 
             return future;
