@@ -5,6 +5,9 @@ buildpackage-upsync.bat
 buildpackage-enyo-upsync.bat
 distribute.cmd
 
+tests/
+tests-open/
+
 service/javascript/kinds_upsync.js
 
 node_modules

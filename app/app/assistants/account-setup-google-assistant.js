@@ -28,7 +28,7 @@ AccountSetupGoogleAssistant.prototype.setup = function () {
                   encodeURIComponent(CLIENT_ID) +
                   "&response_type=code" +
                   "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.google.com/m8/feeds https://www.googleapis.com/auth/plus.me");
+                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav  https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile");
 
     /* setup widgets here */
     this.controller.setupWidget("WebId", {url: url}, {});
@@ -107,7 +107,7 @@ AccountSetupGoogleAssistant.prototype.tokenCB = function (response) {
             body = response.responseJSON || JSON.parse(response.responseText);
 
             debug("Now trying to get name");
-            req = new Ajax.Request("https://www.googleapis.com/plus/v1/people/me", {
+            req = new Ajax.Request("https://www.googleapis.com/userinfo/v2/me", {
                 method: "GET",
                 parameters: {
                     access_token: body.access_token
@@ -147,7 +147,7 @@ AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
                 refresh_url: BASE_URL + "token"
             };
 
-            this.account.username = body.displayName;
+            this.account.username = body.email;
 
             if (!this.account.username) {
                 this.account.username = Date.now();

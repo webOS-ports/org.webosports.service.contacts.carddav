@@ -3,6 +3,7 @@
     "description": "CardDAV Contact Service",
     "engine": "node",
     "activityTimeout": 30,
+    "commandTimeout": 300,
     "services": [
         {
             "name": "org.webosports.cdav.service",

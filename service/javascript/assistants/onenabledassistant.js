@@ -1,4 +1,4 @@
-/*global Class, Log, PalmCall, Sync, checkResult */
+/*global Class, Log, PalmCall, Sync, checkResult, Future */
 /*exported OnEnabled*/
 
 //This got necessary, because a bug in mojosync framework.
@@ -57,9 +57,38 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
                     start: true,
                     replace: true
                 }).then(function activityCreateCB(f) {
-                    var result = checkResult(f);
+                    var result = checkResult(f), innerFuture = new Future(), count = 0;
                     Log.debug("Result of checkPeriodicSync-Activity: ", result);
-                    assistant.$super(run)(outerFuture);
+
+
+                    //this hack is necassary, because onEnabled will be run two times on
+                    //deleting an account. Both check for "syncInProgress" and set it to true
+                    //=> one assistant will always be busy.
+                    //=> retry here until other assistant is finished. ;)
+                    function superCB() {
+                        var result = checkResult(innerFuture);
+                        Log.debug("Super function returned: ", result);
+                        if (result !== true) {
+                            Log.debug("Trying again...");
+
+                            count += 1;
+                            if (count < 50) {
+                                setTimeout(function () {
+                                    assistant.$super(run)(innerFuture);
+                                    innerFuture.then(superCB);
+                                }, 500);
+                            } else {
+                                Log.debug("Could not finish.. hm... exit truthy anyway.");
+                                outerFuture.result = { returnValue: true};
+                            }
+                        } else {
+                            Log.debug("Super function returned ok, continue.");
+                            outerFuture.result = result;
+                        }
+                    }
+
+                    assistant.$super(run)(innerFuture);
+                    innerFuture.then(superCB);
                 });
             } else {
                 Log.debug("Still waiting for ", cancelCalls, " cancel callbacks.");

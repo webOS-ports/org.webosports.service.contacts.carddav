@@ -17,7 +17,7 @@ var OnDelete = Class.create(Sync.DeleteAccountCommand, {
 
             future.then(this, function dbCB() {
                 var result = checkResult(future);
-                Log.debug("Delete config object: ", result);
+                Log.debug("Delete config object result: ", result);
                 this.$super(run)(outerFuture);
             });
         } else {

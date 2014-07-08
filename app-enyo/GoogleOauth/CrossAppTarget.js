@@ -22,7 +22,7 @@ enyo.kind({
     components: [
         { name: "getAccessToken", kind: "WebService", url: BASE_URL + "token", method: "POST",
             onSuccess: "gotAccessToken", onFailure: "getAccessTokenFailed" },
-        { name: "getUserName", kind: "WebService", url: "https://www.googleapis.com/plus/v1/people/me", method: "GET",
+        { name: "getUserName", kind: "WebService", url: "https://www.googleapis.com/userinfo/v2/me", method: "GET",
             onSuccess: "gotName", onFailure: "getAccessTokenFailed" },
         {kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
         { kind: "PageHeader", content: "Sign In with Google", pack: "center" },
@@ -54,7 +54,7 @@ enyo.kind({
                   encodeURIComponent(CLIENT_ID) +
                   "&response_type=code" +
                   "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-                  "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts https://www.google.com/m8/feeds https://www.googleapis.com/auth/plus.me");
+            "&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile");
 
         if (this.params && this.params.account && this.params.account.credentials && this.params.account.credentials.user) {
             url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
@@ -141,7 +141,7 @@ enyo.kind({
 
         this.accountSettings = {};
         var i, template = this.params.template,
-            username = inResponse.displayName,
+            username = inResponse.email,
             credentials = {
                 access_token: this.token_response.access_token,
                 refresh_token: this.token_response.refresh_token,
@@ -217,7 +217,6 @@ enyo.kind({
             };
         }
 
-        username = inResponse.displayName;
         if (!username) {
             username = Date.now();
         }

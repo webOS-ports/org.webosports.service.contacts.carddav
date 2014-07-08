@@ -12,7 +12,11 @@ var CalDav = (function () {
         for (f in obj) {
             if (obj.hasOwnProperty(f)) {
                 if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
-                    return obj[f];
+                    if(typeof obj[f] === "string") {
+                        return decodeURIComponent(obj[f]);
+                    } else {
+                        return obj[f];
+                    }
                 }
             }
         }
@@ -441,7 +445,7 @@ var CalDav = (function () {
                     etags = getETags(result.parsedBody, blacklist);
                     future.result = { returnValue: true, etags: etags };
                 } else {
-                    future.result = { returnValue: false };
+                    future.result = { returnValue: false, exception: result };
                     Log.log("Could not get eTags.");
                 }
             });
