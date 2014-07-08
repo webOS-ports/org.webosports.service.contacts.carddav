@@ -95,7 +95,7 @@ var httpClient = (function () {
         if (((options.protocol === "https:" && httpsProxy.valid) || proxy.valid) && !options.socket) {
             Log.debug("Need to create proxy connection.");
             p = httpsProxy;
-            if (options.protocol !== "https" || !p.valid) {
+            if (options.protocol !== "https:" || !p.valid) {
                 p = proxy;
                 Log.debug("Using http proxy");
             } else {
@@ -130,7 +130,7 @@ var httpClient = (function () {
                     future.result = {returnValue: false};
                 }
             });*/
-            setTimeout(connectReq, connectReq);
+            setTimeout(connectReq, connReqError);
 
             connectReq.on("connect", function proxyConnectCB(res, socket) {
                 returned = true;
@@ -200,7 +200,8 @@ var httpClient = (function () {
         function errorCB(e) {
             Log.log("Error in connection for ", reqNum, ": ", e);
             //errno === 4 => EDOMAINNOTFOUND error
-            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED" || e.errno === 4);
+            //errno === 113 => EHOSTUNREACH error
+            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED" || e.errno === 4 || e.errno === 113);
         }
 
         function dataCB(chunk) {
