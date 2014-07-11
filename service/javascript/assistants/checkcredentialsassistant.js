@@ -1,8 +1,9 @@
 /*jslint nomen: true */
-/*global CalDav, DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, servicePath */
+/*global DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, servicePath */
 /*exported checkCredentialsAssistant*/
 var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
 var Base64 = require(servicePath + "/javascript/utils/Base64.js");
+var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () { "use strict"; };
@@ -14,6 +15,11 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
     // Base64 encode username and password
     base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
+    this.userAuth = {
+        user: args.username,
+        password: args.password,
+        authToken: base64Auth
+    };
 
     if (args && args.config) {
         if (!url) {
@@ -75,7 +81,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
         }
 
         // Test basic authentication. If this fails username and or password is wrong
-        future.nest(CalDav.checkCredentials({authToken: base64Auth, path: path}));
+        future.nest(AuthManager.checkAuth(this.userAuth, path));
     });
 
     future.then(this, function credentialsCheckCB() {

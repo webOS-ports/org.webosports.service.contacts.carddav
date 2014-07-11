@@ -215,6 +215,7 @@ var httpClient = (function () {
                 etag: res.headers.etag,
                 returnCode: res.statusCode,
                 body: body,
+                headers: res.headers,
                 uri: options.prefix + options.path
             };
 
