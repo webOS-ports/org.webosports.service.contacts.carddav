@@ -226,6 +226,7 @@ var httpClient = (function () {
                 returnValue: (res.statusCode < 400),
                 etag: res.headers.etag,
                 returnCode: res.statusCode,
+                headers: res.headers,
                 body: body,
                 uri: options.prefix + options.path
             };
