@@ -83,8 +83,13 @@ var vCardReader = function () {
         },
 
         readLine: function () {
+            var line = lines[index] || "";
             index += 1;
-            return lines[index - 1];
+            if (index >= lines.length) {
+                return null;
+            } else {
+                return line;
+            }
         },
 
         writeToFile: function (filename) {
