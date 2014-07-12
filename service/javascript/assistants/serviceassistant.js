@@ -9,7 +9,7 @@
 /*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, iCal, vCard, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
-var OAuth = require(servicePath + "/javascript/utils/OAuth.js");
+var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
 var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
 var Base64 = require(servicePath + "/javascript/utils/Base64.js");
 
@@ -24,9 +24,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             "use strict";
             Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
             //for testing only - will expose credentials to log file if left open
-            //Log.debug("\n------------------->accountId: ", accountid);
-            //Log.debug("\n------------------->launchConfig: ", launchConfig);
-            //Log.debug("\n------------------->launchArgs: ", launchArgs);
+            Log.debug("\n------------------->accountId: ", accountid);
+            Log.debug("\n------------------->launchConfig: ", launchConfig);
+            Log.debug("\n------------------->launchArgs: ", launchArgs);
             Log.log("Starting ", launchConfig.name, " for account ", launchArgs.accountId, " from activity ", launchArgs.$activity, " with capacity ", launchArgs.capability);
 
             //this seems necessary for super class constructor during checkCredentials calls.
@@ -139,25 +139,20 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                         Log.log("------------->Got Key"); //, getKey.result);
                         this.userAuth = getKey.result.credentials;
 
-                        if (this.userAuth.oauth && OAuth.needsRefresh(this.userAuth)) {
-                            future.nest(OAuth.refreshToken(this.userAuth));
+                        future.nest(AuthManager.checkAuth(this.userAuth, this.config.url));
 
-                            future.then(this, function refreshCB(future) {
-                                var result = checkResult(future);
-                                if (result.returnValue === true && result.credentials) {
-                                    this.userAuth = result.credentials;
-                                    KeyStore.putKey(this.accountId, this.userAuth).then(function putOAuthCB(putKey) {
-                                        var result = checkResult(putKey);
-                                        Log.debug("------------->Saved OAuth Key", result.returnValue);
-                                        future.result = { returnValue: true }; //continue with future execution.
-                                    });
-                                } else {
-                                    future.result = { returnValue: true };
-                                }
-                            });
-                        } else {
-                            future.result = {returnValue: true};
-                        }
+                        future.then(function () {
+                            var result = checkResult(future);
+                            if (result.credentials) { //need to store changed credentials.
+                                KeyStore.putKey(this.accountId, this.userAuth).then(function putOAuthCB(putKey) {
+                                    var result = checkResult(putKey);
+                                    Log.debug("------------->Saved OAuth Key", result.returnValue);
+                                    future.result = { returnValue: true }; //continue with future execution.
+                                });
+                            } else {
+                                future.result = { returnValue: true };
+                            }
+                        });
                     });
                 } else if (launchConfig.name.indexOf("Create") > 0 || launchConfig.name === "onCredentialsChanged") {
                     future.nest(KeyStore.checkKey(this.accountId));

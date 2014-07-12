@@ -25,7 +25,7 @@ var KeyStore = (function () {
 
         future.then(function () {
             var result = checkResult(future);
-            if (result.returnValue === false) {
+            if (result.returnValue === false && !!result.keyname) {
                 keydata = {};
                 future.result = {};
             } else {
@@ -99,7 +99,7 @@ var KeyStore = (function () {
             var r = checkResult(future),
                 success;
 
-            success = r.returnValue !== false;
+            success = r.returnValue !== false && !!r.keyname;
 
             future.result = {
                 "value": success
