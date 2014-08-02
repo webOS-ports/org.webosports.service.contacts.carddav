@@ -240,7 +240,7 @@ var vCard = (function () {
                     Log.log("webOS saved vCard to ", filename);
                     future.nest(writer.readFile(filename));
                 } else {
-                    future.result = {returnValue: true};
+                    future.result = {returnValue: true, data: writer.getData()};
                 }
             });
 
