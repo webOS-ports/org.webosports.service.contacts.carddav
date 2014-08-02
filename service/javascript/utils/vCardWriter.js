@@ -13,6 +13,10 @@ var vCardWriter = function () {
             return lines.join("\r\n").length;
         },
 
+        getData: function () {
+            return lines.join("\r\n");
+        },
+
         //reset file content.
         open: function () {
             lines = [];

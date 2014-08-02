@@ -219,7 +219,7 @@ var vCard = (function () {
                 contact = new Contacts.Contact(input.contact),
                 person = new Contacts.Person();
 
-            Log.log("Got contact:", input.contact);
+            Log.log("Got contact: ", input.contact);
             vCardIndex += 1;
             person.populateFromContact(contact);
 
@@ -231,7 +231,7 @@ var vCard = (function () {
                 filewritten = true;
             }
 
-            Log.log("Get contact", contactId, "transfer it to version", version, "vCard.");
+            Log.log("Get contact ", contactId, " transfer it to version ", version, " vCard.");
             future.nest(vCardExporter.exportOne(contactId, false, person));
 
             future.then(function () {
@@ -240,7 +240,7 @@ var vCard = (function () {
                     Log.log("webOS saved vCard to ", filename);
                     future.nest(writer.readFile(filename));
                 } else {
-                    future.result = {returnValue: true};
+                    future.result = {returnValue: true, data: writer.getData()};
                 }
             });
 
