@@ -75,7 +75,7 @@ enyo.kind({
             var devInfo = JSON.parse(PalmSystem.deviceInfo);
             if (devInfo.modelName === "Lune OS Device") {
                 //is LuneOS:
-                this.log("Poping up Google page with OAuth request.");
+                this.log("Popping up Google page with OAuth request.");
                 authWin = window.open(url);
                 console.log(authWin);
 
