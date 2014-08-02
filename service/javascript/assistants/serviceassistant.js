@@ -135,24 +135,27 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                         throw "Need accountId for operation " + launchConfig.name;
                     }
 
-                    future.nest(KeyStore.getKey(this.accountId)).then(this, function getKeyCB(getKey) {
-                        Log.log("------------->Got Key"); //, getKey.result);
-                        this.userAuth = getKey.result.credentials;
+                    future.nest(KeyStore.getKey(this.accountId));
+
+                    future.then(this, function getKeyCB() {
+                        var result = checkResult(future);
+                        Log.log("------------->Got Key"); //, result);
+                        this.userAuth = result.credentials;
 
                         future.nest(AuthManager.checkAuth(this.userAuth, this.config.url));
+                    });
 
-                        future.then(function () {
-                            var result = checkResult(future);
-                            if (result.credentials) { //need to store changed credentials.
-                                KeyStore.putKey(this.accountId, this.userAuth).then(function putOAuthCB(putKey) {
-                                    var result = checkResult(putKey);
-                                    Log.debug("------------->Saved OAuth Key", result.returnValue);
-                                    future.result = { returnValue: true }; //continue with future execution.
-                                });
-                            } else {
-                                future.result = { returnValue: true };
-                            }
-                        });
+                    future.then(this, function checkAuthCB() {
+                        var result = checkResult(future);
+                        if (result.credentials) { //need to store changed credentials.
+                            KeyStore.putKey(this.accountId, this.userAuth).then(this, function putOAuthCB(putKey) {
+                                var result = checkResult(putKey);
+                                Log.debug("------------->Saved OAuth Key", result.returnValue);
+                                future.result = { returnValue: true }; //continue with future execution.
+                            });
+                        } else {
+                            future.result = { returnValue: true };
+                        }
                     });
                 } else if (launchConfig.name.indexOf("Create") > 0 || launchConfig.name === "onCredentialsChanged") {
                     future.nest(KeyStore.checkKey(this.accountId));
@@ -193,7 +196,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                                 future.result = { returnValue: false }; //continue with future execution.
                             }
 
-                            KeyStore.putKey(this.accountId, this.userAuth).then(function (putKey) {
+                            KeyStore.putKey(this.accountId, this.userAuth).then(this, function (putKey) {
                                 var result = checkResult(putKey);
                                 Log.debug("------------->Saved Key ", result.returnValue);
                                 future.result = { returnValue: true }; //continue with future execution.
