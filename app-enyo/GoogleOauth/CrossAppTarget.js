@@ -71,30 +71,34 @@ enyo.kind({
             }
         }
 
-        if (window.PalmSystem && PalmSystem.deviceInfo && JSON.parse(PalmSystem.deviceInfo).platformVersionMajor === 3) {
-            //is legacy webos:
-            this.$.webView.setUrl(url);
-        } else {
-            //is LuneOS:
-            this.log("Poping up Google page with OAuth request.");
-            authWin = window.open(url);
-            console.log(authWin);
+        if (window.PalmSystem && PalmSystem.deviceInfo) {
+            var devInfo = JSON.parse(PalmSystem.deviceInfo);
+            if (devInfo.modelName === "Lune OS Device") {
+                //is LuneOS:
+                this.log("Poping up Google page with OAuth request.");
+                authWin = window.open(url);
+                console.log(authWin);
 
 
-            if (authWin) {
-                this.log("Adding listener for change messages to new window.");
-                //somehow those get deleted quite fast.. why?
-                authWin.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
-                authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
+                if (authWin) {
+                    this.log("Adding listener for change messages to new window.");
+                    //somehow those get deleted quite fast.. why?
+                    authWin.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
+                    authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
 
-                setTimeout(pollTitle.bind(this), 500);
+                    setTimeout(pollTitle.bind(this), 500);
 
-                authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
-                authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
+                    authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
+                    authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
 
 
-            } else {
-                this.error("No authWin!!! AHRGS.");
+                } else {
+                    this.error("No authWin!!! AHRGS.");
+                }
+            }
+            else if (devInfo.platformVersionMajor === 3) {
+                //is legacy webos:
+                this.$.webView.setUrl(url);
             }
         }
 
