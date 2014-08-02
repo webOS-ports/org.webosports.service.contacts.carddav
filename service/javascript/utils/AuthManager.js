@@ -43,26 +43,22 @@ var AuthManager = (function() {
         return obj;
     }
 
-    function getDigestToken(headers, method, uri, userAuth) {
-        if (headers["www-authenticate"] && headers["www-authenticate"].indexOf("Digest") === 0) {
-            Log.debug("Had www-authenticate header!");
-            var crypto = require("crypto");
-            var ha1 = crypto.createHash("md5"),
-                ha2 = crypto.createHash("md5"),
-                token = crypto.createHash("md5"),
-                authString,
-                cnonce = String(Date.now());
-            userAuth.digest = parseDigest(headers["www-authenticate"]);
+    function getDigestToken(userAuth, method, uri) {
+        var crypto = require("crypto"),
+            ha1 = crypto.createHash("md5"),
+            ha2 = crypto.createHash("md5"),
+            token = crypto.createHash("md5"),
+            authString;
 
-            ha1.update([userAuth.user, userAuth.digest.realm, userAuth.password].join(":"));
-            ha2.update([method, uri].join(":"));
+        ha1.update([userAuth.user, userAuth.digest.realm, userAuth.password].join(":"));
+        ha2.update([method, uri].join(":"));
 
-            if (userAuth.digest.qop === "auth") {
-                //"1" == count, "" = empty client nonce.
-                token.update([ha1.digest("hex"), userAuth.digest.nonce, "00000001", cnonce, userAuth.digest.qop, ha2.digest("hex")].join(":"));
-            }
+        if (userAuth.digest.qop === "auth") {
+            //"1" == count, "" = empty client nonce.
+            token.update([ha1.digest("hex"), userAuth.digest.nonce, userAuth.digest.count, userAuth.digest.cnonce, userAuth.digest.qop, ha2.digest("hex")].join(":"));
+        }
 
-            /*authParams = {
+        /*authParams = {
                 username: userAuth.user,
                 realm: userAuth.digest.realm,
                 nonce: userAuth.digest.nonce,
@@ -72,27 +68,52 @@ var AuthManager = (function() {
                 nc: "1",
                 cnonce: ""
             };*/
-            authString = "Digest " + [
-                ["username=\"", userAuth.user, "\""].join(""),
-                ["realm=\"", userAuth.digest.realm, "\""].join(""),
-                ["nonce=\"", userAuth.digest.nonce, "\""].join(""),
-                ["uri=\"", uri, "\""].join(""),
-                ["qop=", userAuth.digest.qop].join(""),
-                ["response=\"", token.digest("hex"), "\""].join(""),
-                ["nc=", "00000001"].join(""),
-                ["cnonce=\"", cnonce, "\""].join("")
-            ].join(", ");
+        authString = "Digest " + [
+            ["username=\"", userAuth.user, "\""].join(""),
+            ["realm=\"", userAuth.digest.realm, "\""].join(""),
+            ["nonce=\"", userAuth.digest.nonce, "\""].join(""),
+            ["uri=\"", uri, "\""].join(""),
+            ["qop=", userAuth.digest.qop].join(""),
+            ["response=\"", token.digest("hex"), "\""].join(""),
+            ["nc=", userAuth.digest.count].join(""),
+            ["cnonce=\"", userAuth.digest.cnonce, "\""].join("")
+        ].join(", ");
 
-            Log.debug("authString: ", authString);
+        Log.debug("authString: ", authString);
 
-            return authString;
-        } else {
-            Log.debug("No www-authenticate header???", headers);
+        return authString;
+
+    }
+
+    function getNewDigestToken(headers, method, uri, userAuth) {
+        if (headers["www-authenticate"] && headers["www-authenticate"].indexOf("Digest") === 0) {
+            Log.debug("Had www-authenticate header!");
+            userAuth.digest = parseDigest(headers["www-authenticate"]);
+            userAuth.digest.cnonce = String(Date.now());
+            userAuth.digest.count = 1;
+
+            return getDigestToken(userAuth, method, uri);
         }
+
+        //if no www-authenticate header, we are really unauthorized, I'd say.
+        Log.debug("No www-authenticate header???", headers);
+        return undefined; //=> signal error to caller.
     }
 
     return {
         getDigestToken: getDigestToken,
+
+        getAuthToken: function (method, userAuth, uri) {
+            if (userAuth.digest) {
+                if (!userAuth.digest.method) {
+                    userAuth.digest.method = getDigestToken(userAuth, method, uri);
+                }
+                return userAuth.digest.method;
+            }
+
+            //if not digest, just return stored auth token.
+            return userAuth.authToken;
+        },
 
         checkAuth: function (userAuth, url) {
             Log.debug("AUTH CHECK STARTING.1");
@@ -106,29 +127,31 @@ var AuthManager = (function() {
             if (!path) {
                 path = url;
             }
-            future.nest(CalDav.checkCredentials({authToken: userAuth.authToken, path: path}));
+            future.nest(CalDav.checkCredentials({userAuth: userAuth, path: path}));
 
-            future.then(function() {
-                var result = checkResult(future);
+            future.then(function checkCredentialsCB() {
+                var result = checkResult(future), urlParser, authString;
                 if (result.returnValue) {
                     //all is fine, coninue! :)
                     outerFuture.result = {returnValue: true};
                 } else {
 
                     if (result.returnCode === 401) {
-                        var urlParser = require("url");
-                        var authString = getDigestToken(result.headers, "PROPFIND", urlParser.parse(path).pathname, userAuth);
+                        urlParser = require("url");
+                        authString = getNewDigestToken(result.headers, "PROPFIND", urlParser.parse(path).pathname, userAuth);
+                        userAuth.url = urlParser.parse(path).pathname;
                         if (authString) {
                             Log.debug("Trying digest auth.");
                             userAuth.authToken = authString;
-                            future.nest(CalDav.checkCredentials({authToken: userAuth.authToken, path: path}));
+                            userAuth.digest.PROPFIND = authString;
+                            future.nest(CalDav.checkCredentials({userAuth: userAuth, path: path}));
                         } else {
                             Log.debug("CREDENTIALS ARE WRONG!!");
                             outerFuture.result = result;
                         }
                     } else {
                         Log.debug("Not 401 error => not testing digest.");
-                        outerFuture.result= result;
+                        outerFuture.result = result;
                     }
                 }
             });
