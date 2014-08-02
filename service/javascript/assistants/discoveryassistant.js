@@ -101,7 +101,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 
         params = {
             path: config.url,
-            authToken: this.client.userAuth.authToken,
+            userAuth: this.client.userAuth,
             originalUrl: config.url
         };
 

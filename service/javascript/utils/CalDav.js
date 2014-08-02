@@ -1,4 +1,6 @@
-/*global Log, httpClient, Future, checkResult */
+/*global Log, httpClient, Future, checkResult, servicePath */
+
+var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
 
 var CalDav = (function () {
     "use strict";
@@ -298,18 +300,30 @@ var CalDav = (function () {
         return folders;
     }
 
-    function preProcessOptions(params) {
-        var options = {
-            method: "PROPFIND",
-            headers: {
-                Prefer: "return-minimal", //don't really know why that is.
-                "Content-Type": "text/xml; charset=utf-8", //necessary
-                Connection: "keep-alive",
-                Authorization: params.authToken,
-                "User-Agent": "org.webosports.cdav-connector"
-            }
-        };
-        httpClient.parseURLIntoOptions(params.path, options);
+    function changePath(options, userAuth, path) {
+        if (path.indexOf(":/") >= 0) { //have full url
+            httpClient.parseURLIntoOptions(path, options);
+        } else {
+            options.path = path;
+        }
+        options.headers.Authorization = AuthManager.getAuthToken(options.method, userAuth, options.path);
+    }
+
+    function preProcessOptions(params, inMethod, inPath) {
+        var method = inMethod || "PROPFIND",
+            path = inPath || params.path,
+            options = {
+                method: method,
+                headers: {
+                    Prefer: "return-minimal", //don't really know why that is.
+                    "Content-Type": "text/xml; charset=utf-8", //necessary
+                    Connection: "keep-alive",
+                    "User-Agent": "org.webosports.cdav-connector"
+                }
+            };
+
+        httpClient.parseURLIntoOptions(params.path, options); //fill prefix and stuff.
+        changePath(options, params.userAuth, path);
         return options;
     }
 
@@ -370,10 +384,9 @@ var CalDav = (function () {
          *                  accepted as ok (redirects are processed) all >= 400 are rejected as error.
          */
         checkCredentials: function (params) {
-            var options = preProcessOptions(params), future = new Future(), data;
+            var options = preProcessOptions(params, "PROPFIND"), future = new Future(), data;
 
             options.headers.Depth = 0;
-            options.method = "PROPFIND";
             data = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 
             future.nest(httpClient.sendRequest(options, data));
@@ -386,8 +399,7 @@ var CalDav = (function () {
          * @return future, result contains ctag and needsUpdate == if update is necessary
          */
         checkForChanges: function (params) {
-            var options = preProcessOptions(params), future = new Future(), data;
-            options.method = "PROPFIND";
+            var options = preProcessOptions(params, "PROPFIND"), future = new Future(), data;
             options.headers.Depth = 0;
             options.parse = true;
 
@@ -421,8 +433,7 @@ var CalDav = (function () {
          * @return future result.etags will contain the etag directory of uri<=>etag objects
          */
         downloadEtags: function (params) {
-            var options = preProcessOptions(params), future = new Future(), data, date = new Date(), startVal, blacklist = params.blacklist || [];
-            options.method = "REPORT";
+            var options = preProcessOptions(params, "REPORT"), future = new Future(), data, date = new Date(), startVal, blacklist = params.blacklist || [];
             options.headers.Depth = 1;
             options.parse = true;
 
@@ -434,6 +445,7 @@ var CalDav = (function () {
             if (params.cardDav) {
                 //no filtering required for contacts, i.e. do propfind request.
                 options.method = "PROPFIND";
+                options.headers.Authorization = AuthManager.getAuthToken("PROPFIND", params.userAuth, options.path);
                 data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><D:propfind xmlns:D=\"DAV:\"><D:prop><D:getetag/></D:prop></D:propfind>";
             }
 
@@ -460,9 +472,7 @@ var CalDav = (function () {
          * @return future result.data contains the body, i.e. the complete data of the object.
          */
         downloadObject: function (params, obj) {
-            var future = new Future(), options = preProcessOptions(params);
-            options.method = "GET";
-            options.path = obj.uri;
+            var future = new Future(), options = preProcessOptions(params, "GET", obj.uri);
             options.headers["Content-Type"] = "text/calendar; charset=utf-8";
             if (params.cardDav) {
                 options.headers["Content-Type"] = "text/vcard; charset=utf-8";
@@ -485,9 +495,7 @@ var CalDav = (function () {
          * @return future which will cotain uri member with old uri for reference.
          */
         deleteObject: function (params, obj) {
-            var future = new Future(), options = preProcessOptions(params);
-            options.path = obj.uri;
-            options.method = "DELETE";
+            var future = new Future(), options = preProcessOptions(params, "DELETE", obj.uri);
 
             //prevent overriding remote changes.
             if (obj.etag) {
@@ -506,9 +514,7 @@ var CalDav = (function () {
          * @return future, if server delivers etag in response, it will be delivered in result.etag
          */
         putObject: function (params, obj) {
-            var future = new Future(), options = preProcessOptions(params);
-            options.method = "PUT";
-            options.path = obj.uri;
+            var future = new Future(), options = preProcessOptions(params, "PUT", obj.uri);
             options.headers["Content-Type"] = "text/calendar; charset=utf-8";
             if (params.cardDav) {
                 options.headers["Content-Type"] = "text/vcard; charset=utf-8";
@@ -533,7 +539,7 @@ var CalDav = (function () {
          *                  folder objects containing uri and resource = contact/calendar/task
          */
         discovery: function (params) {
-            var future = new Future(), options = preProcessOptions(params), data, homes = [], folders = { subFolders: {} }, folderCB,
+            var future = new Future(), options = preProcessOptions(params, "PROPFIND"), data, homes = [], folders = { subFolders: {} }, folderCB,
                 tryFolders = [], principals = [];
 
             function getHomeCB(addressbook, index) {
@@ -561,7 +567,7 @@ var CalDav = (function () {
                 if (!home) {
                     if (index < tryFolders.length) {
                         Log.log_calDavDebug("Trying to ask for ", (addressbook ? "addressbook" : "calendar"), "-home-set on next url: ", tryFolders[index], " index: ", index);
-                        httpClient.parseURLIntoOptions(tryFolders[index], options);
+                        changePath(options, params.userAuth, tryFolders[index]);
                         future.nest(httpClient.sendRequest(options, data));
                         future.then(function () {
                             getHomeCB(addressbook, index + 1);
@@ -583,7 +589,7 @@ var CalDav = (function () {
                     data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\"><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
                     options.headers.Depth = 0;
                     folders.calendarHome = home;
-                    httpClient.parseURLIntoOptions(tryFolders[0], options);
+                    changePath(options, params.userAuth, tryFolders[0]);
                     future.nest(httpClient.sendRequest(options, data));
                     future.then(function () {
                         getHomeCB(true, 1);
@@ -620,7 +626,7 @@ var CalDav = (function () {
                 }
 
                 if (index < tryFolders.length) {
-                    httpClient.parseURLIntoOptions(tryFolders[index], options);
+                    changePath(options, params.userAuth, tryFolders[index]);
                     future.nest(httpClient.sendRequest(options, data));
                     future.then(function () {
                         principalCB(index + 1);
@@ -637,7 +643,7 @@ var CalDav = (function () {
                     //reorder array, so that principal folders are tried first:
                     tryFolders = principals.concat(tryFolders);
 
-                    httpClient.parseURLIntoOptions(tryFolders[0], options);
+                    changePath(options, params.userAuth, tryFolders[0]);
                     future.nest(httpClient.sendRequest(options, data));
                     future.then(function () {
                         getHomeCB(false, 1);
@@ -648,14 +654,13 @@ var CalDav = (function () {
             //some folders to probe for:
             //push original URL to test-for-home-folders.
             generateMoreTestPaths(params.originalUrl, tryFolders);
-            httpClient.parseURLIntoOptions(params.originalUrl, options); //set prefix for the well-known tries.
+            httpClient.parseURLIntoOptions(params.originalUrl, options); //set prefix for the well-known tries. This is ok here, because request is never send.
             generateMoreTestPaths(options.prefix + "/.well-known/caldav", tryFolders);
             generateMoreTestPaths(options.prefix + "/.well-known/carddav", tryFolders);
 
             //first get user principal:
-            options.method = "PROPFIND";
             options.parse = true;
-            httpClient.parseURLIntoOptions(tryFolders[0], options);
+            changePath(options, params.userAuth, tryFolders[0]);
             options.headers.Depth = 0;
             data = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:current-user-principal /></d:prop></d:propfind>";
             future.nest(httpClient.sendRequest(options, data));
@@ -706,7 +711,7 @@ var CalDav = (function () {
          * @return future, result.folders will contain array folders
          */
         getFolders: function (params, filter) {
-            var future = new Future(), options = preProcessOptions(params), data, folders;
+            var future = new Future(), options = preProcessOptions(params, "PROPFIND"), data, folders;
 
             options.headers.Depth = 1;
             options.parse = true;
