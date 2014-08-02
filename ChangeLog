@@ -1,3 +1,8 @@
+0.3.15:
+    o fixed issue with contact export in some cases
+    o reworked authorization a lot to make md5 digest work (untested)
+2014-08-02: Achim Königs <garfonso@mobo.info>
+
 0.3.14:
     o fixed issues with contact import (please install newest contacts patch also, you'll need to uninstall old one!)
     o reworked authorization a bit, maybe md5 digest works now.
