@@ -280,6 +280,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         }
 
         if (name === "local2remote") {
+            Log.debug("==========================> allowUpsync: ", Kinds.objects[kindName].allowUpsync, " for ", kindName);
             if (Kinds.objects[kindName].allowUpsync) { //configure upsync via kinds.js
                 return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback, no real conversion here.
                     Log.log("\n\n**************************SyncAssistant:_local2remote*****************************");
