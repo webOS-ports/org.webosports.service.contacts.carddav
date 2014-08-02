@@ -201,7 +201,9 @@ var httpClient = (function () {
             Log.log("Error in connection for ", reqNum, ": ", e);
             //errno === 4 => EDOMAINNOTFOUND error
             //errno === 113 => EHOSTUNREACH error
-            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED" || e.errno === 4 || e.errno === 113);
+            //errno === 111 => ECONNREFUSED
+            //errno === 22 => EINVAL
+            checkRetry("Error:" + e.message, e.code === "ECONNREFUSED" || e.errno === 4 || e.errno === 113 || e.errno === 111 || e.errno === 22);
         }
 
         function dataCB(chunk) {
