@@ -20,6 +20,9 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
         password: args.password,
         authToken: base64Auth
     };
+    if (args.oauth) {
+        this.userAuth = args.oauth;
+    }
 
     if (args && args.config) {
         if (!url) {
@@ -85,7 +88,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     });
 
     future.then(this, function credentialsCheckCB() {
-        var result = checkResult(future), authToken, msg, exception, returnCode;
+        var result = checkResult(future), msg, exception, returnCode;
         // Check if we are getting a good return code for success
         if (result.returnValue === true) {
             // Pass back credentials and config (username/password/url);
@@ -95,10 +98,8 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
             if (args.accountId) {
                 Log.log("Had account id => this is change credentials call, update config object");
-                authToken = "Basic " + Base64.encode(args.username + ":" + args.password);
-                this.client.userAuth = {"user": args.username, "password": args.password, "authToken": authToken};
 
-                future.nest(KeyStore.putKey(args.accountId, this.client.userAuth));
+                future.nest(KeyStore.putKey(args.accountId, this.userAuth));
             } else {
             //send results back to UI:
                 buildResult();

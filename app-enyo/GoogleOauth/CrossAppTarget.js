@@ -24,6 +24,9 @@ enyo.kind({
             onSuccess: "gotAccessToken", onFailure: "getAccessTokenFailed" },
         { name: "getUserName", kind: "WebService", url: "https://www.googleapis.com/userinfo/v2/me", method: "GET",
             onSuccess: "gotName", onFailure: "getAccessTokenFailed" },
+        //used to change credentials:
+        { name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
+            method: "checkCredentials", onSuccess: "credentialsCameBack", onFailure: "credentialsCameBack" },
         {kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
         { kind: "PageHeader", content: "Sign In with Google", pack: "center" },
         { name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
@@ -102,6 +105,11 @@ enyo.kind({
             }
         }
 
+        if (this.params.mode === "modify" && this.params.account) {
+            this.accountId = this.params.account._id;
+            log("Stored accountId: " + this.accountId);
+        }
+
         console.error("<<<<<<<<<<<<<<<<<<<< create");
     },
     gotAuthToken: function (inSender, inResponse) {
@@ -155,110 +163,65 @@ enyo.kind({
                 client_secret: CLIENT_SECRET,
                 authToken: this.token_response.token_type + " " + this.token_response.access_token,
                 refresh_url: BASE_URL + "token"
+            },
+            config = {
+                name: "C+DAV Google",
+                url: "https://www.googleapis.com/caldav/v2",
+                credentials: credentials
             };
-        if (!template) {
-            template = {
-                "templateId": "org.webosports.cdav.account.google",
-                "loc_name": "C+DAV Google",
-                "readPermissions": [
-                    "org.webosports.cdav.service",
-                    "com.palm.service.contacts",
-                    "com.palm.service.contacts.linker",
-                    "com.palm.app.contacts"
-                ],
-                "writePermissions": [
-                    "org.webosports.cdav.service",
-                    "com.palm.app.accounts",
-                    "com.palm.app.contacts"
-                ],
-                "validator": {
-                    "address": "palm://org.webosports.cdav.service/checkCredentials",
-                    "customUI": {
-                        "appId": "org.webosports.cdav.app",
-                        "name": "GoogleOauth/index.html"
-                    }
-                },
-                "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
-                "loc_usernameLabel": "Google-Mail",
-                "icon": {
-                    "loc_32x32": "images/google_32.png",
-                    "loc_64x64": "images/google_64.png",
-                    "loc_128x128": "images/google_128x128.png",
-                    "loc_256x256": "images/google_256x256.png"
-                },
-                "config": {
-                    "name": "C+DAV Google",
-                    "url": "https://www.googleapis.com/caldav/v2"
-                },
-                "capabilityProviders": [
-                    {
-                        "capability": "CONTACTS",
-                        "id": "org.webosports.cdav.contact",
-                        "onCreate": "palm://org.webosports.cdav.service/onContactsCreate",
-                        "onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
-                        "onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
-                        "sync": "palm://org.webosports.cdav.service/sync",
-                        "loc_name": "Google Contacts",
-                        "dbkinds": {
-                            "contactset": "org.webosports.cdav.contactset:1",
-                            "contact": "org.webosports.cdav.contact:1"
-                        }
-                    },
-                    {
-                        "capability": "CALENDAR",
-                        "id": "org.webosports.cdav.calendar",
-                        "onCreate": "palm://org.webosports.cdav.service/onCalendarCreate",
-                        "onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
-                        "onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
-                        "sync": "palm://org.webosports.cdav.service/sync",
-                        "loc_name": "Google Calendar",
-                        "dbkinds": {
-                            "calendar": "org.webosports.cdav.calendar:1",
-                            "calendarevent": "org.webosports.cdav.calendarevent:1"
-                        }
-                    }
-                ]
-            };
-        }
 
         if (!username) {
             username = Date.now();
         }
 
-        for (i = 0; i < template.capabilityProviders.length; i += 1) {
-            if (template.capabilityProviders[i].capability === "CONTACTS") {
-                template.capabilityProviders[i].enabled = true;
-                template.capabilityProviders[i].loc_name = "Google Contacts";
-                break;
-            }
-            if (template.capabilityProviders[i].capability === "CALENDAR") {
-                template.capabilityProviders[i].enabled = true;
-                template.capabilityProviders[i].loc_name = "Google Calendar";
-                break;
+        if (this.params.mode === "create") {
+            if (!template) {
+                this.showLoginError("Account App", "Internal error: No template. Please report this issue.");
+                return;
+            } else {
+                for (i = 0; i < template.capabilityProviders.length; i += 1) {
+                    if (template.capabilityProviders[i].capability === "CONTACTS") {
+                        template.capabilityProviders[i].enabled = true;
+                        template.capabilityProviders[i].loc_name = "Google Contacts";
+                        break;
+                    }
+                    if (template.capabilityProviders[i].capability === "CALENDAR") {
+                        template.capabilityProviders[i].enabled = true;
+                        template.capabilityProviders[i].loc_name = "Google Calendar";
+                        break;
+                    }
+                }
+
+
+                if (!template.config) {
+                    template.config = config;
+                }
             }
         }
 
-        if (!template.config) {
-            template.config = {
-                "name": "C+DAV Google",
-                "url": "https://www.googleapis.com/caldav/v2"
-            };
-        }
-
-        template.config.credentials = credentials;
         this.accountSettings = {
             template: template,
             username: username,
             credentials: credentials,
-            config: template.config,
-            alias: "C+Dav Google",
+            config: config,
+            alias: "C+Dav Google " + username,
             returnValue: true
         };
-        //Pop back to Account Creation Dialog
-        // Set val as a parameter to be passed back to our source application
-        debug("Returning: " + JSON.stringify(this.accountSettings));
-        this.$.crossAppResult.sendResult(this.accountSettings);
-        //this.popScene(); hopefully enyo account manager does that for us?
+
+        if (this.accountId) {
+            //store new tokens:
+            this.$.checkCredentials.call({
+                accountId: this.accountId,
+                oauth: credentials,
+                url: config.url,
+                name: config.name
+            });
+        } else {
+            //Pop back to Account Creation Dialog
+            // Set val as a parameter to be passed back to our source application
+            debug("Returning: " + JSON.stringify(this.accountSettings));
+            this.$.crossAppResult.sendResult(this.accountSettings);
+        }
     },
     getAccessTokenFailed: function (inSender, inResponse) {
         log("Failed to get access token: " + JSON.stringify(inResponse));
@@ -291,5 +254,9 @@ enyo.kind({
     },
     doBack: function () {
         this.$.crossAppResult.sendResult({returnValue: false});
+    },
+    credentialsCameBack: function (inSender, inResponse) {
+        log("Credentials store came back: " + JSON.stringify(inResponse));
+        this.$.crossAppResult.sendResult(this.accountSettings);
     }
 });

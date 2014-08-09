@@ -17,6 +17,9 @@ enyo.kind({
     components: [
         { name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
             method: "checkCredentials", onSuccess: "credentialsOK", onFailure: "credentialsWrong" },
+        { name: "dbAccounts", kind: "DbService", dbKind: "org.webosports.cdav.account.config:1", onFailure: "dbFailed", components: [
+            { name: "findAccounts", method: "find", onSuccess: "foundAccount" }
+        ]},
         {kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
         { kind: "PageHeader", content: "Sign In", pack: "center" },
         { kind: "Scroller", flex: 1, style: "margin:30px;", components: [
@@ -70,7 +73,41 @@ enyo.kind({
             this.params = enyo.windowParams;
         }
 
+        if (this.params && this.params.mode === "modify") {
+            if (this.params.account) {
+                //need to fill in fields with old info.
+                this.$.txtServerName.setValue(this.params.account.alias);
+                this.$.txtUsername.setValue(this.params.account.username);
+
+                enyo.scrim.show();
+                this.$.findAccounts.call({query: {from: "org.webosports.cdav.account.config:1", where: [{
+                    prop: "accountId",
+                    op: "=",
+                    val: this.params.account._id
+                }]}});
+            } else {
+                this.showLoginError("Change credentials", "Could not prefill info. You'll have to fill them in again yourself.");
+            }
+        }
+
         console.error("<<<<<<<<<<<<<<<<<<<< create");
+    },
+    foundAccount: function (inSender, inResponse) {
+        enyo.scrim.hide();
+        var account = inResponse.results[0];
+
+        if (account) {
+            this.accountId = account.accountId; //keep this and send to service later => stores new credentials.
+            this.$.txtURL.setValue(account.url);
+            this.$.txtServerName.setValue(account.name);
+            this.$.txtUsername.setValue(account.username);
+        } else {
+            this.showLoginError("Change credentials", "Could not find account info in db. Best is to delete account and create new one.");
+        }
+    },
+    dbFailed: function (inSender, inResponse) {
+        enyo.scrim.hide();
+        this.showLoginError("Change credentials", "Could not find account info in db. Best is to delete account and create new one, error Message: " + JSON.stringify(inResponse));
     },
     showLoginError: function (caption, msg) {
         this.$.alert.setContent(msg);
@@ -120,6 +157,7 @@ enyo.kind({
         enyo.scrim.show();
         this.showLoginError("", "");
         this.$.checkCredentials.call({
+            accountId: this.accountId,
             username: this.account.credentials.user,
             password: this.account.credentials.password,
             url: this.account.url,
@@ -138,83 +176,32 @@ enyo.kind({
 
             this.accountSettings = {};
             var i, template = this.params.template;
-            if (!template) {
-                template = {
-                    "templateId": "org.webosports.cdav.account",
-                    "loc_name": "C+DAV Connector",
-                    "readPermissions": [
-                        "org.webosports.cdav.service",
-                        "com.palm.service.contacts",
-                        "com.palm.service.contacts.linker",
-                        "com.palm.app.contacts"
-                    ],
-                    "writePermissions": [
-                        "org.webosports.cdav.service",
-                        "com.palm.app.accounts",
-                        "com.palm.app.contacts"
-                    ],
-                    "validator": {
-                        "address": "palm://org.webosports.cdav.service/checkCredentials",
-                        "customUI": {
-                            "appId": "org.webosports.cdav.app",
-                            "name": "CrossAppTarget/index.html"
-                        }
-                    },
-                    "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
-                    "loc_usernameLabel": "Username",
-                    "icon": {
-                        "loc_32x32": "images/caldav-32.png",
-                        "loc_48x48": "images/caldav-48.png",
-                        "loc_1024x1024": "images/caldav-1024.png"
-                    },
-                    "capabilityProviders": [
-                        {
-                            "capability": "CONTACTS",
-                            "id": "org.webosports.cdav.contact",
-                            "onCreate": "palm://org.webosports.cdav.service/onContactsCreate",
-                            "onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
-                            "onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
-                            "sync": "palm://org.webosports.cdav.service/sync",
-                            "loc_name": "CardDAV Contacts",
-                            "dbkinds": {
-                                "contactset": "org.webosports.cdav.contactset:1",
-                                "contact": "org.webosports.cdav.contact:1"
-                            }
-                        },
-                        {
-                            "capability": "CALENDAR",
-                            "id": "org.webosports.cdav.calendar",
-                            "onCreate": "palm://org.webosports.cdav.service/onCalendarCreate",
-                            "onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
-                            "onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
-                            "sync": "palm://org.webosports.cdav.service/sync",
-                            "loc_name": "CalDav Calendar",
-                            "dbkinds": {
-                                "calendar": "org.webosports.cdav.calendar:1",
-                                "calendarevent": "org.webosports.cdav.calendarevent:1"
-                            }
-                        }
-                    ]
-                };
-            }
-            template.config = this.account;
-            delete template.username;
-            delete template.password;
+            if (this.params.mode === "create") {
+                if (!template) {
+                    this.showLoginError("Account App", "Internal error: No template. Please report this issue.");
+                    return;
+                } else {
+                    template.config = this.account;
+                    delete template.username;
+                    delete template.password;
 
-            for (i = 0; i < template.capabilityProviders.length; i += 1) {
-                if (template.capabilityProviders[i].capability === "CONTACTS") {
-                    template.capabilityProviders[i].enabled = true;
-                    template.capabilityProviders[i].loc_name = this.account.name + " Contacts";
-                    break;
-                }
-                if (template.capabilityProviders[i].capability === "CALENDAR") {
-                    template.capabilityProviders[i].enabled = true;
-                    template.capabilityProviders[i].loc_name = this.account.name + " Calendar";
-                    break;
+                    for (i = 0; i < template.capabilityProviders.length; i += 1) {
+                        if (template.capabilityProviders[i].capability === "CONTACTS") {
+                            template.capabilityProviders[i].enabled = true;
+                            template.capabilityProviders[i].loc_name = this.account.name + " Contacts";
+                            break;
+                        }
+                        if (template.capabilityProviders[i].capability === "CALENDAR") {
+                            template.capabilityProviders[i].enabled = true;
+                            template.capabilityProviders[i].loc_name = this.account.name + " Calendar";
+                            break;
+                        }
+                    }
+
+                    template.loc_name = this.account.name;
                 }
             }
 
-            template.loc_name = this.account.name;
             this.accountSettings = {
                 template: this.params.template,
                 username: this.account.credentials.user,
@@ -225,6 +212,7 @@ enyo.kind({
             };
             //Pop back to Account Creation Dialog
             // Set val as a parameter to be passed back to our source application
+            debug("Returning..");
             this.$.crossAppResult.sendResult(this.accountSettings);
             //this.popScene(); hopefully enyo account manager does that for us?
         } else {
