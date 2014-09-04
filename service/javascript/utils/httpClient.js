@@ -44,7 +44,6 @@ var httpClient = (function () {
         } else {
             Log.log("Error: Could not setTimeout!!");
         }
-
     }
 
     function parseURLIntoOptionsImpl(inUrl, options, inPath) {
@@ -73,22 +72,44 @@ var httpClient = (function () {
         options.originalUrl = inUrl;
     }
 
-    function prepareProxy(options) {
+    function prepareProxy(options, errorCB, closeCB, timeoutCB) {
         var future = new Future(), p, connectReq, returned = false;
 
         function connReqError(e) {
             Log.debug("Error/Close on proxy request: ", e);
+            delete options.socket;
             if (!returned) {
-                future.returnValue = {returnValue: false};
+                future.result = {returnValue: false};
                 if (connectReq) {
                     connectReq.removeAllListeners(); //make sure we do never hear of this again. :p
                 }
+            } else {
+                Log.debug("Proxy already connected ok?");
             }
         }
 
-        function errorOnSocket(e) {
-            Log.debug("Error/Close on proxy socket: ", e);
+        function errorSocketCB(e) {
+            Log.debug("Error on socket: ", e);
             delete options.socket;
+            if (errorCB) {
+                errorCB(e);
+            }
+        }
+
+        function closeSocketCB(e) {
+            Log.debug("Close on socket: ", e);
+            delete options.socket;
+            if (closeCB) {
+                closeCB(e);
+            }
+        }
+
+        function timeoutSocketCB(e) {
+            Log.debug("Timeout on socket: ", e);
+            delete options.socket;
+            if (timeoutCB) {
+                timeoutCB(e);
+            }
         }
 
         //handle proxy connect
@@ -139,8 +160,10 @@ var httpClient = (function () {
                     options.socket = socket;
                     options.agent = false;
 
-                    socket.once("error", errorOnSocket);
-                    socket.once("close", errorOnSocket);
+                    socket.once("error", errorSocketCB);
+                    socket.once("close", closeSocketCB);
+
+                    setTimeout(socket, timeoutSocketCB);
 
                     future.result = {returnValue: true, socket: socket};
                 } else {
