@@ -1,5 +1,5 @@
 /*exported Transport, Sync, Contacts, Calendar, Globalization, Assert, Class, DB, Future, Activity, PalmCall, Log,
-           xml, querystring, fs, CalDav, httpClient, checkResult */
+           xml, querystring, fs, CalDav, httpClient, checkResult, ignoreWrongCertificates */
 /*global IMPORTS, console, require:true, process */
 console.error("Starting to load libraries");
 
@@ -64,3 +64,5 @@ function checkResult(future) {
     //else
     return future.result;
 }
+
+var ignoreWrongCertificates = false;

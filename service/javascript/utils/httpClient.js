@@ -1,4 +1,4 @@
-/*global Future, Log, xml, checkResult */
+/*global Future, Log, xml, checkResult, ignoreWrongCertificates */
 
 var http = require("http");
 var https = require("https");
@@ -70,6 +70,11 @@ var httpClient = (function () {
 
         options.prefix = options.protocol + "//" + options.headers.host + ":" + options.port;
         options.originalUrl = inUrl;
+
+        if (ignoreWrongCertificates && options.protocol === "https:") {
+            options.rejectUnauthorized = false;
+            options.requestCert = true;
+        }
     }
 
     function prepareProxy(options, errorCB, closeCB, timeoutCB) {
