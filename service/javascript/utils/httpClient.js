@@ -13,7 +13,8 @@ var httpClient = (function () {
     var proxy = {port: 0, host: "", valid: false},
         httpsProxy = {port: 0, host: "", valid: false},
         globalReqNum = 0,
-        ignoreSSLCertificateErrors = {};
+        ignoreSSLCertificateErrors = {},
+        retries = {};
 
     function setProxy(proxyString, inProxy) {
         var proxyParts = process.env.http_proxy.match(/^(https?:\/\/)?([A-Za-z0-9\.\-_]+)(:([0-9]+))?/i);
@@ -185,49 +186,64 @@ var httpClient = (function () {
         return future;
     }
 
-    function sendRequestImpl(options, data, retry) {
+    function reqName(originalRequest, retry) {
+        if (retry) {
+            return originalRequest + "." + retry;
+        } else {
+            return originalRequest;
+        }
+    }
+
+    function sendRequestImpl(options, data, retry, origin) {
         var body = "",
             future = new Future(),
             res,
-            reqNum = globalReqNum,
-            received = false,
-            retrying = false;
+            reqNum = globalReqNum;
 
-        globalReqNum += 1;
+        if (!retry && !origin) { //exclude redirects here!
+            globalReqNum += 1;
+            retries[reqNum] = { retry: 0, received: false, abort: false};
+            origin = reqNum;
+            retry = 0;
+        } else {
+            retries[origin].retry = retry;
+        }
 
         function checkRetry(error, override) {
-            if (!received && !retrying) {
-                retrying = true; //set to true always to prevent further actions.
-                Log.log("Message ", reqNum, " had error: ", error);
-                if (retry <= 5 && !override) {
-                    Log.log_calDavDebug("Trying to resend message ", reqNum, ".");
-                    sendRequestImpl(options, data, retry + 1).then(function (f) {
+            if (!retries[origin].received && retries[origin].retry === retry && !retries[origin].abort) {
+                Log.log("Message ", reqName(origin, retry), " had error: ", error);
+                if (retries[origin].retry < 5 && !override) {
+                    Log.log_calDavDebug("Trying to resend message ", reqName(origin, retry), ".");
+                    sendRequestImpl(options, data, retry + 1, origin).then(function (f) {
                         future.result = f.result; //transfer future result.
                     });
                 } else {
+                    retries[origin].abort = true;
                     if (override) {
-                        Log.log("Error for request ", reqNum, " makes retries senseless.");
+                        Log.log("Error for request ", reqName(origin, retry), " makes retries senseless.");
                     } else {
-                        Log.log("Already tried message ", reqNum, " 5 times. Seems as if server won't answer? Sync seems broken.");
+                        Log.log("Already tried message ", reqName(origin, retry), " 5 times. Seems as if server won't answer? Sync seems broken.");
                     }
                     future.result = { returnValue: false, msg: error };
                 }
             } else {
-                if (retrying) {
-                    Log.log_calDavDebug("Already retrying message ", reqNum, ", don't do this twice.");
+                if (retries[origin].retry > retry) {
+                    Log.log_calDavDebug("Already retrying message ", reqName(origin, retry), ", don't do this twice.");
+                } else if (retries[origin].abort) {
+                    Log.log_calDavDebug("Recieving of message ", reqName(origin, retry), " was aborted.");
                 } else {
-                    Log.log_calDavDebug("Message ", reqNum, " already received, returning.");
+                    Log.log_calDavDebug("Message ", reqName(origin, retry), " already received, returning.");
                 }
             }
         }
 
         function timeoutCB() {
-            Log.log_calDavDebug("Timeout for ", reqNum);
+            Log.log_calDavDebug("Timeout for ", reqName(origin, retry));
             checkRetry("Timeout");
         }
 
         function errorCB(e) {
-            Log.log("Error in connection for ", reqNum, ": ", e);
+            Log.log("Error in connection for ", reqName(origin, retry), ": ", e);
             //errno === 4 => EDOMAINNOTFOUND error
             //errno === 113 => EHOSTUNREACH error
             //errno === 111 => ECONNREFUSED
@@ -236,21 +252,22 @@ var httpClient = (function () {
         }
 
         function dataCB(chunk) {
-            Log.log_calDavDebug("res", reqNum, "-chunk:", chunk.length);
+            Log.log_calDavDebug("res", reqName(origin, retry), "-chunk:", chunk.length);
             body += chunk;
         }
 
         function endCB() {
-            Log.debug("Answer for ", reqNum, " received."); //does this also happen on timeout??
-            if (received) {
-                Log.log_calDavDebug("Request ", reqNum, " to ", options.path, " was already received... exiting without callbacks.");
+            Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
+            if (retries[origin].received) {
+                Log.log_calDavDebug("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
                 return;
             }
-            if (retrying) {
-                Log.log_calDavDebug("Request ", reqNum, " to ", options.path, " is already retrying... exiting without callbacks.");
+            if (retries[origin].abort) {
+                Log.log_calDavDebug("Recieving of message ", reqName(origin, retry), " was aborted, exiting without callbacks");
                 return;
             }
-            received = true;
+
+            retries[origin].received = true;
             Log.log_calDavDebug("Body: " + body);
 
             var result = {
@@ -285,7 +302,8 @@ var httpClient = (function () {
                 }
                 parseURLIntoOptionsImpl(res.headers.location, options);
                 Log.log_calDavDebug("Redirected to ", res.headers.location);
-                sendRequestImpl(options, data).then(function (f) {
+                retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
+                sendRequestImpl(options, data, 0, origin).then(function (f) {
                     future.result = f.result; //transfer future result.
                 });
             } else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
@@ -299,7 +317,7 @@ var httpClient = (function () {
 
         function closeCB(e) {
             Log.log_calDavDebug("close cb: ", e);
-            Log.log_calDavDebug("connection-closed for ", reqNum, e ? " with error." : " without error.");
+            Log.log_calDavDebug("connection-closed for ", reqName(origin, retry), e ? " with error." : " without error.");
             if (!e && res) { //close also happens if no res is there, yet. Hm. Catch this here and retry.
                 endCB(res);
             } else {
@@ -309,8 +327,8 @@ var httpClient = (function () {
 
         function responseCB(inRes) {
             res = inRes;
-            Log.log_calDavDebug("STATUS: ", res.statusCode, " for ", reqNum);
-            Log.log_calDavDebug("HEADERS: ", res.headers, " for ", reqNum);
+            Log.log_calDavDebug("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
+            Log.log_calDavDebug("HEADERS: ", res.headers, " for ", reqName(origin, retry));
             res.setEncoding("utf8");
             res.on("data", dataCB);
             res.on("end", function (e) { //sometimes this does not happen. One reason are empty responses..?
@@ -336,9 +354,9 @@ var httpClient = (function () {
                 if (result.returnValue) {
                     options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
 
-                    Log.log_calDavDebug("Sending request ", reqNum, " with data ", data, " to server.");
-                    //Log.log_calDavDebug("Options: ", options);
-                    Log.debug("Sending request ", reqNum, " to " + options.prefix + options.path);
+                    Log.log_calDavDebug("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
+                    Log.log_calDavDebug("Method: ", options.method, "Headers: ", options.headers);
+                    Log.debug("Sending request ", reqName(origin, retry), " to " + options.prefix + options.path);
 
                     if (options.protocol === "https:") {
                         req = https.request(options, responseCB);
@@ -377,7 +395,7 @@ var httpClient = (function () {
 
     return {
         sendRequest: function (options, data) {
-            return sendRequestImpl(options, data, 0);
+            return sendRequestImpl(options, data);
         },
 
         parseURLIntoOptions: function (inUrl, options) {
