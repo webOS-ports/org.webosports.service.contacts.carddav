@@ -1,4 +1,4 @@
-/*global Future, Log, xml, checkResult, ignoreWrongCertificates */
+/*global Future, Log, xml, checkResult */
 
 var http = require("http");
 var https = require("https");
@@ -12,7 +12,8 @@ var httpClient = (function () {
     "use strict";
     var proxy = {port: 0, host: "", valid: false},
         httpsProxy = {port: 0, host: "", valid: false},
-        globalReqNum = 0;
+        globalReqNum = 0,
+        ignoreSSLCertificateErrors = {};
 
     function setProxy(proxyString, inProxy) {
         var proxyParts = process.env.http_proxy.match(/^(https?:\/\/)?([A-Za-z0-9\.\-_]+)(:([0-9]+))?/i);
@@ -71,7 +72,7 @@ var httpClient = (function () {
         options.prefix = options.protocol + "//" + options.headers.host + ":" + options.port;
         options.originalUrl = inUrl;
 
-        if (ignoreWrongCertificates && options.protocol === "https:") {
+        if (ignoreSSLCertificateErrors[options.host] && options.protocol === "https:") {
             options.rejectUnauthorized = false;
             options.requestCert = true;
         }
@@ -381,6 +382,12 @@ var httpClient = (function () {
 
         parseURLIntoOptions: function (inUrl, options) {
             return parseURLIntoOptionsImpl(inUrl, options);
+        },
+
+        setIgnoreSSLCertificateErrorsForHost: function (inUrl, value) {
+            var tmpOptions = {};
+            parseURLIntoOptionsImpl(inUrl, tmpOptions);
+            ignoreSSLCertificateErrors[tmpOptions.host] = value;
         }
     };
 }());
