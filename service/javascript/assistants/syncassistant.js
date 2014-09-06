@@ -804,7 +804,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         future.then(this, function handleEtagResponse() {
             Log.log("---------------------->hanleEtagResponse()");
 
-            var result = checkResult(future);
+            var result = checkResult(future), retries = [], i;
             if (result.returnValue !== true) {
                 Log.log("Something in getting etags went wrong: ", result.exception);
                 Log.log("Aborting with no downsync.");
@@ -816,9 +816,29 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 entries = ETag.parseEtags(result.remoteEtags, result.localEtags, this.currentCollectionId, this.SyncKey);
                 this.SyncKey.currentFolder(kindName).entries = entries;
 
-                //now download object data and transfer it into webos datatypes.
-                future.nest(this._downloadData(kindName, entries, 0));
+                for (i = entries.length - 1; i >= 0; i -= 1) {
+                    if (entries[i].doRetry) {
+                        delete entries[i].doRetry;
+                        entries[i].uploadFailed = entries[i].uploadFailed ? entries[i].uploadFailed + 1 : 1;
+                        retries.push(entries[i]);
+                        entries.splice(i, 1);
+                    }
+                }
+
+                if (retries.length > 0) {
+                    future.nest(DB.merge(retries));
+                } else {
+                    Log.debug("No retries necessary.");
+                    future.result = {returnValue: true, retried: 0};
+                }
             }
+        });
+
+        future.then(this, function retryTriggerCB() {
+            var result = checkResult(future);
+            Log.debug("Trigger retries returned: ", result);
+            //now download object data and transfer it into webos datatypes.
+            future.nest(this._downloadData(kindName, entries, 0));
         });
         return future;
     },
@@ -1002,18 +1022,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 if (batch[index].local.uploadFailed) {
                     batch[index].local.uploadFailed = 0;
                 }
+
+                //save those ONLY for successful uploads.
+                //save uri and etag in local object.
+                batch[index].local.uri = result.uri;
+                batch[index].local.etag = result.etag;
+                batch[index].local.remoteId = rid;
             } else {
+                //keep rid and etag out of db => otherwise object will be deleted on next downsync!
                 Log.debug("Upload of ", rid, " failed. Save failure for later.");
-                batch[index].local.uploadFailed = 1;
+                batch[index].local.uploadFailed = batch[index].local.uploadFailed ? batch[index].local.uploadFailed + 1 : 1;
             }
 
             //save remote id for local <-> remote mapping
             remoteIds[index] = rid;
-
-            //save uri and etag in local object.
-            batch[index].local.uri = result.uri;
-            batch[index].local.etag = result.etag;
-            batch[index].local.remoteId = rid;
 
             //process next object
             if (index + 1 < batch.length) {
@@ -1208,7 +1230,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         for (i = 0; i < batch.length; i += 1) {
             if (batch[i].operation === "save" && batch[i].local.remoteId && batch[i].local._id) {
                 if (!batch[i].local.etag) {
-                    batch[i].local.etag = "0";
+                    batch[i].local.etag = "0"; //necessary if etag could not be downloaded.
                 }
                 batch[i].local._kind = Kinds.objects[kindName].id; //just to be sure it gets to the right DB.
                 Log.debug("Telling webos to save: ", batch[i]);
