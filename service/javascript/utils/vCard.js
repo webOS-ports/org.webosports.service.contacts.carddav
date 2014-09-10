@@ -98,6 +98,7 @@ var vCard = (function () {
                 version,
                 photo,
                 uid,
+                categories,
                 filewritten = false,
                 reader = new vCardReader();
 
@@ -118,6 +119,7 @@ var vCard = (function () {
             reader.processString(input.vCard, version);
             photo = reader.extractPhoto();
             uid = reader.extractUID();
+            categories = reader.extractCategories();
 
             //setup importer
             vCardImporter = new Contacts.vCardImporter({
@@ -169,6 +171,7 @@ var vCard = (function () {
                     delete obj.accountId;
                     delete obj.syncSource;
                     obj.uId = uid;
+                    obj.categories = categories;
 
                     if (photo.photoData.length > 0) { //got a photo!! :)
                         filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photo.photoType;
@@ -258,6 +261,11 @@ var vCard = (function () {
                     //need to add uId in any case:
                     if (input.contact.uId) {
                         data = data.replace("END:VCARD", "UID:" + input.contact.uId + "\r\nEND:VCARD");
+                    }
+
+                    //add categories if contact had them
+                    if (input.contact.categories) {
+                        data = data.replace("END:VCARD", "CATEGORIES:" + input.contact.categories + "\r\nEND:VCARD");
                     }
 
                     if (input.contact.photos && input.contact.photos.length > 0) {

@@ -70,7 +70,7 @@ var ETag = (function () {
          * @return entries array with one entry: {uri, etag, doDelete, add}
          */
         parseEtags: function (remoteEtags, localEtags, currentCollectionId, SyncKey, key) {
-            var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0, orphaned: 0};
+            var entries = [], l, r, found, i, stats = {add: 0, del: 0, update: 0, noChange: 0, orphaned: 0, retriesNecessary: 0};
             Log.log("Got local etags: ", localEtags.length);
             Log.log("Got remote etags: ", remoteEtags.length);
 
@@ -108,7 +108,14 @@ var ETag = (function () {
                                     entries.push(r);
                                     stats.update += 1;
                                 } else {
-                                    stats.noChange += 1;
+                                    if (l.uploadFailed) { //retry upload if no change on server only.
+                                        l.doRetry = true;
+                                        entries.push(l);
+                                        //Log.debug("RETRY ALREADY ON SERVER => ", entries);
+                                        stats.retriesNecessary += 1;
+                                    } else {
+                                        stats.noChange += 1;
+                                    }
                                 }
                             }
                         }
@@ -117,9 +124,15 @@ var ETag = (function () {
                         if (!found) {
                             //only delete if object is in same collection.
                             if (!l.calendarId || l.calendarId === currentCollectionId) {
-                                l.doDelete = true;
-                                stats.del += 1;
-                                entries.push(l);
+                                if (l.uploadFailed) { //upload failed and not on server => probably was never on server
+                                    stats.retriesNecessary += 1;
+                                    l.doRetry = true;
+                                    entries.push(l);
+                                } else {
+                                    l.doDelete = true;
+                                    stats.del += 1;
+                                    entries.push(l);
+                                }
                             }
                         }
                     } else {
@@ -157,7 +170,7 @@ var ETag = (function () {
                     //at the same time.
                     where: [ { prop: "accountId", op: "=", val: clientId } ],
                     incDel: false, //DO NOT INCLUDE DELETED HERE! Leads to a ton of issues and deleted stuff on server!
-                    select: ["etag", "remoteId", "_id", "uri", "calendarId", "parentId"]
+                    select: ["etag", "remoteId", "_id", "uri", "calendarId", "parentId", "uploadFailed"]
                 }, future;
             future =  DB.find(query, false, false);
 

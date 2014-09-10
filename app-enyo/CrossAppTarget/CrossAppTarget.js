@@ -49,6 +49,14 @@ enyo.kind({
                         {content: "Password"}
                     ]}
                 ]},
+                {kind:"HFlexBox", style: "padding-left: 10px;", components: [
+                    {
+                        kind: "CheckBox",
+                        name: "ckIgnoreSSLCertificateErrors",
+                    },
+                    {kind:"Spacer"},
+                    {content: "Ignore SSL Certificate Errors"}
+                ]},
                 { kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
             ]}
         ]},
@@ -101,6 +109,7 @@ enyo.kind({
             this.$.txtURL.setValue(account.url);
             this.$.txtServerName.setValue(account.name);
             this.$.txtUsername.setValue(account.username);
+            this.$.ckIgnoreSSLCertificateErrors.setChecked(!!account.ignoreSSLCertificateErrors);
         } else {
             this.showLoginError("Change credentials", "Could not find account info in db. Best is to delete account and create new one.");
         }
@@ -120,7 +129,8 @@ enyo.kind({
             credentials: {
                 user: this.$.txtUsername.getValue(),
                 password: this.$.txtPassword.getValue()
-            }
+            },
+            ignoreSSLCertificateErrors: this.$.ckIgnoreSSLCertificateErrors.getChecked()
         };
 
         this.$.alert.setContent("");
@@ -161,7 +171,8 @@ enyo.kind({
             username: this.account.credentials.user,
             password: this.account.credentials.password,
             url: this.account.url,
-            name: this.account.name
+            name: this.account.name,
+            ignoreSSLCertificateErrors: this.account.ignoreSSLCertificateErrors
         });
     },
     credentialsOK: function (inSender, inResponse) {

@@ -105,10 +105,7 @@ var AuthManager = (function() {
 
         getAuthToken: function (method, userAuth, uri) {
             if (userAuth.digest) {
-                if (!userAuth.digest.method) {
-                    userAuth.digest.method = getDigestToken(userAuth, method, uri);
-                }
-                return userAuth.digest.method;
+                return getDigestToken(userAuth, method, uri);
             }
 
             //if not digest, just return stored auth token.

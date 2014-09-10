@@ -6,7 +6,7 @@
 * To run manually:
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, iCal, vCard, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, iCal, vCard, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
 var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
@@ -41,6 +41,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
             }
 
             this.config.url = launchArgs.url || this.config.url;
+            this.config.ignoreSSLCertificateErrors = launchArgs.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
 
             //in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
             if (launchArgs.config) {
@@ -48,6 +49,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 this.config.url  =      launchArgs.config.url  || this.config.url;
                 this.config.username =  launchArgs.config.username || launchArgs.username || this.config.username;
                 this.config.accountId = this.accountId || this.config.accountId;
+                this.config.ignoreSSLCertificateErrors = launchArgs.config.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
 
                 if (launchArgs.config.credentials) {
                     this.config.username =  launchArgs.config.credentials.user || this.config.username;
@@ -99,6 +101,11 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 if (result.returnValue === true) {
                     this.config = result.config;
                 }
+
+                if (this.config.ignoreSSLCertificateErrors && this.config.url) {
+                    httpClient.setIgnoreSSLCertificateErrorsForHost(this.config.url, true);
+                }
+
                 future.nest(iCal.initialize());
             });
 

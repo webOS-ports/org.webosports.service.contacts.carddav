@@ -30,6 +30,15 @@ var vCardReader = function () {
         return type;
     }
 
+    function extractField(field) {
+        var i;
+        for (i = 0; i < lines.length; i += 1) {
+            if (lines[i].indexOf(field) === 0) {
+                return lines[i].substring(lines[i].indexOf(":") + 1);
+            }
+        }
+    }
+
     return {
         processString: function (string, version) {
             if (version === "2.1") {
@@ -74,12 +83,11 @@ var vCardReader = function () {
         },
 
         extractUID: function () {
-            var i;
-            for (i = 0; i < lines.length; i += 1) {
-                if (lines[i].indexOf("UID") === 0) {
-                    return lines[i].substring(lines[i].indexOf(":") + 1);
-                }
-            }
+            return extractField("UID");
+        },
+
+        extractCategories: function () {
+            return extractField("CATEGORIES");
         },
 
         readLine: function () {

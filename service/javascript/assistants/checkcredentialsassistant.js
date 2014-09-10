@@ -64,6 +64,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
         var result = checkResult(future), path, newPath;
         if (result.returnValue === true) {
             this.config = result.config;
+            this.config.ignoreSSLCertificateErrors = args.ignoreSSLCertificateErrors;
         }
         if (url) {
             path = url;
@@ -149,6 +150,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
             this.config.name = args.name || this.config.name;
             this.config.username = args.username || args.user || this.config.username;
             this.config.url = args.url || this.config.url;
+            this.config.ignoreSSLCertificateErrors = !!args.ignoreSSLCertificateErrors;
 
             if (this.config._id && this.config._kind) {
                 future.nest(DB.merge([this.config]));
