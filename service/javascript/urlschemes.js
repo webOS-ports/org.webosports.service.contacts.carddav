@@ -22,7 +22,7 @@ var UrlSchemes = {
             keys:              ["yahoo."],
             calendar:          "https://caldav.calendar.yahoo.com/dav/%USERNAME%/Calendar/",
             contact:           "https://carddav.address.yahoo.com/dav/%USERNAME%/",
-            checkCredentials:  "https://carddav.address.yahoo.com/principals/users/%USERNAME%/"
+            checkCredentials:  "https://caldav.calendar.yahoo.com/dav/"
         },
         {
             keys:              ["/owncloud/", "cloudu.de"],
