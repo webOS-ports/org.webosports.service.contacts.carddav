@@ -1,3 +1,7 @@
+0.3.17:
+    o fixed check credentials issue for yahoo accounts.
+2014-09-11: Achim Königs <garfonso@mobo.info>
+
 0.3.16:
     o first working mdigest support implemented
     o fixed change credentials on webOS 3.x and LuneOS
@@ -6,7 +10,6 @@
     o implemented retry mechanism if upsync fails. Prevents deletion of failed upsyncs.
     o Allows to ignore certificate errors on webOS 3.x and LuneOS
 2014-09-10: Achim Königs <garfonso@mobo.info>
-
 
 0.3.15:
     o fixed issue with contact export in some cases
