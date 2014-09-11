@@ -355,7 +355,7 @@ var httpClient = (function () {
                     options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
 
                     Log.log_calDavDebug("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
-                    Log.log_calDavDebug("Method: ", options.method, "Headers: ", options.headers);
+                    Log.log_calDavDebug("Method: ", options.method, " Headers: ", options.headers);
                     Log.debug("Sending request ", reqName(origin, retry), " to " + options.prefix + options.path);
 
                     if (options.protocol === "https:") {
