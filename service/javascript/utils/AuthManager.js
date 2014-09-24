@@ -113,7 +113,7 @@ var AuthManager = (function() {
         },
 
         checkAuth: function (userAuth, url) {
-            Log.debug("AUTH CHECK STARTING.1");
+            Log.debug("AUTH CHECK STARTING.");
             var path, future = new Future(), outerFuture = new Future();
             //for OAuth: maybe need to refresh tokens.
             if (userAuth.oauth) {

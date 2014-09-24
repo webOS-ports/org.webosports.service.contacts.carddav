@@ -16,7 +16,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
     // Base64 encode username and password
     base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
     this.userAuth = {
-        user: args.username,
+        username: args.username,
         password: args.password,
         authToken: base64Auth
     };
