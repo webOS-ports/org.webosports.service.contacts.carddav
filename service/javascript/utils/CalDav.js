@@ -556,7 +556,7 @@ var CalDav = (function () {
                 var result = checkResult(future), home;
                 if (result.returnValue === true) {
                     //look for either calendar- or addressbook-home-set :)
-                    home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "href"), "$t");
+                    home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set"), "href"), "$t");
                     if (!home) {
                         Log.log("Could not get ", (addressbook ? "addressbook" : "calendar"), " home folder.");
                     } else {
@@ -618,7 +618,7 @@ var CalDav = (function () {
             function principalCB(index) {
                 var result = checkResult(future), principal;
                 if (result.returnValue === true) {
-                    principal = getKeyValueFromResponse(result.parsedBody, "current-user-principal", true);
+                    principal = getKeyValueFromResponse(result.parsedBody, "current-user-principal");
                     if (principal) {
                         principal = getValue(getValue(principal, "href"), "$t");
                         Log.log_calDavDebug("Got principal: ", principal);
