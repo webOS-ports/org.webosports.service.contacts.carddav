@@ -1,3 +1,7 @@
+0.3.18:
+    o fixed issues with db query limit of 500 objects
+2014-XX-XX: Achim Königs <garfonso@mobo.info>
+
 0.3.17:
     o fixed check credentials issue for yahoo accounts.
 2014-09-11: Achim Königs <garfonso@mobo.info>

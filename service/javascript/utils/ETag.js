@@ -1,5 +1,5 @@
 /*jslint nomen: true */
-/*global Log, checkResult, Kinds, DB */
+/*global Log, checkResult, Kinds, DB, Future */
 
 var ETag = (function () {
     "use strict";
@@ -170,12 +170,12 @@ var ETag = (function () {
                     //at the same time.
                     where: [ { prop: "accountId", op: "=", val: clientId } ],
                     incDel: false, //DO NOT INCLUDE DELETED HERE! Leads to a ton of issues and deleted stuff on server!
-                    select: ["etag", "remoteId", "_id", "uri", "calendarId", "parentId", "uploadFailed"]
-                }, future;
-            future =  DB.find(query, false, false);
+                    select: ["etag", "remoteId", "_id", "uri", "calendarId", "parentId", "uploadFailed"],
+                    limit: 100
+                }, future, outerFuture = new Future(), results = [];
 
-            future.then(function () {
-                var result = checkResult(future), results = [];
+            function processResult() {
+                var result = checkResult(future);
                 if (result.returnValue === true) {
                     Log.debug("Got ", result.results.length, " etags.");
                     result.results.forEach(function (obj) {
@@ -185,13 +185,24 @@ var ETag = (function () {
                             Log.debug("Skipped child event.");
                         }
                     });
-                    future.result = {returnValue: true, results: results};
+
+                    if (result.next) {
+                        query.page = result.next;
+                        future.nest(DB.find(query, false, true));
+                        future.then(processResult);
+                    } else {
+                        Log.debug("All in all got ", results.length, " etags.");
+                        outerFuture.result = {returnValue: true, results: results};
+                    }
                 } else {
                     future.result = result;
                 }
-            });
+            }
 
-            return future;
+            future = DB.find(query, false, true);
+            future.then(processResult);
+
+            return outerFuture;
         }
     };
 }());
