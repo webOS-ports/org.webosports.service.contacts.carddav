@@ -377,6 +377,7 @@ var httpClient = (function () {
 
     return {
         sendRequest: function (options, data) {
+            options.path = encodeURI(decodeURI(options.path)); //make sure URI is properly encoded.
             return sendRequestImpl(options, data);
         },
 
