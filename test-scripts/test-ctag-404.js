@@ -6,9 +6,9 @@ var path = fs.realpathSync(".");
 global.servicePath = path + "/../service";
 global.checkResult = require("./../service/javascript/utils/checkResult");
 global.Log = require("./../service/javascript/utils/Log.js");
-global.Future = require("./../service/javascript/Future");
+global.Future = require("./foundations/Future");
 var CalDav = require("./../service/javascript/utils/CalDav.js");
-var xml = require("./xml.js");
+var xml = require("./foundations/xml.js");
 
 global.Log.setFilename("test-ctag-404.txt");
 

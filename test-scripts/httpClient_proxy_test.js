@@ -10,7 +10,7 @@ global.Log = require('./../service/javascript/utils/Log.js');
 var httpClient = require('./../service/javascript/utils/httpClient.js');
 var CalDav = require("./../service/javascript/utils/CalDav.js");
 
-global.Future = require('./../service/javascript/Future');
+global.Future = require("./foundations/Future");
 global.checkResult = require("./../service/javascript/utils/checkResult.js");
 
 var options = {
