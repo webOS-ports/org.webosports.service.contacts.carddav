@@ -11,6 +11,10 @@ var CalDav = (function () {
 
     function getValue(obj, field) {
         var f, f2 = field.toLowerCase();
+        if (!obj) {
+            return;
+        }
+
         for (f in obj) {
             if (obj.hasOwnProperty(f)) {
                 if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
@@ -103,21 +107,22 @@ var CalDav = (function () {
         return procRes;
     }
 
-    function getKeyValueFromResponse(body, searchedKey, notResolveText) {
-        var responses = parseResponseBody(body), i, j, prop, key, text;
+    function getKeyValueFromResponse(body, searchedKey) {
+        var responses = parseResponseBody(body), i, j, prop, stat, key;
         for (i = 0; i < responses.length; i += 1) {
             for (j = 0; j < responses[i].propstats.length; j += 1) {
+                stat = prop = responses[i].propstats[j].status || {};
                 prop = responses[i].propstats[j].prop || {};
+                if (stat.indexOf("404") >= 0) {
+                    Log.log_calDavDebug("Prop ", prop, " not found on server. During search for ", searchedKey, ". Skipping.");
+                    continue;
+                }
                 for (key in prop) {
                     if (prop.hasOwnProperty(key)) {
                         Log.log_calDavParsingDebug("Comparing ", key, " to ", searchedKey);
                         if (key.toLowerCase().indexOf(searchedKey) >= 0) {
                             Log.log_calDavParsingDebug("Returning ", prop[key], " for ", key);
-                            text = getValue(prop[key], "$t");
-                            if (notResolveText || !text) {
-                                return prop[key];
-                            }
-                            return text;
+                            return prop[key];
                         }
                     }
                 }
@@ -417,11 +422,16 @@ var CalDav = (function () {
                 var result = checkResult(future), ctag;
                 if (result.returnValue) {
                     ctag = getKeyValueFromResponse(result.parsedBody, "getctag");
+                    if (ctag) {
+                        ctag = getValue(ctag, "$t");
+                    } else {
+                        ctag = false;
+                    }
                 } else {
                     Log.log("Could not receive ctag.");
                 }
                 Log.log_calDavDebug("New ctag: ", ctag, ", old ctag: ", params.ctag);
-                future.result = { success: result.returnValue, needsUpdate: ctag !== params.ctag, ctag: ctag };
+                future.result = { success: result.returnValue, needsUpdate: !ctag || ctag !== params.ctag, ctag: ctag };
             });
 
             return future;
