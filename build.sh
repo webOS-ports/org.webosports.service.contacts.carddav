@@ -26,4 +26,4 @@ palm-package package app-enyo service accounts-enyo accounts-google accounts-icl
 
 mv $RESULT".ipk" $RESULT"_enyo_no_upsync.ipk"
 
-palm-install $RESULT"_upsync.ipk"
+palm-install $RESULT"_enyo_upsync.ipk"
