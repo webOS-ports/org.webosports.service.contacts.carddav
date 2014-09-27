@@ -1,6 +1,8 @@
 0.3.18:
     o fixed issues with db query limit of 500 objects
     o fixed issue with URI encoding that affected Yahoo.
+    o fixed crash on empty ics retrival
+    o changed some stuff to allow automated testing (still in early stage)
 2014-XX-XX: Achim Königs <garfonso@mobo.info>
 
 0.3.17:
