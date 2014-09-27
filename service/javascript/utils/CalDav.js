@@ -413,6 +413,7 @@ var CalDav = (function () {
             data += "<d:prop>";
             data += "<d:displayname />";
             data += "<cs:getctag />";
+            data += "<d:getetag />";
             data += "</d:prop>";
             data += "</d:propfind>";
 
@@ -425,7 +426,12 @@ var CalDav = (function () {
                     if (ctag) {
                         ctag = getValue(ctag, "$t");
                     } else {
-                        ctag = false;
+                        ctag = getKeyValueFromResponse(result.parsedBody, "getetag");
+                        if (ctag) {
+                            ctag = getValue(ctag, "$t");
+                        } else {
+                            ctag = false;
+                        }
                     }
                 } else {
                     Log.log("Could not receive ctag.");
