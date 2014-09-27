@@ -1,7 +1,6 @@
 /*global global, require, Log, Future */
 
 var fs = require("fs");
-
 var path = fs.realpathSync(".");
 global.servicePath = path + "/../service";
 global.Log = require("./../service/javascript/utils/Log.js");
