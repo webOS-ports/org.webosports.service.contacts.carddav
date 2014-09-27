@@ -1382,3 +1382,5 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         return outerFuture;
     }
 });
+
+module.exports = SyncAssistant;

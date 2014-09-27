@@ -1,4 +1,3 @@
-/*exported Kinds, KindsContacts, KindsCalendar */
 /************************************************************
 Contains global kinds references - NOT USED BY CONFIGURATOR
 *************************************************************/
@@ -48,7 +47,7 @@ var Kinds = {
     }
 };
 
-var KindsContacts = {
+exports.KindsContacts = {
     objects: {
         contactset: {
             name: "contactset",
@@ -75,7 +74,7 @@ var KindsContacts = {
     ]
 };
 
-var KindsCalendar = {
+exports.KindsCalendar = {
     objects: {
         calendar: {
             name: "calendar",
@@ -109,3 +108,5 @@ Kinds.syncOrder = [
     Kinds.objects.contactset.name,
     Kinds.objects.contact.name
 ];
+
+exports.Kinds = Kinds;

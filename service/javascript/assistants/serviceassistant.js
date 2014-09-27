@@ -6,9 +6,11 @@
 * To run manually:
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, iCal, vCard, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
+var iCal = require(servicePath + "/javascript/utils/iCal.js");
+var vCard = require(servicePath + "/javascript/utils/vCard.js");
 var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
 var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
 var Base64 = require(servicePath + "/javascript/utils/Base64.js");

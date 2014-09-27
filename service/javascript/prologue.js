@@ -1,5 +1,5 @@
 /*exported Transport, Sync, Contacts, Calendar, Globalization, Assert, Class, DB, Future, Activity, PalmCall, Log,
-           xml, querystring, fs, CalDav, httpClient, checkResult */
+           xml, querystring, fs, CalDav, httpClient, checkResult, SyncAssistant, vCard, Kinds, KindsCalendar, KindsContacts */
 /*global IMPORTS, console, require:true, process */
 console.error("Starting to load libraries");
 
@@ -38,6 +38,13 @@ if (nodejsMajorVersion >= 4) {
     var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
 }
 var checkResult = require(servicePath + "/javascript/utils/checkResult.js");
+var KindsModule = require(servicePath + "/javascript/kinds.js");
+var Kinds = KindsModule.Kinds;
+var KindsCalendar = KindsModule.KindsCalendar;
+var KindsContacts = KindsModule.KindsContacts;
+
+//load assistants:
+var SyncAssistant = require(servicePath + "/javascript/assistants/syncassistant.js");
 
 console.error("--------->Loaded Libraries OK1");
 
