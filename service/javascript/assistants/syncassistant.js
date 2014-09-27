@@ -930,7 +930,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
             }
 
             //force download of etags, necessary if entries where left from last sync.
-            needEtags = entries.length > 0 || this.SyncKey.currentFolder(kindName).forceEtags;
+            needEtags = entries.length > 0 || !!this.SyncKey.currentFolder(kindName).forceEtags;
             delete this.SyncKey.currentFolder(kindName).forceEtags;
             Log.log(entries.length, " items for next run.");
             future.result = {
