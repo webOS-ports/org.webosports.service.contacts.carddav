@@ -1297,6 +1297,7 @@ var iCal = (function () {
                     if (!revent || !revent.valid) {
                         Log.log("VCALENDAR Object did not contain valid VEVENT.");
                         outerFuture.result = {returnValue: false};
+                        return;
                     }
                     events.forEach(function (event) {
                         delete event.valid;

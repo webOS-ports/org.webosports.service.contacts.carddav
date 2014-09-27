@@ -900,13 +900,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                             } else {
                                 Log.log("Could not convert object ", entriesIndex, " - trying next one. :(");
                                 this.params.blacklist.push(entries[entriesIndex].uri);
+                                entries.splice(entriesIndex, 1);
+                                entriesIndex -= 1;
                                 future.result = { returnValue: false };
                             }
+                        });
 
-                            future.then(this, function () {
-                                //done with this object, do next one.
-                                future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
-                            });
+                        future.then(this, function () {
+                            //done with this object, do next one.
+                            future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
                         });
 
                     } else {
