@@ -3,6 +3,9 @@
     o fixed issue with URI encoding that affected Yahoo.
     o fixed crash on empty ics retrival
     o changed some stuff to allow automated testing (still in early stage)
+    o fixed google resolving (non critical issue)
+    o now additionally writing log to /media/internal/.org.webosports.cdav.service.log in order to find crashes
+    o Retry etag retrival without filtering, if filtering is not supported.
 2014-XX-XX: Achim Königs <garfonso@mobo.info>
 
 0.3.17:
