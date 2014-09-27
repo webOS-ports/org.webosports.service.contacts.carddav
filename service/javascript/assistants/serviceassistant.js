@@ -24,7 +24,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
         setup: function setup(service, accountid, launchConfig, launchArgs) {
             "use strict";
-            Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
+            Log.log("\n\n**************************START SERVICEASSISTANT 0.3.17 *****************************");
             //for testing only - will expose credentials to log file if left open
             Log.debug("\n------------------->accountId: ", accountid);
             Log.debug("\n------------------->launchConfig: ", launchConfig);
