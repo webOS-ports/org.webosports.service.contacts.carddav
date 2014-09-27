@@ -30,6 +30,7 @@ var fs = require("fs"); //required for own node modules and current vCard conver
 var servicePath = fs.realpathSync(".");
 console.log("Service Path: " + servicePath);
 var Log = require(servicePath + "/javascript/utils/Log.js");
+Log.setFilename("/media/internal/.org.webosports.cdav.service.log");
 var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
 var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
 if (nodejsMajorVersion >= 4) {
