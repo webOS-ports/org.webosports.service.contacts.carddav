@@ -54,7 +54,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 this.config.ignoreSSLCertificateErrors = launchArgs.config.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
 
                 if (launchArgs.config.credentials) {
-                    this.config.username =  launchArgs.config.credentials.user || this.config.username;
+                    this.config.username = launchArgs.config.credentials.username || launchArgs.config.credentials.user || this.config.username;
                 }
             }
 
