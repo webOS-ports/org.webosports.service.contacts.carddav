@@ -116,7 +116,7 @@ var CalDav = (function () {
         var responses = parseResponseBody(body), i, j, prop, stat, key;
         for (i = 0; i < responses.length; i += 1) {
             for (j = 0; j < responses[i].propstats.length; j += 1) {
-                stat = prop = responses[i].propstats[j].status || {};
+                stat = responses[i].propstats[j].status || {};
                 prop = responses[i].propstats[j].prop || {};
                 if (stat.indexOf("404") >= 0) {
                     Log.log_calDavDebug("Prop ", prop, " not found on server. During search for ", searchedKey, ". Skipping.");
@@ -425,7 +425,7 @@ var CalDav = (function () {
             future.nest(httpClient.sendRequest(options, data));
 
             future.then(function () {
-                var result = checkResult(future), ctag;
+                var result = checkResult(future), ctag, needsUpdate = false;
                 if (result.returnValue) {
                     ctag = getKeyValueFromResponse(result.parsedBody, "getctag");
                     if (ctag) {
@@ -442,7 +442,10 @@ var CalDav = (function () {
                     Log.log("Could not receive ctag.");
                 }
                 Log.log_calDavDebug("New ctag: ", ctag, ", old ctag: ", params.ctag);
-                future.result = { success: result.returnValue, needsUpdate: !ctag || ctag !== params.ctag, ctag: ctag };
+                if (!ctag || !params.ctag || ctag !== params.ctag) {
+                    needsUpdate = true;
+                }
+                future.result = { success: result.returnValue, needsUpdate: needsUpdate, ctag: ctag };
             });
 
             return future;
