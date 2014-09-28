@@ -36,9 +36,14 @@ var CalDav = (function () {
     }
 
     function processStatus(stat) {
-        Log.log_calDavParsingDebug("Processing stat: ", stat);
+        Log.log_calDavParsingDebug("Processing stat: ", stat, " type: ", typeof stat);
+        if (typeof stat === "string") {
+            return stat;
+        }
+
         if (stat.length >= 0) {
             if (stat.length !== 1) {
+                Log.log("Multiple stati: ", stat, ". Not allowed.");
                 throw {msg: "multiple stati... can't process."};
             } else {
                 return getValue(stat[0], "$t"); //maybe extract number here?
