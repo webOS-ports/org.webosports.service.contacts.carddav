@@ -52,8 +52,11 @@ var vCardWriter = function () {
             Log.log_icalDebug("Photo:", photo);
             //if we got a photo, build blob.
             if (photo) {
-                photoType = photo.localPath.substring(photo.localPath.indexOf(".") + 1);
+                photoType = photo.localPath.substring(photo.localPath.lastIndexOf(".") + 1);
                 photoType = photoType.toUpperCase();
+                if (photoType === "JPG") {
+                    photoType = "JPEG";
+                }
 
                 fs.readFile(photo.localPath, function (err, data) {
                     if (err) {
