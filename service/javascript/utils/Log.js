@@ -72,18 +72,18 @@ var logBase = function () {
     }
 
     data = argsArr.join("");
+    if (filestream) {
+        try {
+            filestream.write(new Date() + ": " + data + "\n");
+        } catch (error) {
+            console.error("Unable to write to file: ", error);
+        }
+    }
 
     // I want ALL my logs!
     data = data.split("\n");
     for (i = 0; i < data.length; i += 1) {
         datum = data[i];
-        if (filestream) {
-            try {
-                filestream.write(new Date() + ": " + datum + "\n");
-            } catch (error) {
-                console.error("Unable to write to file: ", error);
-            }
-        }
 
         if (datum.length < 500) {
             log(datum);
