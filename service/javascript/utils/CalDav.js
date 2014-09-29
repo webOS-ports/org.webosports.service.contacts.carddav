@@ -466,7 +466,7 @@ var CalDav = (function () {
             startVal = String(date.getUTCFullYear() - 1) + (date.getUTCMonth() < 9 ? "0" : "") + String(date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + String(date.getUTCDate()) + "T000000Z";
 
             data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"><c:time-range start=\"" + startVal + "\" /></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
-            if (params.cardDav) {
+            if (disableFilters || params.cardDav) {
                 //no filtering required for contacts, i.e. do propfind request.
                 options.method = "PROPFIND";
                 options.headers.Authorization = AuthManager.getAuthToken("PROPFIND", params.userAuth, options.path);
