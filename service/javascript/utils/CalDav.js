@@ -332,8 +332,10 @@ var CalDav = (function () {
                 }
             };
 
+        Log.debug("Path: ", params.path);
         httpClient.parseURLIntoOptions(params.path, options); //fill prefix and stuff.
         changePath(options, params.userAuth, path);
+        Log.debug("Result path: ", options.path);
         return options;
     }
 

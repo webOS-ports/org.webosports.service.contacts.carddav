@@ -48,7 +48,7 @@ var httpClient = (function () {
         }
     }
 
-    function parseURLIntoOptionsImpl(inUrl, options, inPath) {
+    function parseURLIntoOptionsImpl(inUrl, options) {
         if (!inUrl) {
             return;
         }
@@ -57,7 +57,7 @@ var httpClient = (function () {
         if (!parsedUrl.hostname) {
             parsedUrl = url.parse(inUrl.replace(":/", "://")); //somehow SOGo returns uri with only one / => this breaks URL parsing.
         }
-        options.path = inPath || parsedUrl.pathname || "/";
+        options.path = parsedUrl.pathname || "/";
         if (!options.headers) {
             options.headers = {};
         }
