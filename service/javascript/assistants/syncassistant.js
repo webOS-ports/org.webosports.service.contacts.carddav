@@ -884,6 +884,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                                 obj = result.result;
                                 obj.uri = entries[entriesIndex].uri;
                                 obj.etag = entries[entriesIndex].etag;
+                                obj.uploadFailed = 0; //reset upload retry flag here, because local changes are overwritten now anyway.
 
                                 entries[entriesIndex].collectionId = this.SyncKey.currentFolder(kindName).collectionId;
                                 entries[entriesIndex].obj = obj;
