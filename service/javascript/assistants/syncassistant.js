@@ -1013,7 +1013,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         "use strict";
         Log.log("Processing change ", (index + 1), " of ", batch.length);
 
-        var future = this._putOneRemoteObject(batch[index], kindName);
+        var future = this._putOneRemoteObject(batch[index], kindName), error = false;
         future.then(this, function oneObjectCallback() {
             var result = checkResult(future), rid;
 
@@ -1032,9 +1032,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 batch[index].local.etag = result.etag;
                 batch[index].local.remoteId = rid;
             } else {
-                //keep rid and etag out of db => otherwise object will be deleted on next downsync!
-                Log.debug("Upload of ", rid, " failed. Save failure for later.");
-                batch[index].local.uploadFailed = batch[index].local.uploadFailed ? batch[index].local.uploadFailed + 1 : 1;
+                if (result.noReUpload) {
+                    Log.log("Upload of ", rid, " failed so hard that reupload won't work. Do not retry.");
+                    batch[index].local.uploadFailed = 0;
+                    batch[index].local.etag = "0"; //reset etag to trigger redownload.
+                    error = true; //make sure full update is done, ctags on server probably won't change.
+                } else {
+                    //keep rid and etag out of db => otherwise object will be deleted on next downsync!
+                    Log.debug("Upload of ", rid, " failed. Save failure for later.");
+                    batch[index].local.uploadFailed = batch[index].local.uploadFailed ? batch[index].local.uploadFailed + 1 : 1;
+                }
             }
 
             //save remote id for local <-> remote mapping
@@ -1045,7 +1052,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                 future.nest(this._processOne(index + 1, batch, kindName));
             } else { //finished, return results.
                 future.result = {
-                    returnValue: true,
+                    returnValue: !error,
                     results: remoteIds
                 };
             }
@@ -1173,29 +1180,43 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         future.nest(CalDav.putObject(this.params, obj));
 
         future.then(this, function putCB() {
-            var result = checkResult(future), oldCardDav;
+            var result = checkResult(future), noReUpload = false;
             if (result.returnValue === true) {
                 if (result.etag) { //server already delivered etag -> no need to get it again.
                     Log.log("Already got etag in put response: ", result.etag);
                     future.result = { returnValue: true, uri: result.uri, etags: [{etag: result.etag, uri: result.uri}]};
                 } else {
                     Log.log("Need to get new etag from server.");
-                    this.params.path = result.uri; //this already is the complete URL.
-                    oldCardDav = this.params.cardDav;
-                    this.params.cardDav = true;
-                    future.nest(CalDav.downloadEtags(this.params));
-                    this.params.cardDav = oldCardDav;
+                    this.params.path = result.uri;
+                    future.nest(CalDav.downloadEtags(this.params, true));
                 }
             } else {
-                Log.log("put object failed for ", obj.uri);
+                Log.log("put object failed for ", obj.uri, " with code ", obj.returnCode);
+
+                if (result.returnCode === 400 || result.returnCode === 411 || result.returnCode === 420) {
+                    Log.log("Bad request, please report bug.", result, " for ", obj);
+                    noReUpload = true;
+                } else if ((result.returnCode >= 403 && result.returnCode <= 407) ||
+                    (result.returnCode >= 409 && result.returnCode <= 412) ||
+                    (result.returnCode >= 414 && result.returnCode <= 420) ||
+                    (result.returnCode === 451) ||
+                    (result.returnCode === 501) ||
+                    (result.returnCode === 505) ||
+                    (result.returnCode === 506) ||
+                    (result.returnCode === 508) ||
+                    (result.returnCode === 510)) {
+                    Log.log("Error won't go away, disallow reupload");
+                    noReUpload = true;
+                }
+
                 //before I did throw an error here. This prevented the sync from finishing and triggered upsync for this object on
                 //next occasion... if we only return an error here, probably we loose local changes.
                 //issue is that on error code 412 (i.e. something changed on server on this object) sync will NEVER finish
                 //and always will be triggered.
                 if (result.returnCode === 412) {
-                    future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(result) + " for " + obj.uri };
+                    future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
                 } else {
-                    future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(result) + " for " + obj.uri };
+                    future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
                 }
             }
         });
@@ -1210,7 +1231,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     Log.log("Get etag failed for ", obj.uri);
                     future.result = { returnValue: true, uri: obj.uri, etag: "0" };
                 } else { //put also failed, tell _processOne to store a failed upload.
-                    future.result = { returnValue: false, uri: obj.uri };
+                    future.result = { returnValue: false, uri: obj.uri, noReUpload: result.noReUpload };
                 }
             }
         });
