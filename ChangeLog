@@ -6,6 +6,8 @@
     o fixed google resolving (non critical issue)
     o now additionally writing log to /media/internal/.org.webosports.cdav.service.log in order to find crashes
     o Retry etag retrival without filtering, if filtering is not supported.
+    o If upload fails with error code that hints for impossible upload, do not retry upload.
+    o Fixed minor issues with proxy usage
 2014-XX-XX: Achim Königs <garfonso@mobo.info>
 
 0.3.17:
