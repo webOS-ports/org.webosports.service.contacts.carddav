@@ -278,6 +278,9 @@ var httpClient = (function () {
                 body: body,
                 uri: options.prefix + options.path
             };
+            if (options.path.indexOf(":/") >= 0) {
+                result.uri = options.path; //path already was complete, maybe because of proxy usage.
+            }
 
             if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
                 Log.log_calDavDebug("Location: ", res.headers.location);
