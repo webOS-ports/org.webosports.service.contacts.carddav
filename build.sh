@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESULT=org.webosports.cdav_0.3.17_all
+RESULT=org.webosports.cdav_0.3.18_all
 
 rm *.ipk
 
@@ -26,4 +26,4 @@ palm-package package app-enyo service accounts-enyo accounts-google accounts-icl
 
 mv $RESULT".ipk" $RESULT"_enyo_no_upsync.ipk"
 
-palm-install $RESULT"_enyo_upsync.ipk"
+palm-install $RESULT"_upsync.ipk"

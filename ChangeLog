@@ -8,7 +8,7 @@
     o Retry etag retrival without filtering, if filtering is not supported.
     o If upload fails with error code that hints for impossible upload, do not retry upload.
     o Fixed minor issues with proxy usage
-2014-XX-XX: Achim Königs <garfonso@mobo.info>
+2014-10-15: Achim Königs <garfonso@mobo.info>
 
 0.3.17:
     o fixed check credentials issue for yahoo accounts.
