@@ -144,7 +144,8 @@ AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
                 authToken: credbody.token_type + " " + credbody.access_token,
-                refresh_url: BASE_URL + "token"
+                refresh_url: BASE_URL + "token",
+                username: body.email
             };
 
             this.account.username = body.email;

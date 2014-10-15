@@ -11,6 +11,10 @@ var CalDav = (function () {
 
     function getValue(obj, field) {
         var f, f2 = field.toLowerCase();
+        if (!obj) {
+            return;
+        }
+
         for (f in obj) {
             if (obj.hasOwnProperty(f)) {
                 if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
@@ -32,9 +36,14 @@ var CalDav = (function () {
     }
 
     function processStatus(stat) {
-        Log.log_calDavParsingDebug("Processing stat: ", stat);
+        Log.log_calDavParsingDebug("Processing stat: ", stat, " type: ", typeof stat);
+        if (typeof stat === "string") {
+            return stat;
+        }
+
         if (stat.length >= 0) {
             if (stat.length !== 1) {
+                Log.log("Multiple stati: ", stat, ". Not allowed.");
                 throw {msg: "multiple stati... can't process."};
             } else {
                 return getValue(stat[0], "$t"); //maybe extract number here?
@@ -103,21 +112,22 @@ var CalDav = (function () {
         return procRes;
     }
 
-    function getKeyValueFromResponse(body, searchedKey, notResolveText) {
-        var responses = parseResponseBody(body), i, j, prop, key, text;
+    function getKeyValueFromResponse(body, searchedKey) {
+        var responses = parseResponseBody(body), i, j, prop, stat, key;
         for (i = 0; i < responses.length; i += 1) {
             for (j = 0; j < responses[i].propstats.length; j += 1) {
+                stat = responses[i].propstats[j].status || {};
                 prop = responses[i].propstats[j].prop || {};
+                if (stat.indexOf("404") >= 0) {
+                    Log.log_calDavDebug("Prop ", prop, " not found on server. During search for ", searchedKey, ". Skipping.");
+                    continue;
+                }
                 for (key in prop) {
                     if (prop.hasOwnProperty(key)) {
                         Log.log_calDavParsingDebug("Comparing ", key, " to ", searchedKey);
                         if (key.toLowerCase().indexOf(searchedKey) >= 0) {
                             Log.log_calDavParsingDebug("Returning ", prop[key], " for ", key);
-                            text = getValue(prop[key], "$t");
-                            if (notResolveText || !text) {
-                                return prop[key];
-                            }
-                            return text;
+                            return prop[key];
                         }
                     }
                 }
@@ -322,8 +332,10 @@ var CalDav = (function () {
                 }
             };
 
+        Log.debug("Path: ", params.path);
         httpClient.parseURLIntoOptions(params.path, options); //fill prefix and stuff.
         changePath(options, params.userAuth, path);
+        Log.debug("Result path: ", options.path);
         return options;
     }
 
@@ -408,20 +420,34 @@ var CalDav = (function () {
             data += "<d:prop>";
             data += "<d:displayname />";
             data += "<cs:getctag />";
+            data += "<d:getetag />";
             data += "</d:prop>";
             data += "</d:propfind>";
 
             future.nest(httpClient.sendRequest(options, data));
 
             future.then(function () {
-                var result = checkResult(future), ctag;
+                var result = checkResult(future), ctag, needsUpdate = false;
                 if (result.returnValue) {
                     ctag = getKeyValueFromResponse(result.parsedBody, "getctag");
+                    if (ctag) {
+                        ctag = getValue(ctag, "$t");
+                    } else {
+                        ctag = getKeyValueFromResponse(result.parsedBody, "getetag");
+                        if (ctag) {
+                            ctag = getValue(ctag, "$t");
+                        } else {
+                            ctag = false;
+                        }
+                    }
                 } else {
                     Log.log("Could not receive ctag.");
                 }
                 Log.log_calDavDebug("New ctag: ", ctag, ", old ctag: ", params.ctag);
-                future.result = { success: result.returnValue, needsUpdate: ctag !== params.ctag, ctag: ctag };
+                if (!ctag || !params.ctag || ctag !== params.ctag) {
+                    needsUpdate = true;
+                }
+                future.result = { success: result.returnValue, needsUpdate: needsUpdate, ctag: ctag };
             });
 
             return future;
@@ -432,7 +458,7 @@ var CalDav = (function () {
          * @param params usual param object with path, credentials, ...
          * @return future result.etags will contain the etag directory of uri<=>etag objects
          */
-        downloadEtags: function (params) {
+        downloadEtags: function (params, disableFilters) {
             var options = preProcessOptions(params, "REPORT"), future = new Future(), data, date = new Date(), startVal, blacklist = params.blacklist || [];
             options.headers.Depth = 1;
             options.parse = true;
@@ -441,8 +467,8 @@ var CalDav = (function () {
             //be sure to not delete local objects that are beyond that timerange! ;)
             startVal = String(date.getUTCFullYear() - 1) + (date.getUTCMonth() < 9 ? "0" : "") + String(date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + String(date.getUTCDate()) + "T000000Z";
 
-            data = "<c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"><c:time-range start=\"" + startVal + "\" /></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
-            if (params.cardDav) {
+            data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"><c:time-range start=\"" + startVal + "\" /></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
+            if (disableFilters || params.cardDav) {
                 //no filtering required for contacts, i.e. do propfind request.
                 options.method = "PROPFIND";
                 options.headers.Authorization = AuthManager.getAuthToken("PROPFIND", params.userAuth, options.path);
@@ -457,8 +483,13 @@ var CalDav = (function () {
                     etags = getETags(result.parsedBody, blacklist);
                     future.result = { returnValue: true, etags: etags };
                 } else {
-                    future.result = { returnValue: false, exception: result };
-                    Log.log("Could not get eTags.");
+                    if (!params.cardDav && !disableFilters) {
+                        Log.log("Retry to get etags without filtering.");
+                        future.nest(CalDav.downloadEtags(params, true));
+                    } else {
+                        future.result = { returnValue: false, exception: result };
+                        Log.log("Could not get eTags.");
+                    }
                 }
             });
 
@@ -546,7 +577,7 @@ var CalDav = (function () {
                 var result = checkResult(future), home;
                 if (result.returnValue === true) {
                     //look for either calendar- or addressbook-home-set :)
-                    home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set", true), "href"), "$t");
+                    home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, "-home-set"), "href"), "$t");
                     if (!home) {
                         Log.log("Could not get ", (addressbook ? "addressbook" : "calendar"), " home folder.");
                     } else {
@@ -608,7 +639,7 @@ var CalDav = (function () {
             function principalCB(index) {
                 var result = checkResult(future), principal;
                 if (result.returnValue === true) {
-                    principal = getKeyValueFromResponse(result.parsedBody, "current-user-principal", true);
+                    principal = getKeyValueFromResponse(result.parsedBody, "current-user-principal");
                     if (principal) {
                         principal = getValue(getValue(principal, "href"), "$t");
                         Log.log_calDavDebug("Got principal: ", principal);

@@ -1,3 +1,15 @@
+0.3.18:
+    o fixed issues with db query limit of 500 objects
+    o fixed issue with URI encoding that affected Yahoo.
+    o fixed crash on empty ics retrival
+    o changed some stuff to allow automated testing (still in early stage)
+    o fixed google resolving (non critical issue)
+    o now additionally writing log to /media/internal/.org.webosports.cdav.service.log in order to find crashes
+    o Retry etag retrival without filtering, if filtering is not supported.
+    o If upload fails with error code that hints for impossible upload, do not retry upload.
+    o Fixed minor issues with proxy usage
+2014-10-15: Achim Königs <garfonso@mobo.info>
+
 0.3.17:
     o fixed check credentials issue for yahoo accounts.
 2014-09-11: Achim Königs <garfonso@mobo.info>

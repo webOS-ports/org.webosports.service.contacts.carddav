@@ -1,9 +1,11 @@
 /*global require, console, global */
 
+var fs = require("fs");
+var path = fs.realpathSync(".");
+global.servicePath = path + "/../service";
 global.Log = require("./../service/javascript/utils/Log.js");
 var CalDav = require("./../service/javascript/utils/CalDav.js");
-var xml = require("Z:\\WebOs\\image_2.2.4\\modified\\usr\\palm\\frameworks\\foundations.xml\\submission\\7foundations_xml.js");
-var fs = require("fs");
+var xml = require("./foundations/xml.js");
 
 global.Log.setFilename("test-folder-parsing.txt");
 

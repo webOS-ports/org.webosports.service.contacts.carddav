@@ -45,9 +45,6 @@
         "source": "javascript/prologue.js"
     },
     {
-        "source": "javascript/kinds.js"
-    },
-    {
         "source": "javascript/urlschemes.js"
     },
     {
@@ -70,9 +67,6 @@
     },
     {
         "source": "javascript/assistants/onenabledassistant.js"
-    },
-    {
-        "source": "javascript/assistants/syncassistant.js"
     },
     {
         "source": "javascript/assistants/serviceassistant.js"

@@ -6,9 +6,11 @@
 * To run manually:
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, iCal, vCard, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
+var iCal = require(servicePath + "/javascript/utils/iCal.js");
+var vCard = require(servicePath + "/javascript/utils/vCard.js");
 var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
 var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
 var Base64 = require(servicePath + "/javascript/utils/Base64.js");
@@ -22,7 +24,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
         setup: function setup(service, accountid, launchConfig, launchArgs) {
             "use strict";
-            Log.log("\n\n**************************START SERVICEASSISTANT*****************************");
+            Log.log("\n\n**************************START SERVICEASSISTANT 0.3.17 *****************************");
             //for testing only - will expose credentials to log file if left open
             Log.debug("\n------------------->accountId: ", accountid);
             Log.debug("\n------------------->launchConfig: ", launchConfig);
@@ -52,7 +54,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
                 this.config.ignoreSSLCertificateErrors = launchArgs.config.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
 
                 if (launchArgs.config.credentials) {
-                    this.config.username =  launchArgs.config.credentials.user || this.config.username;
+                    this.config.username = launchArgs.config.credentials.username || launchArgs.config.credentials.user || this.config.username;
                 }
             }
 

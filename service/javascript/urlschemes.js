@@ -14,9 +14,10 @@ var UrlSchemes = {
             checkCredentials:  "https://p02-contacts.icloud.com:443"
         },
         {
-            keys:              ["google."],
-            contact:           "https://www.google.com:443/carddav/v1/principals/%USERNAME%/lists/",
-            checkCredentials:  "https://www.google.com:443/.well-known/carddav"
+            keys:              [".googleapis.", ".google."],
+            calendar:          "https://www.googleapis.com:443/caldav/v2/%USERNAME%/",
+            contact:           "https://www.googleapis.com:443/carddav/v1/principals/%USERNAME%/lists/",
+            checkCredentials:  "https://www.googleapis.com:443/.well-known/carddav"
         },
         {
             keys:              ["yahoo."],

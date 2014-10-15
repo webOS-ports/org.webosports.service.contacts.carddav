@@ -48,7 +48,7 @@ var httpClient = (function () {
         }
     }
 
-    function parseURLIntoOptionsImpl(inUrl, options, inPath) {
+    function parseURLIntoOptionsImpl(inUrl, options) {
         if (!inUrl) {
             return;
         }
@@ -57,7 +57,7 @@ var httpClient = (function () {
         if (!parsedUrl.hostname) {
             parsedUrl = url.parse(inUrl.replace(":/", "://")); //somehow SOGo returns uri with only one / => this breaks URL parsing.
         }
-        options.path = inPath || parsedUrl.pathname || "/";
+        options.path = parsedUrl.pathname || "/";
         if (!options.headers) {
             options.headers = {};
         }
@@ -278,6 +278,9 @@ var httpClient = (function () {
                 body: body,
                 uri: options.prefix + options.path
             };
+            if (options.path.indexOf(":/") >= 0) {
+                result.uri = options.path; //path already was complete, maybe because of proxy usage.
+            }
 
             if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
                 Log.log_calDavDebug("Location: ", res.headers.location);
@@ -395,6 +398,7 @@ var httpClient = (function () {
 
     return {
         sendRequest: function (options, data) {
+            options.path = encodeURI(decodeURI(options.path)); //make sure URI is properly encoded.
             return sendRequestImpl(options, data);
         },
 

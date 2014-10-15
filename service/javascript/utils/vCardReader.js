@@ -25,7 +25,7 @@ var vCardReader = function () {
         if (type) {
             type = "." + type.toLowerCase();
         } else {
-            type = ".jpg";
+            type = ".jpeg";
         }
         return type;
     }

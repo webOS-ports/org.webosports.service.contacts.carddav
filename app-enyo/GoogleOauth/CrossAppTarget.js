@@ -162,7 +162,8 @@ enyo.kind({
                 client_id: CLIENT_ID,
                 client_secret: CLIENT_SECRET,
                 authToken: this.token_response.token_type + " " + this.token_response.access_token,
-                refresh_url: BASE_URL + "token"
+                refresh_url: BASE_URL + "token",
+                username: username
             },
             config = {
                 name: "C+DAV Google",

@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<D:multistatus xmlns:D="DAV:"><D:response><D:href>/addressbooks/users/200/shared_list_addressbook/</D:href><D:propstat><D:prop><D:displayname/><getctag xmlns="http://calendarserver.org/ns/"/></D:prop><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat></D:response></D:multistatus>
