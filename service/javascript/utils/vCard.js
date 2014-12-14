@@ -176,8 +176,11 @@ var vCard = (function () {
                     if (photo.photoData.length > 0) { //got a photo!! :)
                         filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photo.photoType;
                         reader.writePhoto(photo, filename).then(function () {
-                            obj.photos.push({localPath: filename, primary: false, type: "type_big"});
+                            //storing those here and NOT using ContactsLib to set photos introduces the issue that photos will always stay
+                            //but I did not manage to show the photo in all places in webos.
+                            obj.photos.push({localPath: filename, primary: true, type: "type_big"});
                             obj.photos.push({localPath: filename, primary: false, type: "type_square"});
+                            obj.photos.push({localPath: filename, primary: false, type: "type_list"});
                             future.result = {returnValue: true, obj: obj};
                         });
                     } else {
