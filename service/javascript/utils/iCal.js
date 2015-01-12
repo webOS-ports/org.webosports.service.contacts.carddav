@@ -557,23 +557,25 @@ var iCal = (function () {
             "summary" : "SUMMARY"
         };
         for (i = 0; i < alarm.length; i += 1) {
-            text.push("BEGIN:VALARM");
-            for (field in alarm[i]) {
-                if (alarm[i].hasOwnProperty(field)) {
-                    if (field === "alarmTrigger") { //use webos fields to allow edit on device.
-                        text.push("TRIGGER" +
-                            (alarm[i].alarmTrigger.valueType === "DATETIME" ? ";VALUE=DATE-TIME" : ";VALUE=DURATION") +
-                            ":" + alarm[i].alarmTrigger.value); //only other mode supported by webOs is DURATION which is the default.
-                    } else if (translation[field]) { //ignore trigger field and other unkown things..
-                        value = alarm[i][field];
-                        if (field === "action") {
-                            value = alarm[i][field].toUpperCase();
+            if (alarm[i] && alarm[i].alarmTrigger && alarm[i].alarmTrigger.value !== "none") { //skip empty alarms! Also trigger is MUST.
+                text.push("BEGIN:VALARM");
+                for (field in alarm[i]) {
+                    if (alarm[i].hasOwnProperty(field)) {
+                        if (field === "alarmTrigger") { //use webos fields to allow edit on device.
+                            text.push("TRIGGER" +
+                                (alarm[i].alarmTrigger.valueType === "DATETIME" ? ";VALUE=DATE-TIME" : ";VALUE=DURATION") +
+                                ":" + alarm[i].alarmTrigger.value); //only other mode supported by webOs is DURATION which is the default.
+                        } else if (translation[field]) { //ignore trigger field and other unkown things..
+                            value = alarm[i][field];
+                            if (field === "action") {
+                                value = alarm[i][field].toUpperCase();
+                            }
+                            text.push(translation[field] + ":" + value); //just copy most values.
                         }
-                        text.push(translation[field] + ":" + value); //just copy most values.
                     }
                 }
+                text.push("END:VALARM");
             }
-            text.push("END:VALARM");
         }
         return text;
     }
