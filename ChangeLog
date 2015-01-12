@@ -1,6 +1,9 @@
 0.3.19:
     o fixed possible issue with contact pictures
-2014-12-XX: Achim Königs <garfonso@mobo.info>
+    o fixed allday events get prolonged on sync
+    o worked around issue with P0D alarm triggers in webOS
+    o worked around issue where webOS creates alarms with trigger "none".
+2015-01-12: Achim Königs <garfonso@mobo.info>
 
 0.3.18:
     o fixed issues with db query limit of 500 objects
