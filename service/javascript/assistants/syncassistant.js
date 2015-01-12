@@ -2,7 +2,7 @@
  * SyncAssistant
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
-/*jslint nomen: true */
+/*jslint nomen: true, node: true */
 /*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, servicePath */
 /*exported SyncAssistant */
 
@@ -147,14 +147,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
         future.then(this, function putCB() {
             var result = checkResult(future);
-            Log.debug("Update TransportObject result: ", result);
             if (!result.results.length) {
                 Log.log("Could not store config object: ", result);
             } else {
-                Log.debug("Updating transport rev from ", this.client.transport._rev, " to ", result.results[0].rev);
                 this.client.transport._rev = result.results[0].rev;
             }
-            //future.nest(this.handler.getAccountTransportObject(this.client.cliendId));
             future.result = {returnValue: true};
         });
 
@@ -914,7 +911,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
                     } else {
                         Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
-                            this.SyncKey.currentFolder(kindName).downloadsFailed = true;
+                        this.SyncKey.currentFolder(kindName).downloadsFailed = true;
                         entries.splice(entriesIndex, 1);
                         future.nest(this._downloadData(kindName, entries, entriesIndex));
                     }
@@ -1197,14 +1194,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
                     Log.log("Bad request, please report bug.", result, " for ", obj);
                     noReUpload = true;
                 } else if ((result.returnCode >= 403 && result.returnCode <= 407) ||
-                    (result.returnCode >= 409 && result.returnCode <= 412) ||
-                    (result.returnCode >= 414 && result.returnCode <= 420) ||
-                    (result.returnCode === 451) ||
-                    (result.returnCode === 501) ||
-                    (result.returnCode === 505) ||
-                    (result.returnCode === 506) ||
-                    (result.returnCode === 508) ||
-                    (result.returnCode === 510)) {
+                        (result.returnCode >= 409 && result.returnCode <= 412) ||
+                        (result.returnCode >= 414 && result.returnCode <= 420) ||
+                        (result.returnCode === 451) ||
+                        (result.returnCode === 501) ||
+                        (result.returnCode === 505) ||
+                        (result.returnCode === 506) ||
+                        (result.returnCode === 508) ||
+                        (result.returnCode === 510)) {
                     Log.log("Error won't go away, disallow reupload");
                     noReUpload = true;
                 }

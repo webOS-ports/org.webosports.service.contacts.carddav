@@ -1,3 +1,4 @@
+/*jslint node: true, nomen: true */
 /*global Log, PalmCall, Calendar, Future, checkResult, servicePath */
 
 var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
@@ -531,10 +532,8 @@ var iCal = (function () {
         case "END":
             if (lObj.value !== "VTIMEZONE") {
                 throw ({name: "SyntaxError", message: "Something went wrong during TIMEZONE parsing, expected END:VTIMEZONE."});
-            } else {
-                return false; //signal that we are finished
             }
-            break;
+            return false; //signal that we are finished
         default:
             if (lObj.key !== "X-LIC-LOCATION" && lObj.key !== "RDATE") {
                 Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
@@ -842,7 +841,7 @@ var iCal = (function () {
 
         //search for original event, should usually be the first event.
         Log.log_icalDebug("processing ", events.length, " events in search of parentids.");
-        for (i = events.length - 1 ; i >= 0; i -= 1) {
+        for (i = events.length - 1; i >= 0; i -= 1) {
             if (!events[i].valid) {
                 Log.log_icalDebug("Event ", events[i], " was invalid.");
                 events.splice(i, 1);
@@ -887,102 +886,6 @@ var iCal = (function () {
         }
 
         return revent;
-    }
-
-    function convertTimestamps(events, index) {
-        var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false, tzs = [localTzId], years = [], future = new Future(), event;
-        event = events[index];
-
-        if (!event || !event.valid) {
-            if (index >= events.length) {
-                future.result = {returnValue: true};
-                return future;
-            } else {
-                future.nest(convertTimestamps(events, index + 1)); //try next event
-                return future;
-            }
-        }
-
-        makeAllDay = event.allDay; //keep allDay setting from possible other cues.
-        //log_icalDebug("Converting timestamps for " + event.subject);
-
-        directTS.forEach(function buildYearsAndTZs (field) {
-            if (event[field]) {
-                if (event[field].tzId) {
-                    tzs.push(event[field].tzId);
-                    years.push(event[field].year);
-                }
-                event[field] = event[field].value;
-            }
-        });
-
-        event.originalDtstart = event.dtstart; //keep this for recurrence stuff
-
-        Log.log_icalDebug("Got tzIds and years for tzmanager: ", tzs, " ", years);
-        if (years.length > 0) {
-            if (event.tzId) {
-                tzs.push(event.tzId);
-            }
-            if (event.tz && event.tz.tzId) {
-                tzs.push(event.tz.tzId);
-            }
-
-            future.nest(TZManager.loadTimezones(tzs, years));
-        } else {
-            future.result = {returnValue: true};
-        }
-
-        future.then(function () {
-            var result = checkResult(future);
-            Log.log_icalDebug("TZ Result: ", result);
-            if (result.returnValue) {
-                if (!event.tz) {
-                    if (event.tzId) {
-                        //log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
-                        event.tz = { tzId: event.tzId };
-                    }
-                }
-                if (event.dtstart.indexOf("000000") !== -1 &&
-                    ((event.dtend.indexOf("235900") !== -1) ||
-                     (event.dtend.indexOf("235959") !== -1) ||
-                     (event.dtend.indexOf("000000") !== -1))) {
-                    makeAllDay = true;
-                }
-                for (i = 0; i < directTS.length; i += 1) {
-                    if (event[directTS[i]]) {
-                        t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
-                        event[directTS[i]] = t.ts;
-                        if (directTS[i] === "dtstart") {
-                            event.tzId = t.tzId;
-                            event.allDay = t.allDayCue;
-                        }
-                    }
-                }
-
-                if (!event.dtend && event.duration) {
-                    event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
-                    Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
-                    delete event.duration;
-                }
-
-                if (event.rrule && event.rrule.until) {
-                    t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
-                    event.rrule.until = t.ts;
-                    event.rrule.untilOffset = t.offset;
-                }
-
-                if (makeAllDay) {
-                    event.allDay = true;
-                }
-
-                applyHacks(event);
-
-                future.nest(convertTimestamps(events, index + 1)); //try next event
-            } else {
-                future.result = result;
-            }
-        });
-        return future;
     }
 
     function applyHacks(event) {
@@ -1062,6 +965,102 @@ var iCal = (function () {
         return event;
     }
 
+    function convertTimestamps(events, index) {
+        var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false, tzs = [localTzId], years = [], future = new Future(), event;
+        event = events[index];
+
+        if (!event || !event.valid) {
+            if (index >= events.length) {
+                future.result = {returnValue: true};
+                return future;
+            } else {
+                future.nest(convertTimestamps(events, index + 1)); //try next event
+                return future;
+            }
+        }
+
+        makeAllDay = event.allDay; //keep allDay setting from possible other cues.
+        //log_icalDebug("Converting timestamps for " + event.subject);
+
+        directTS.forEach(function buildYearsAndTZs(field) {
+            if (event[field]) {
+                if (event[field].tzId) {
+                    tzs.push(event[field].tzId);
+                    years.push(event[field].year);
+                }
+                event[field] = event[field].value;
+            }
+        });
+
+        event.originalDtstart = event.dtstart; //keep this for recurrence stuff
+
+        Log.log_icalDebug("Got tzIds and years for tzmanager: ", tzs, " ", years);
+        if (years.length > 0) {
+            if (event.tzId) {
+                tzs.push(event.tzId);
+            }
+            if (event.tz && event.tz.tzId) {
+                tzs.push(event.tz.tzId);
+            }
+
+            future.nest(TZManager.loadTimezones(tzs, years));
+        } else {
+            future.result = {returnValue: true};
+        }
+
+        future.then(function () {
+            var result = checkResult(future);
+            Log.log_icalDebug("TZ Result: ", result);
+            if (result.returnValue) {
+                if (!event.tz) {
+                    if (event.tzId) {
+                        //log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
+                        event.tz = { tzId: event.tzId };
+                    }
+                }
+                if (event.dtstart.indexOf("000000") !== -1 &&
+                        ((event.dtend.indexOf("235900") !== -1) ||
+                        (event.dtend.indexOf("235959") !== -1) ||
+                        (event.dtend.indexOf("000000") !== -1))) {
+                    makeAllDay = true;
+                }
+                for (i = 0; i < directTS.length; i += 1) {
+                    if (event[directTS[i]]) {
+                        t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
+                        event[directTS[i]] = t.ts;
+                        if (directTS[i] === "dtstart") {
+                            event.tzId = t.tzId;
+                            event.allDay = t.allDayCue;
+                        }
+                    }
+                }
+
+                if (!event.dtend && event.duration) {
+                    event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
+                    Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
+                    delete event.duration;
+                }
+
+                if (event.rrule && event.rrule.until) {
+                    t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
+                    event.rrule.until = t.ts;
+                    event.rrule.untilOffset = t.offset;
+                }
+
+                if (makeAllDay) {
+                    event.allDay = true;
+                }
+
+                applyHacks(event);
+
+                future.nest(convertTimestamps(events, index + 1)); //try next event
+            } else {
+                future.result = result;
+            }
+        });
+        return future;
+    }
+
     function removeHacks(event) {
         //do NOT change original event here!
         return event;
@@ -1111,32 +1110,32 @@ var iCal = (function () {
         translation = {
             "categories"        :    "CATEGORIES",
             "classification"    :    "CLASS",
-            "geo"                :    "GEO",
-            "contact"            :    "CONTACT",
-            "priority"            :    "PRIORITY",
-            "relatedTo"            :    "RELATED-TO",
-            "requestStatus"        :    "STATUS",
-            "resources"            :    "RESOURCES",
-            "sequence"            :    "SEQUENCE",
-            //"transp"            :    "TRANSP", //intentionally skip this to let server decide...
+            "geo"               :    "GEO",
+            "contact"           :    "CONTACT",
+            "priority"          :    "PRIORITY",
+            "relatedTo"         :    "RELATED-TO",
+            "requestStatus"     :    "STATUS",
+            "resources"         :    "RESOURCES",
+            "sequence"          :    "SEQUENCE",
+            //"transp"          :    "TRANSP", //intentionally skip this to let server decide...
             //"tzId"            :    "TZID", //skip this. It's not used anyway by most, and we now transmit everything using UTC.
-            "url"                :    "URL",
-            "recurrenceId"        :    "RECURRENCE-ID;VALUE=DATE-TIME",
+            "url"               :    "URL",
+            "recurrenceId"      :    "RECURRENCE-ID;VALUE=DATE-TIME",
             "aalarm"            :    "AALARM",
-            "uId"                :    "UID" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
+            "uId"               :    "UID" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
         };
         translationQuote = {
-            "comment"            :    "COMMENT",
-            "note"                :    "DESCRIPTION",
-            "location"            :    "LOCATION",
-            "subject"            :    "SUMMARY"
+            "comment"           :    "COMMENT",
+            "note"              :    "DESCRIPTION",
+            "location"          :    "LOCATION",
+            "subject"           :    "SUMMARY"
         };
         transTime = {
-            //"dtstamp"            :    "DTSTAMP",
-            "created"            :    "CREATED",
-            "lastModified"        :    "LAST-MODIFIED",
-            "dtstart"            :    "DTSTART",
-            "dtend"                :    "DTEND"
+            //"dtstamp"         :    "DTSTAMP",
+            "created"           :    "CREATED",
+            "lastModified"      :    "LAST-MODIFIED",
+            "dtstart"           :    "DTSTART",
+            "dtend"             :    "DTEND"
         };
         if (event._del === true) {
             return "";
@@ -1164,7 +1163,7 @@ var iCal = (function () {
                         value += 43199000;
                     }
                     text.push(transTime[field] +
-                        (allDay ? ";VALUE=DATE:" : ":") + webOsTimeToICal(event[field], allDay, event.tzId));
+                        (allDay ? ";VALUE=DATE:" : ":") + webOsTimeToICal(value, allDay, event.tzId));
                 } else { //more complex fields.
                     switch (field) {
                     case "attach":

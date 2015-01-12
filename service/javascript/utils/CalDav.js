@@ -1,3 +1,4 @@
+/*jslint node: true  */
 /*global Log, httpClient, Future, checkResult, servicePath */
 
 var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
@@ -18,7 +19,7 @@ var CalDav = (function () {
         for (f in obj) {
             if (obj.hasOwnProperty(f)) {
                 if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
-                    if(typeof obj[f] === "string") {
+                    if (typeof obj[f] === "string") {
                         return decodeURIComponent(obj[f]);
                     } else {
                         return obj[f];
@@ -120,14 +121,14 @@ var CalDav = (function () {
                 prop = responses[i].propstats[j].prop || {};
                 if (stat.indexOf("404") >= 0) {
                     Log.log_calDavDebug("Prop ", prop, " not found on server. During search for ", searchedKey, ". Skipping.");
-                    continue;
-                }
-                for (key in prop) {
-                    if (prop.hasOwnProperty(key)) {
-                        Log.log_calDavParsingDebug("Comparing ", key, " to ", searchedKey);
-                        if (key.toLowerCase().indexOf(searchedKey) >= 0) {
-                            Log.log_calDavParsingDebug("Returning ", prop[key], " for ", key);
-                            return prop[key];
+                } else {
+                    for (key in prop) {
+                        if (prop.hasOwnProperty(key)) {
+                            Log.log_calDavParsingDebug("Comparing ", key, " to ", searchedKey);
+                            if (key.toLowerCase().indexOf(searchedKey) >= 0) {
+                                Log.log_calDavParsingDebug("Returning ", prop[key], " for ", key);
+                                return prop[key];
+                            }
                         }
                     }
                 }

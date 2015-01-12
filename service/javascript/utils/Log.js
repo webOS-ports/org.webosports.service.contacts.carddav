@@ -5,7 +5,7 @@ if (!global.fs) {
     fs = require("fs");
 }
 
-var dummy = function () {"use strict"; };
+var dummy = function () {"use strict"; return undefined; };
 
 var log = function (str) {
     "use strict";
