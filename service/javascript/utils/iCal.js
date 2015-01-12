@@ -1063,11 +1063,7 @@ var iCal = (function () {
     }
 
     function removeHacks(event) {
-        if (event.allDay) {
-            //43200000 = 12 hours => 0 o'clock, -1 second, because we start from 12:00:01.
-            event.dtend += 43199000;
-        }
-
+        //do NOT change original event here!
         return event;
     }
 
@@ -1107,7 +1103,7 @@ var iCal = (function () {
     }
 
     function generateICalIntern(event) {
-        var field = "", i, text = [], translation, translationQuote, transTime, allDay, result;
+        var field = "", i, text = [], translation, translationQuote, transTime, allDay, value, result;
         //not in webOs: UID
         //in webos but not iCal: allDay, calendarID, parentId, parentDtStart (???)
         //string arrays: attach, exdates, rdates
@@ -1160,6 +1156,12 @@ var iCal = (function () {
                     allDay = event.allDay;
                     if (field !== "dtstart" && field !== "dtend") {
                         allDay = false;
+                    }
+                    value = event[field];
+                    if (field === "dtend" && event.allDay) {
+                        //43200000 = 12 hours => 0 o'clock, -1 second, because we start from 12:00:01.
+                        //TODO: is this ALWAYS right?
+                        value += 43199000;
                     }
                     text.push(transTime[field] +
                         (allDay ? ";VALUE=DATE:" : ":") + webOsTimeToICal(event[field], allDay, event.tzId));
