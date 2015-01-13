@@ -1,3 +1,4 @@
+/*jslint node: true*/
 /*global Future, Log, xml, checkResult */
 
 var http = require("http");
@@ -12,7 +13,8 @@ var httpClient = (function () {
         proxyPort,
         haveProxy = false,
         proxyParts,
-        globalReqNum = 0;
+        globalReqNum = 0,
+        retries = {};
 
     //initialize proxy support:
     if (process.env.http_proxy) {
@@ -122,8 +124,6 @@ var httpClient = (function () {
         }
         return httpClientCache[key].client;
     }
-
-    var retries = {};
 
     function reqName(originalRequest, retry) {
         if (retry) {
