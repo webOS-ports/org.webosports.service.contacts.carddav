@@ -6,6 +6,7 @@
 * To run manually:
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
+/*jslint node: true */
 /*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
@@ -24,7 +25,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
         setup: function setup(service, accountid, launchConfig, launchArgs) {
             "use strict";
-            Log.log("\n\n**************************START SERVICEASSISTANT 0.3.17 *****************************");
+            Log.log("\n\n**************************START SERVICEASSISTANT 0.3.19 *****************************");
             //for testing only - will expose credentials to log file if left open
             Log.debug("\n------------------->accountId: ", accountid);
             Log.debug("\n------------------->launchConfig: ", launchConfig);
