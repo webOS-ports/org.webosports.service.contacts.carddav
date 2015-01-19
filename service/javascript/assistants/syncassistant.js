@@ -547,6 +547,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
         } else {
             this.params.cardDav = false;
         }
+        folder.downloadsFailed = false; //reset that flag here.
 
         future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
