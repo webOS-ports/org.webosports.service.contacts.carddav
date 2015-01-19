@@ -1,4 +1,4 @@
-/*jslint sloppy: true, browser: true */
+/*jslint sloppy: true, browser: true, nomen: true */
 /*global enyo, $L, console, setTimeout, PalmSystem */
 
 function log(msg) {
@@ -38,7 +38,7 @@ enyo.kind({
         ]}
     ],
     create: function () {
-        var url, authWin;
+        var url, devInfo, that = this;
         this.inherited(arguments);
         console.error(">>>>>>>>>>>>>>>>>>>> create");
         console.error("Parameters: " + JSON.stringify(arguments));
@@ -63,43 +63,15 @@ enyo.kind({
             url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
         }
 
-        //title polling function, used because events somehow go missing.
-        function pollTitle() {
-            if (!this.doing) {
-                this.gotAuthToken({}, authWin.document.title);
-
-                setTimeout(pollTitle.bind(this), 500);
-            } else {
-                authWin.close();
-            }
-        }
-
         if (window.PalmSystem && PalmSystem.deviceInfo) {
-            var devInfo = JSON.parse(PalmSystem.deviceInfo);
+            devInfo = JSON.parse(PalmSystem.deviceInfo);
             if (devInfo.modelName === "Lune OS Device") {
                 //is LuneOS:
                 this.log("Poping up Google page with OAuth request.");
-                authWin = window.open(url);
-                console.log(authWin);
-
-
-                if (authWin) {
-                    this.log("Adding listener for change messages to new window.");
-                    //somehow those get deleted quite fast.. why?
-                    authWin.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
-                    authWin.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
-
-                    setTimeout(pollTitle.bind(this), 500);
-
-                    authWin.document.onload = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
-                    authWin.document.onchange = function () { this.gotAuthToken({}, authWin.document.title); }.bind(this);
-
-
-                } else {
-                    this.error("No authWin!!! AHRGS.");
-                }
-            }
-            else if (devInfo.platformVersionMajor === 3) {
+                navigator.InAppBrowser.open(url);
+                navigator.InAppBrowser.ontitlechanged = function (arg) { console.error("Title changed: " + arg); that.gotAuthToken({}, arg); }; //this.gotAuthToken.bind(this, {});
+                navigator.InAppBrowser.ondoneclicked = function () { console.error("Done clicked!"); that.doBack(); }; // this.doBack.bind(this); //done means cancel, right?
+            } else if (devInfo.platformVersionMajor === 3) {
                 //is legacy webos:
                 this.$.webView.setUrl(url);
             }
