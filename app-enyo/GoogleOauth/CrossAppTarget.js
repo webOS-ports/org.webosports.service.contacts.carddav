@@ -28,7 +28,7 @@ enyo.kind({
         { name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
             method: "checkCredentials", onSuccess: "credentialsCameBack", onFailure: "credentialsCameBack" },
         {kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
-        { kind: "PageHeader", content: "Sign In with Google", pack: "center" },
+        { kind: "PageHeader", content: "Sign in with Google below, please", pack: "center" },
         { name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
         { kind: "WebView", flex: 9, onPageTitleChanged: "gotAuthToken"},
         {kind: "CrossAppResult", name: "crossAppResult" },
@@ -38,7 +38,7 @@ enyo.kind({
         ]}
     ],
     create: function () {
-        var url, devInfo, that = this;
+        var url, devInfo;
         this.inherited(arguments);
         console.error(">>>>>>>>>>>>>>>>>>>> create");
         console.error("Parameters: " + JSON.stringify(arguments));
@@ -69,8 +69,8 @@ enyo.kind({
                 //is LuneOS:
                 this.log("Poping up Google page with OAuth request.");
                 navigator.InAppBrowser.open(url);
-                navigator.InAppBrowser.ontitlechanged = function (arg) { console.error("Title changed: " + arg); that.gotAuthToken({}, arg); }; //this.gotAuthToken.bind(this, {});
-                navigator.InAppBrowser.ondoneclicked = function () { console.error("Done clicked!"); that.doBack(); }; // this.doBack.bind(this); //done means cancel, right?
+                navigator.InAppBrowser.ontitlechanged = this.gotAuthToken.bind(this, {}); //send empty "Sender" on LuneOS.
+                navigator.InAppBrowser.ondoneclicked = this.doBack.bind(this);
             } else if (devInfo.platformVersionMajor === 3) {
                 //is legacy webos:
                 this.$.webView.setUrl(url);
@@ -104,6 +104,8 @@ enyo.kind({
                 redirect_uri:   "urn:ietf:wg:oauth:2.0:oob", //means token will be returned as title of page.
                 grant_type:     "authorization_code"
             });
+            navigator.InAppBrowser.close();
+            this.$.pageHeader.setContent("Getting access token from google...");
         } else {
             log("Could not extract code: " + start);
         }
@@ -114,6 +116,7 @@ enyo.kind({
         this.token_response = inResponse;
 
         this.$.getUserName.call({access_token: inResponse.access_token});
+        this.$.pageHeader.setContent("Getting username to show in webOS...");
     },
     gotName: function (inSender, inResponse) {
         debug("Got name: " + JSON.stringify(inResponse));
@@ -122,6 +125,7 @@ enyo.kind({
             this.showLoginError("Please do run this from account app, not stand alone.");
             return;
         }
+        this.$.pageHeader.setContent("All done, returning to account manager soon.");
 
         this.accountSettings = {};
         var i, template = this.params.template,
