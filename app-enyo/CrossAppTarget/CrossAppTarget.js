@@ -1,4 +1,4 @@
-/*jslint sloppy: true */
+/*jslint sloppy: true, nomen: true */
 /*global enyo, $L, console, setTimeout, PalmSystem */
 
 function log(msg) {
@@ -49,12 +49,12 @@ enyo.kind({
                         {content: "Password"}
                     ]}
                 ]},
-                {kind:"HFlexBox", style: "padding-left: 10px;", components: [
+                {kind: "HFlexBox", style: "padding-left: 10px;", components: [
                     {
                         kind: "CheckBox",
-                        name: "ckIgnoreSSLCertificateErrors",
+                        name: "ckIgnoreSSLCertificateErrors"
                     },
-                    {kind:"Spacer"},
+                    {kind: "Spacer"},
                     {content: "Ignore SSL Certificate Errors"}
                 ]},
                 { kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
@@ -240,6 +240,7 @@ enyo.kind({
     // called when app is opened or reopened
     windowParamsChangeHandler: function (inSender, event) {
         console.error(">>>>>>>>>>>>>>>>>>>> windowParamsChangeHandler");
+        console.log("Params: ", JSON.stringify(event.params));
         // capture any parameters associated with this app instance
         if (!event || !event.params) {
             console.error("No params received...");
