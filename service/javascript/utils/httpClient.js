@@ -1,3 +1,4 @@
+/*jslint node: true */
 /*global Future, Log, xml, checkResult */
 
 var http = require("http");
@@ -5,7 +6,7 @@ var https = require("https");
 var url = require("url"); //required to parse urls
 
 if (!console.trace) {
-    console.trace = function () {};
+    console.trace = function () { "use strict"; };
 }
 
 var httpClient = (function () {
@@ -141,8 +142,8 @@ var httpClient = (function () {
                 },
                 agent: false
             });
-            connectReq.once("error", connReqError);
-            connectReq.once("close", connReqError);
+            connectReq.on("error", connReqError);
+            connectReq.on("close", connReqError);
 /*            connectReq.once("response", function (res) {
                 Log.debug("Got response: ", res);
                 res.upgrade = true; //hack
@@ -167,8 +168,8 @@ var httpClient = (function () {
                     options.socket = socket;
                     options.agent = false;
 
-                    socket.once("error", errorSocketCB);
-                    socket.once("close", closeSocketCB);
+                    socket.on("error", errorSocketCB);
+                    socket.on("close", closeSocketCB);
 
                     setTimeout(socket, timeoutSocketCB);
 
@@ -339,8 +340,8 @@ var httpClient = (function () {
                 endCB();
             });
 
-            res.once("error", errorCB);
-            res.once("close", closeCB);
+            res.on("error", errorCB);
+            res.on("close", closeCB);
             setTimeout(res, timeoutCB);
 
             //in theory we do not need them. Need to test.
@@ -367,7 +368,7 @@ var httpClient = (function () {
                         req = http.request(options, responseCB);
                     }
                     setTimeout(req, timeoutCB);
-                    req.once("error", errorCB);
+                    req.on("error", errorCB);
 
                     //hopefuly we do not need that with newer node versions, need to test.
                     //            if (options.socket) {
