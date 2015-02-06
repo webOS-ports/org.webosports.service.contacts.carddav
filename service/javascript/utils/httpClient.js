@@ -196,7 +196,7 @@ var httpClient = (function () {
 	}
 
 	function sendRequestImpl(options, data, retry, origin) {
-		var body = "",
+		var body = new Buffer(0),
 			future = new Future(),
 			res,
 			reqNum = globalReqNum;
@@ -254,7 +254,10 @@ var httpClient = (function () {
 
 		function dataCB(chunk) {
 			Log.log_calDavDebug("res", reqName(origin, retry), "-chunk:", chunk.length);
-			body += chunk;
+			var buffer = new Buffer(chunk.length + body.length);
+			body.copy(buffer, 0, 0);
+			chunk.copy(buffer, body.length, 0);
+			body = buffer;
 		}
 
 		function endCB() {
@@ -269,14 +272,14 @@ var httpClient = (function () {
 			}
 
 			retries[origin].received = true;
-			Log.log_calDavDebug("Body: " + body);
+			Log.log_calDavDebug("Body: " + body.toString("utf8"));
 
 			var result = {
 				returnValue: (res.statusCode < 400),
 				etag: res.headers.etag,
 				returnCode: res.statusCode,
 				headers: res.headers,
-				body: body,
+				body: options.binary ? body : body.toString("utf8"),
 				uri: options.prefix + options.path
 			};
 			if (options.path.indexOf(":/") >= 0) {
@@ -311,7 +314,7 @@ var httpClient = (function () {
 					future.result = f.result; //transfer future result.
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
-				result.parsedBody = xml.xmlstr2json(body);
+				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
 				Log.log_calDavParsingDebug("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else {
@@ -324,8 +327,10 @@ var httpClient = (function () {
 			Log.log_calDavDebug("connection-closed for ", reqName(origin, retry), e ? " with error." : " without error.");
 			if (!e && res) { //close also happens if no res is there, yet. Hm. Catch this here and retry.
 				endCB(res);
-			} else {
+			} else if (e) {
 				checkRetry("Connection closed " + (e ? " with error." : " without error."));
+			} else {
+				Log.log("Connection ", reqName(origin, retry), " closed, but no answer, yet? Wait a little longer.");
 			}
 		}
 
@@ -333,7 +338,6 @@ var httpClient = (function () {
 			res = inRes;
 			Log.log_calDavDebug("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
 			Log.log_calDavDebug("HEADERS: ", res.headers, " for ", reqName(origin, retry));
-			res.setEncoding("utf8");
 			res.on("data", dataCB);
 			res.on("end", function (e) { //sometimes this does not happen. One reason are empty responses..?
 				Log.log_calDavDebug("res-end successful: ", e);
@@ -356,7 +360,17 @@ var httpClient = (function () {
 			future.then(function () {
 				var result = checkResult(future), req;
 				if (result.returnValue) {
-					options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
+					if (data) {
+						if (data instanceof Buffer) {
+							options.headers["Content-Length"] = data.length; //write length of buffer to header.
+						} else if (typeof data === "object") {
+							//uhm?
+							data = JSON.stringify(data);
+						}
+						if (typeof data === "string") {
+							options.headers["Content-Length"] = Buffer.byteLength(data, "utf8"); //get length of string encoded as utf8 string.
+						}
+					}
 
 					Log.log_calDavDebug("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
 					Log.log_calDavDebug("Method: ", options.method, " Headers: ", options.headers);
@@ -384,7 +398,13 @@ var httpClient = (function () {
 					//            }
 
 					// write data to request body
-					req.write(data, "utf8");
+					if (data) {
+						if (data instanceof Buffer) {
+							req.write(data);
+						} else {
+							req.write(data, "utf8");
+						}
+					}
 					req.end();
 				} else {
 					future.result = { returnValue: false, msg: "Proxy connection failed." };
