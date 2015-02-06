@@ -1,29 +1,29 @@
 {
-    "id": "org.webosports.cdav.calendar:1",
-    "sync": false,
-    "owner": "org.webosports.cdav.service",
-    "extends": [
-        "com.palm.calendar:1"
-    ],
-    "indexes": [
-        {
-            "name": "accountId",
-            "props": [
-                {
-                    "name": "accountId"
-                }
-            ]
-        },
-        {
-            "name": "accountId_remoteId",
-            "props": [
-                {
-                    "name": "accountId"
-                },
-                {
-                    "name": "remoteId"
-                }
-            ]
-        }
-    ]
+	"id": "org.webosports.cdav.calendar:1",
+	"sync": false,
+	"owner": "org.webosports.cdav.service",
+	"extends": [
+		"com.palm.calendar:1"
+	],
+	"indexes": [
+		{
+			"name": "accountId",
+			"props": [
+				{
+					"name": "accountId"
+				}
+			]
+		},
+		{
+			"name": "accountId_remoteId",
+			"props": [
+				{
+					"name": "accountId"
+				},
+				{
+					"name": "remoteId"
+				}
+			]
+		}
+	]
 }

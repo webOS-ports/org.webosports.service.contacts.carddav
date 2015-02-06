@@ -1,82 +1,82 @@
 {
-    "id": "org.webosports.cdav.service",
-    "description": "CardDAV Contact Service",
-    "engine": "node",
-    "activityTimeout": 30,
-    "commandTimeout": 300,
-    "services": [
-        {
-            "name": "org.webosports.cdav.service",
-            "description": "CardDAV Contact",
-            "globalized": false,
-            "assistant": "ServiceAssistant",
-            "commands": [
-                {
-                    "name": "checkCredentials",
-                    "assistant": "checkCredentialsAssistant",
-                    "public": true
-                },
-                {
-                    "name": "onCredentialsChanged",
-                    "assistant": "OnCredentialsChanged",
-                    "public": true
-                },
-                {
-                    "name": "onContactsCreate",
-                    "assistant": "OnCreate",
-                    "public": true
-                },
-                {
-                    "name": "onCalendarCreate",
-                    "assistant": "OnCreate",
-                    "public": true
-                },
-                {
-                    "name": "onContactsEnabled",
-                    "assistant": "OnEnabled",
-                    "public": true
-                },
-                {
-                    "name": "onCalendarEnabled",
-                    "assistant": "OnEnabled",
-                    "public": true
-                },
-                {
-                    "name": "onCalendarDelete",
-                    "assistant": "OnDelete",
-                    "public": true
-                },
-                {
-                    "name": "onContactsDelete",
-                    "assistant": "OnDelete",
-                    "public": true
-                },
-                {
-                    "name": "sync",
-                    "assistant": "SyncAssistant",
-                    "public": true
-                },
-                {
-                    "name": "discovery",
-                    "assistant": "DiscoveryAssistant",
-                    "public": true
-                },
-                {
-                    "name": "triggerSlowSync",
-                    "assistant": "TriggerSlowSyncAssistant",
-                    "public": true
-                },
-                {
-                    "name": "addEvent",
-                    "assistant": "AddEventAssistant",
-                    "public": true
-                },
-                {
-                    "name": "resources",
-                    "assistant": "Resources",
-                    "public": false
-                }
-            ]
-        }
-    ]
+	"id": "org.webosports.cdav.service",
+	"description": "CardDAV Contact Service",
+	"engine": "node",
+	"activityTimeout": 30,
+	"commandTimeout": 300,
+	"services": [
+		{
+			"name": "org.webosports.cdav.service",
+			"description": "CardDAV Contact",
+			"globalized": false,
+			"assistant": "ServiceAssistant",
+			"commands": [
+				{
+					"name": "checkCredentials",
+					"assistant": "checkCredentialsAssistant",
+					"public": true
+				},
+				{
+					"name": "onCredentialsChanged",
+					"assistant": "OnCredentialsChanged",
+					"public": true
+				},
+				{
+					"name": "onContactsCreate",
+					"assistant": "OnCreate",
+					"public": true
+				},
+				{
+					"name": "onCalendarCreate",
+					"assistant": "OnCreate",
+					"public": true
+				},
+				{
+					"name": "onContactsEnabled",
+					"assistant": "OnEnabled",
+					"public": true
+				},
+				{
+					"name": "onCalendarEnabled",
+					"assistant": "OnEnabled",
+					"public": true
+				},
+				{
+					"name": "onCalendarDelete",
+					"assistant": "OnDelete",
+					"public": true
+				},
+				{
+					"name": "onContactsDelete",
+					"assistant": "OnDelete",
+					"public": true
+				},
+				{
+					"name": "sync",
+					"assistant": "SyncAssistant",
+					"public": true
+				},
+				{
+					"name": "discovery",
+					"assistant": "DiscoveryAssistant",
+					"public": true
+				},
+				{
+					"name": "triggerSlowSync",
+					"assistant": "TriggerSlowSyncAssistant",
+					"public": true
+				},
+				{
+					"name": "addEvent",
+					"assistant": "AddEventAssistant",
+					"public": true
+				},
+				{
+					"name": "resources",
+					"assistant": "Resources",
+					"public": false
+				}
+			]
+		}
+	]
 }
