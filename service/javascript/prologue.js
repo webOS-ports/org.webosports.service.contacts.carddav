@@ -21,7 +21,7 @@ var xml = IMPORTS["foundations.xml"];
 
 //now add some node.js imports:
 if (typeof require === "undefined") {
-    require = IMPORTS.require;
+	require = IMPORTS.require;
 }
 var querystring = require("querystring");
 var fs = require("fs"); //required for own node modules and current vCard converter.
@@ -34,9 +34,9 @@ Log.setFilename("/media/internal/.org.webosports.cdav.service.log");
 var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
 var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
 if (nodejsMajorVersion >= 4) {
-    var httpClient = require(servicePath + "/javascript/utils/httpClient.js");
+	var httpClient = require(servicePath + "/javascript/utils/httpClient.js");
 } else {
-    var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+	var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
 }
 var checkResult = require(servicePath + "/javascript/utils/checkResult.js");
 var KindsModule = require(servicePath + "/javascript/kinds.js");
@@ -50,8 +50,8 @@ var SyncAssistant = require(servicePath + "/javascript/assistants/syncassistant.
 console.error("--------->Loaded Libraries OK1");
 
 process.on("uncaughtException", function (e) {
-    "use strict";
-    Log.log("Uncaought error:" + e.stack);
-    //throw e;
+	"use strict";
+	Log.log("Uncaought error:" + e.stack);
+	//throw e;
 });
 

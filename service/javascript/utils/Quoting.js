@@ -1,3 +1,4 @@
+/*jslint node: true */
 /*exported Base64, unquote, quote, fold */
 
 /**
@@ -6,22 +7,22 @@
  * @return unquoted string
  */
 exports.unquote = function (string) {
-    "use strict";
-    if (string === undefined || string === null || typeof string !== "string") {
-        return string;
-    }
-    string = string.replace(/\\\\/gmi, "\\");
-    string = string.replace(/\\,/gmi, ",");
-    string = string.replace(/\\;/gmi, ";");
-    string = string.replace(/\\:/gmi, ":");
-    string = string.replace(/\\n/gmi, "\n");
-    string = string.replace(/\\r/gmi, "\r");
-    string = string.replace(/&amp;/gmi, "&");
-    string = string.replace(/&lt;/gmi, "<");
-    string = string.replace(/&gt;/gmi, ">");
-    string = string.replace(/&quot;/gmi, "\"");
-    string = string.replace(/&apos;/gmi, "'");
-    return string;
+	"use strict";
+	if (string === undefined || string === null || typeof string !== "string") {
+		return string;
+	}
+	string = string.replace(/\\\\/gmi, "\\");
+	string = string.replace(/\\,/gmi, ",");
+	string = string.replace(/\\;/gmi, ";");
+	string = string.replace(/\\:/gmi, ":");
+	string = string.replace(/\\n/gmi, "\n");
+	string = string.replace(/\\r/gmi, "\r");
+	string = string.replace(/&amp;/gmi, "&");
+	string = string.replace(/&lt;/gmi, "<");
+	string = string.replace(/&gt;/gmi, ">");
+	string = string.replace(/&quot;/gmi, "\"");
+	string = string.replace(/&apos;/gmi, "'");
+	return string;
 };
 
 /**
@@ -30,16 +31,16 @@ exports.unquote = function (string) {
  * @return quoted string
  */
 exports.quote = function (string) {
-    "use strict";
-    if (string === undefined || string === null || typeof string !== "string") {
-        return string;
-    }
-    string = string.replace(/\\/gmi, "\\\\");
-    string = string.replace(/,/gmi, "\\,");
-    string = string.replace(/;/gmi, "\\;");
-    string = string.replace(/\n/gmi, "\\n");
-    string = string.replace(/\r/gmi, "\\r");
-    return string;
+	"use strict";
+	if (string === undefined || string === null || typeof string !== "string") {
+		return string;
+	}
+	string = string.replace(/\\/gmi, "\\\\");
+	string = string.replace(/,/gmi, "\\,");
+	string = string.replace(/;/gmi, "\\;");
+	string = string.replace(/\n/gmi, "\\n");
+	string = string.replace(/\r/gmi, "\\r");
+	return string;
 };
 
 /**
@@ -49,12 +50,12 @@ exports.quote = function (string) {
  * @return folded string
  */
 exports.fold = function (string) {
-    "use strict";
-    var parts = [];
-    while (string.length > 72) {
-        parts.push(string.substring(0, 72) + "\r\n ");
-        string = string.substring(72);
-    }
-    parts.push(string);
-    return parts.join("");
+	"use strict";
+	var parts = [];
+	while (string.length > 72) {
+		parts.push(string.substring(0, 72) + "\r\n ");
+		string = string.substring(72);
+	}
+	parts.push(string);
+	return parts.join("");
 };

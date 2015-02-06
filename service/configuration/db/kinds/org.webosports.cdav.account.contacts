@@ -1,26 +1,26 @@
 {
-    "id": "org.webosports.cdav.account.contacts:1",
-    "sync": true,
-    "owner": "org.webosports.cdav.service",
-    "indexes": [
-        {
-            "name": "accountId",
-            "props": [
-                {
-                    "name": "accountId"
-                }
-            ]
-        },
-        {
-            "name": "accountId_remoteId",
-            "props": [
-                {
-                    "name": "accountId"
-                },
-                {
-                    "name": "remoteId"
-                }
-            ]
-        }
-    ]
+	"id": "org.webosports.cdav.account.contacts:1",
+	"sync": true,
+	"owner": "org.webosports.cdav.service",
+	"indexes": [
+		{
+			"name": "accountId",
+			"props": [
+				{
+					"name": "accountId"
+				}
+			]
+		},
+		{
+			"name": "accountId_remoteId",
+			"props": [
+				{
+					"name": "accountId"
+				},
+				{
+					"name": "remoteId"
+				}
+			]
+		}
+	]
 }
