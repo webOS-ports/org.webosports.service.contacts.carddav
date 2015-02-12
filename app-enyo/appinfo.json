@@ -1,10 +1,10 @@
 {
-    "id": "org.webosports.cdav.app",
-    "version": "0.3.19",
-    "vendor": "WebOS Ports",
-    "type": "web",
-    "main": "index.html",
-    "title": "C+DAV Sync App",
-    "icon": "images/caldav-1024.png",
-    "uiRevision":2
+	"id": "org.webosports.cdav.app",
+	"version": "0.3.20",
+	"vendor": "WebOS Ports",
+	"type": "web",
+	"main": "index.html",
+	"title": "C+DAV Sync App",
+	"icon": "images/caldav-1024.png",
+	"uiRevision":2
 }

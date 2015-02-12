@@ -1,56 +1,56 @@
 {
-    "templateId": "org.webosports.cdav.account.icloud",
-    "loc_name": "iCloud C+DAV",
-    "readPermissions": [
-        "org.webosports.cdav.service",
-        "com.palm.service.contacts",
-        "com.palm.service.contacts.linker",
-        "com.palm.app.contacts"
-    ],
-    "writePermissions": [
-        "org.webosports.cdav.service",
-        "com.palm.app.accounts",
-        "com.palm.app.contacts"
-    ],
-    "validator": "palm://org.webosports.cdav.service/checkCredentials",
-    "onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
-    "loc_usernameLabel": "AppleId",
-    "icon": {
-        "loc_32x32": "images/icloud_32.png",
-        "loc_64x64": "images/icloud_64.png",
-        "loc_128x128": "images/icloud_128x128.png",
-        "loc_256x256": "images/icloud_256x256.png"
-    },
-    "config": {
-        "name": "iCloud",
-        "url": "https://p02-contacts.icloud.com"
-    },
-    "capabilityProviders": [
-        {
-            "capability": "CONTACTS",
-            "id": "org.webosports.cdav.contact",
-            "onCreate": "palm://org.webosports.cdav.service/onContactsCreate",
-            "onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
-            "onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
-            "sync": "palm://org.webosports.cdav.service/sync",
-            "loc_name": "iCloud Contacts",
-            "dbkinds": {
-                "contactset": "org.webosports.cdav.contactset:1",
-                "contact": "org.webosports.cdav.contact:1"
-            }
-        },
-        {
-            "capability": "CALENDAR",
-            "id": "org.webosports.cdav.calendar",
-            "onCreate": "palm://org.webosports.cdav.service/onCalendarCreate",
-            "onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
-            "onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
-            "sync": "palm://org.webosports.cdav.service/sync",
-            "loc_name": "iCloud Calendar",
-            "dbkinds": {
-                "calendar": "org.webosports.cdav.calendar:1",
-                "calendarevent": "org.webosports.cdav.calendarevent:1"
-            }
-        }
-    ]
+	"templateId": "org.webosports.cdav.account.icloud",
+	"loc_name": "iCloud C+DAV",
+	"readPermissions": [
+		"org.webosports.cdav.service",
+		"com.palm.service.contacts",
+		"com.palm.service.contacts.linker",
+		"com.palm.app.contacts"
+	],
+	"writePermissions": [
+		"org.webosports.cdav.service",
+		"com.palm.app.accounts",
+		"com.palm.app.contacts"
+	],
+	"validator": "palm://org.webosports.cdav.service/checkCredentials",
+	"onCredentialsChanged": "palm://org.webosports.cdav.service/onCredentialsChanged",
+	"loc_usernameLabel": "AppleId",
+	"icon": {
+		"loc_32x32": "images/icloud_32.png",
+		"loc_64x64": "images/icloud_64.png",
+		"loc_128x128": "images/icloud_128x128.png",
+		"loc_256x256": "images/icloud_256x256.png"
+	},
+	"config": {
+		"name": "iCloud",
+		"url": "https://p02-contacts.icloud.com"
+	},
+	"capabilityProviders": [
+		{
+			"capability": "CONTACTS",
+			"id": "org.webosports.cdav.contact",
+			"onCreate": "palm://org.webosports.cdav.service/onContactsCreate",
+			"onEnabled": "palm://org.webosports.cdav.service/onContactsEnabled",
+			"onDelete": "palm://org.webosports.cdav.service/onContactsDelete",
+			"sync": "palm://org.webosports.cdav.service/sync",
+			"loc_name": "iCloud Contacts",
+			"dbkinds": {
+				"contactset": "org.webosports.cdav.contactset:1",
+				"contact": "org.webosports.cdav.contact:1"
+			}
+		},
+		{
+			"capability": "CALENDAR",
+			"id": "org.webosports.cdav.calendar",
+			"onCreate": "palm://org.webosports.cdav.service/onCalendarCreate",
+			"onDelete": "palm://org.webosports.cdav.service/onCalendarDelete",
+			"onEnabled": "palm://org.webosports.cdav.service/onCalendarEnabled",
+			"sync": "palm://org.webosports.cdav.service/sync",
+			"loc_name": "iCloud Calendar",
+			"dbkinds": {
+				"calendar": "org.webosports.cdav.calendar:1",
+				"calendarevent": "org.webosports.cdav.calendarevent:1"
+			}
+		}
+	]
 }
