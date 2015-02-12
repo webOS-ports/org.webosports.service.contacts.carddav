@@ -186,7 +186,7 @@ enyo.kind({
 			}
 
 			this.accountSettings = {};
-			var i, template = this.params.template;
+			var i, template = this.params.template, user;
 			if (this.params.mode === "create") {
 				if (!template) {
 					this.showLoginError("Account App", "Internal error: No template. Please report this issue.");
@@ -213,9 +213,14 @@ enyo.kind({
 				}
 			}
 
+			user = this.account.credentials.user;
+			if (user.indexOf(this.account.name) < 0) {
+				user = user + "@" + this.account.name; //augment username to contain alias, which will allow multiple accounts for one template.
+			}
+
 			this.accountSettings = {
 				template: this.params.template,
-				username: this.account.credentials.user,
+				username: user,
 				credentials: this.account.credentials,
 				config: this.account,
 				alias: this.account.name,

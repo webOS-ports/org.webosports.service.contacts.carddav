@@ -103,7 +103,7 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 	});
 	credFuture.then(this, function (f) {
 		try {
-			var exception = f.exception, result = f.result, template;
+			var exception = f.exception, result = f.result, template, user;
 			if (result && result.success) {
 				debug("Check credentials came back successful");
 
@@ -121,10 +121,15 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 					}
 				}
 
+				user = this.account.credentials.user;
+				if (user.indexOf(this.account.name) < 0) {
+					user = user + "@" + this.account.name; //augment username to contain alias, which will allow multiple accounts for one template.
+				}
+
 				template.loc_name = this.account.name;
 				this.accountSettings = {
 					template: this.params.initialTemplate,
-					username: this.account.credentials.user,
+					username: user,
 					alias: this.account.name,
 					defaultResult: {
 						result: {
