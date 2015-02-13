@@ -1,5 +1,6 @@
 /*jslint sloppy: true */
-/*global enyo, $L, console, setTimeout, PalmSystem */
+/*global enyo, $L, console */
+/*exported log */
 
 function log(msg) {
 	console.error(msg);
@@ -24,15 +25,20 @@ enyo.kind({
 		{ name: "dbAccounts", kind: "DbService", dbKind: "org.webosports.cdav.account.config:1", onFailure: "cdavFailed", components: [
 			{ name: "findAccounts", method: "find", onSuccess: "refreshAccounts" }
 		]},
-		{ kind: "PageHeader", content: "C+Dav Application", pack: "center" },
+		{ kind: "PageHeader", content: $L("C+Dav Application"), pack: "center" },
 		{ kind: "Scroller", flex: 1, style: "margin:30px;", components: [
 			{ name: "alert", style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;" },
 			{ name: "success", style: "margin-bottom:30px;text-align:center; background-color:green; color:yellow;" },
-			{ kind: "RowGroup", caption: "Connection settings", components: [
-				{ kind: "Picker", label: "Account: "},
-				{ kind: "Button", tabIndex: "1",  caption: "Trigger Slow Sync", onclick: "doTriggerSlowSync", className: "enyo-button-dark" },
-				{ kind: "Button", tabIndex: "2",  caption: "Do Auto Discovery", onclick: "doDiscovery", className: "enyo-button-dark" },
-				{ kind: "Button", tabIndex: "3",  caption: "Start Sync", onclick: "doSync", className: "enyo-button-dark" }
+			{ kind: "RowGroup", caption: $L("Trouble shooting"), components: [
+				{ kind: "Picker", label: $L("Account: ") },
+				{ kind: "Button", tabIndex: "1",  caption: $L("Trigger Slow Sync"), onclick: "doTriggerSlowSync", className: "enyo-button-dark" },
+				{ kind: "Button", tabIndex: "2",  caption: $L("Do Auto Discovery"), onclick: "doDiscovery", className: "enyo-button-dark" },
+				{ kind: "Button", tabIndex: "3",  caption: $L("Start Sync"), onclick: "doSync", className: "enyo-button-dark" }
+			]}
+		]},
+		{kind:  "Scrim", components: [
+			{kind: "VFlexBox", className: "box-center", flex: 1, pack: "center", align: "center", components: [
+				{ kind: "SpinnerLarge", name: "spinner" }
 			]}
 		]},
 		{className: "accounts-footer-shadow", tabIndex: -1}
@@ -47,8 +53,14 @@ enyo.kind({
 
 		this.accounts = inResponse.results;
 		var i, items = [];
-		for (i = 0; i < this.accounts.length; i += 1) {
-			items.push({caption: this.accounts[i].name, value: this.accounts[i].accountId});
+
+		if (this.accounts.length > 0) {
+			for (i = 0; i < this.accounts.length; i += 1) {
+				items.push({caption: this.accounts[i].name, value: this.accounts[i].accountId});
+			}
+		} else {
+			items.push({caption: $L("No accounts"), value: false});
+			this.$.picker.setDisabled(true);
 		}
 		this.$.picker.setItems(items);
 		this.$.picker.setValue(items[0].value);
@@ -69,7 +81,7 @@ enyo.kind({
 
 		debug("AccountId: " + JSON.stringify(accountId));
 		if (accountId) {
-			enyo.scrim.show();
+			this.inidcateActivity();
 			this.showError("");
 			debug("Starting call...");
 			this.$.triggerSlowSync.call({
@@ -82,7 +94,7 @@ enyo.kind({
 		var accountId = this.$.picker.getValue();
 
 		if (accountId) {
-			enyo.scrim.show();
+			this.inidcateActivity();
 			this.showError("");
 			this.$.discovery.call({
 				accountId: accountId
@@ -93,7 +105,7 @@ enyo.kind({
 		var accountId = this.$.picker.getValue();
 
 		if (accountId) {
-			enyo.scrim.show();
+			this.inidcateActivity();
 			this.showError("");
 			this.$.sync.call({
 				accountId: accountId
@@ -101,15 +113,23 @@ enyo.kind({
 		}
 	},
 	cdavOK: function (inSender, inResponse) {
-		enyo.scrim.hide();
+		this.endAcitivity();
 
 		debug("Success Response: " + JSON.stringify(inResponse));
 		this.showSuccess("Method success: " + JSON.stringify(inResponse));
 	},
 	cdavFailed: function (inSender, inResponse) {
-		enyo.scrim.hide();
+		this.endAcitivity();
 
 		debug("Error Response: " + JSON.stringify(inResponse));
 		this.showError("Method failure: " + JSON.stringify(inResponse));
+	},
+	inidcateActivity: function () {
+		this.$.scrim.show();
+		this.$.spinner.show();
+	},
+	endAcitivity: function () {
+		this.$.spinner.hide();
+		this.$.scrim.hide();
 	}
 });
