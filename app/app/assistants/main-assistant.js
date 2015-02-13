@@ -88,11 +88,15 @@ MainAssistant.prototype.refreshAccounts = function () {
 		this.dropboxModel.choices.push({label: this.accounts[i].name, value: i});
 	}
 
+	if (this.accounts.length === 0) {
+		this.dropboxModel.choices = [{label: $L("No accounts"), value: 0}]; //bit of a hack.
+	}
+
 	if (!this.dropboxModel.value || this.dropboxModel.value < 0 || this.dropboxModel.value >= this.accounts.length) {
 		this.dropboxModel.value = 0;
 	}
 
-	this.dropboxModel.disabled = false;
+	this.dropboxModel.disabled = this.accounts.length === 0;
 	this.controller.modelChanged(this.dropboxModel);
 	this.setControlsEnabled(true);
 };
