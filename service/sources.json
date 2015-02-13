@@ -45,6 +45,9 @@
 		"source": "javascript/prologue.js"
 	},
 	{
+		"source": "javascript/version.js"
+	},
+	{
 		"source": "javascript/urlschemes.js"
 	},
 	{

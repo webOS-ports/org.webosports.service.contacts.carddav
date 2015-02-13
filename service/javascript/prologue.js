@@ -47,7 +47,7 @@ var KindsContacts = KindsModule.KindsContacts;
 //load assistants:
 var SyncAssistant = require(servicePath + "/javascript/assistants/syncassistant.js");
 
-console.error("--------->Loaded Libraries OK1");
+console.error("--------->Loaded Libraries OK");
 
 process.on("uncaughtException", function (e) {
 	"use strict";

@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient, PackageVersion */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
 var iCal = require(servicePath + "/javascript/utils/iCal.js");
@@ -25,7 +25,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
 			"use strict";
-			Log.log("\n\n**************************START SERVICEASSISTANT 0.3.19 *****************************");
+			Log.log("\n\n**************************START SERVICEASSISTANT " + PackageVersion + " *****************************");
 			//for testing only - will expose credentials to log file if left open
 			Log.debug("\n------------------->accountId: ", accountid);
 			Log.debug("\n------------------->launchConfig: ", launchConfig);
