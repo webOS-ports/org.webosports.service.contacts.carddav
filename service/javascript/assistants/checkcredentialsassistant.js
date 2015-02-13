@@ -10,7 +10,7 @@ var checkCredentialsAssistant = function () { "use strict"; };
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	"use strict";
-	var args = this.controller.args, base64Auth, future = new Future(), url = args.url, name = args.name;
+	var args = this.controller.args, base64Auth, future = new Future(), url = args.url, urlScheme = args.urlScheme, name = args.name;
 	//debug("Account args =", args);
 
 	// Base64 encode username and password
@@ -31,13 +31,16 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (!name) {
 			name = args.config.name;
 		}
+		if (!urlScheme) {
+			urlScheme = args.config.urlScheme;
+		}
 	}
 
 	if (args.accountId) {
 		Log.debug("Have account id => this is change credentials call, get config object from db.");
 		future.nest(searchAccountConfig(args));
 	} else {
-		future.result = {returnValue: true,  config: {url: url}};
+		future.result = {returnValue: true,  config: {url: url, urlScheme: urlScheme, name: name}};
 	}
 
 	//build result and send it back to UI.
@@ -55,6 +58,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 				password: args.password,
 				username: args.username,
 				url: url,
+				urlScheme: urlScheme,
 				name: name
 			}
 		};
@@ -65,23 +69,20 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (result.returnValue === true) {
 			this.config = result.config;
 			this.config.ignoreSSLCertificateErrors = args.ignoreSSLCertificateErrors;
+
+			urlScheme = urlScheme || this.config.urlScheme;
+			url = url || this.config.url;
 		}
+
+		//use forced scheme to resolve here, otherwise search strings in URL.
+		url = UrlSchemes.resolveURL(url, args.username, "checkCredentials", urlScheme);
+
 		if (url) {
 			path = url;
 		} else {
-			if (this.config && this.config.url) {
-				path = this.config.url;
-			} else {
-				Log.log("No URL. Can't check credentials!");
-				outerfuture.result = {returnValue: false, success: false, reason: "Could not determine URL..."};
-				throw new Transport.AuthenticationError();
-			}
-		}
-
-		//try to augment URL for known servers:
-		newPath = UrlSchemes.resolveURL(path, args.username, "checkCredentials");
-		if (newPath) {
-			path = newPath;
+			Log.log("No URL. Can't check credentials!");
+			outerfuture.result = {returnValue: false, success: false, reason: "Could not determine URL..."};
+			throw new Transport.AuthenticationError();
 		}
 
 		// Test basic authentication. If this fails username and or password is wrong
@@ -147,9 +148,10 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
 		if (this.config) {
 			this.config.accountId = args.accountId || this.config.accountId;
-			this.config.name = args.name || this.config.name;
+			this.config.name = name || this.config.name;
 			this.config.username = args.username || args.user || this.config.username;
-			this.config.url = args.url || this.config.url;
+			this.config.url = url || this.config.url;
+			this.config.urlScheme = urlScheme || this.config.urlScheme;
 			this.config.ignoreSSLCertificateErrors = !!args.ignoreSSLCertificateErrors;
 
 			if (this.config._id && this.config._kind) {

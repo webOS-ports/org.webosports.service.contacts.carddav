@@ -23,6 +23,7 @@
 	},
 	"config": {
 		"name": "Yahoo",
+		"urlScheme": 2,
 		"url": "https://carddav.address.yahoo.com"
 	},
 	"capabilityProviders": [

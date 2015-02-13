@@ -1,5 +1,5 @@
 /*jslint sloppy: true, browser: true, devel: true */
-/*global PalmCall, Mojo, log, $L, showError */
+/*global PalmCall, Mojo, log, $L, showError, UrlSchemes */
 /* Simple debug function to print out to console error */
 var debug = function (param) {
 	console.error("DEBUG: " + param);
@@ -25,9 +25,26 @@ AccountSetupAssistant.prototype.setup = function () {
 		this.account.credentials = {};
 	}
 
+	this.knownServersModel = {
+		value: -1,
+		choices: [
+			{ label: $L("Manual setup"), value: -1 }
+		]
+	};
+
+	if (UrlSchemes && UrlSchemes.urlSchemes) {
+		UrlSchemes.urlSchemes.forEach(function (scheme, index) {
+			if (scheme.name) {
+				console.log("Adding " + scheme.name + " with index " + index);
+				this.knownServersModel.choices.push({ label: scheme.name, value: index });
+			}
+		}.bind(this));
+	}
+
 	/* setup widgets here */
+	this.controller.setupWidget("lsKnownServers", {label: $L("Known Servers") }, this.knownServersModel);
 	this.controller.setupWidget("txtName", { modelProperty: "name", hintText: $L("Display Name"), textCase: Mojo.Widget.steModeLowerCase }, this.account);
-	this.controller.setupWidget("txtURL", { modelProperty: "url", hintText: $L("URL"), textCase: Mojo.Widget.steModeLowerCase }, this.account);
+	this.controller.setupWidget("txtURL", { modelProperty: "url", hintText: $L("URL"), textCase: Mojo.Widget.steModeLowerCase, disabledProperty: "urlDisabled" }, this.account);
 	this.controller.setupWidget("txtUser", { modelProperty: "user", hintText: $L("Username"), textCase: Mojo.Widget.steModeLowerCase}, this.account.credentials);
 	this.controller.setupWidget("txtPass", { modelProperty: "password", hintText: $L("Password"), textCase: Mojo.Widget.steModeLowerCase}, this.account.credentials);
 
@@ -44,6 +61,24 @@ AccountSetupAssistant.prototype.setup = function () {
 			this.disableControls();
 			showError(this.controller, "Account App", "Please run this from account app, not standalane.");
 		}.bind(this), 100);
+	}
+
+	this.urlWidget = this.controller.get("txtURL");
+	Mojo.Event.listen(this.controller.get("lsKnownServers"), Mojo.Event.propertyChange, this.handleServerSelect.bind(this));
+};
+
+AccountSetupAssistant.prototype.handleServerSelect = function () {
+	if (this.knownServersModel.value >= 0) {
+		var urlScheme = UrlSchemes.urlSchemes[this.knownServersModel.value];
+		if (urlScheme.needPrefix) { //do we need an url at all?
+			this.urlWidget.show();
+		} else {
+			this.urlWidget.hide();
+		}
+		this.account.urlScheme = this.knownServersModel.value;
+	} else {
+		this.urlWidget.show();
+		delete this.account.urlScheme;
 	}
 };
 
@@ -77,7 +112,7 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		return;
 	}
 
-	if (!this.account.url) {
+	if (!this.account.url && this.account.urlScheme === undefined) {
 		log("Need account.url to add account");
 		this.showLoginError("URL", "Please specify a valid account url.");
 		return;
@@ -99,6 +134,7 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		username: this.account.credentials.user,
 		password: this.account.credentials.password,
 		url: this.account.url,
+		urlScheme: this.account.urlScheme,
 		name: this.account.name
 	});
 	credFuture.then(this, function (f) {

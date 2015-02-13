@@ -83,8 +83,16 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		if (args.url) {
 			config.url = args.url;
 		}
+		if (args.urlScheme) {
+			config.urlScheme = args.urlScheme;
+		}
 
-		if (!config.url) {
+		//if have urlScheme that does not need url, no useful url is stored in db. So use checkCredentials url as home here.
+		if (config.urlScheme && UrlSchemes.urlSchemes[config.urlScheme] && !UrlSchemes.urlSchemes[config.urlScheme].needPrefix) {
+			config.url = UrlSchemes.resolveURL(config.url, config.username, "checkCredentials", config.urlScheme);
+		}
+
+		if (!config.url || config.url === "http://" || config.url === "https://") {
 			Log.log("No url for ", config, " found in db or agruments. Can't process this account.");
 			outerFuture.result = {returnValue: false, success: false, msg: "No url for account in config."};
 			return outerFuture;

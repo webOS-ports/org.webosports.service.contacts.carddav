@@ -19,5 +19,8 @@
 	},
 	{
 		"source": "app/models/helpers.js"
+	},
+	{
+		"source": "app/models/urlschemes.js"
 	}
 ]

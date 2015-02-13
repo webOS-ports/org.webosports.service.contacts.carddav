@@ -1,5 +1,5 @@
 /*jslint sloppy: true, nomen: true */
-/*global enyo, $L, console, setTimeout, PalmSystem */
+/*global enyo, $L, console, setTimeout, PalmSystem, UrlSchemes */
 
 function log(msg) {
 	console.error(msg);
@@ -25,13 +25,14 @@ enyo.kind({
 		{ kind: "Scroller", flex: 1, style: "margin:30px;", components: [
 			{ name: "alert", style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;" },
 			{ kind: "RowGroup", caption: "Connection settings", components: [
+				{ kind: "Picker", label: $L("Known Servers"), onChange: "serverPicked" },
 				{kind: "InputBox", components: [
 					{kind: "Input", hint: "Name", value: "", name: "txtServerName", tabIndex: "0", spellcheck: false,
 						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", components: [
 						{content: "Name"}
 					]}
 				]},
-				{kind: "InputBox", components: [
+				{kind: "InputBox", name: "urlBox", components: [
 					{kind: "Input", hint: "URL", value: "https://", name: "txtURL", tabIndex: "0", spellcheck: false,
 						className: "enyo-first babelfish", flex: 1, autocorrect: false, autoCapitalize: "lowercase", inputType: "url", components: [
 						{content: "URL"}
@@ -99,7 +100,37 @@ enyo.kind({
 		}
 
 		console.error("<<<<<<<<<<<<<<<<<<<< create");
+
+		//setup picker items:
+		var items = [{caption: $L("Manual setup"), value: -1}];
+		if (UrlSchemes && UrlSchemes.urlSchemes) {
+			UrlSchemes.urlSchemes.forEach(function (scheme, index) {
+				if (scheme.name) {
+					console.log("Adding " + scheme.name + " with index " + index);
+					items.push({ caption: scheme.name, value: index });
+				}
+			}.bind(this));
+		}
+
+		this.$.picker.setItems(items);
+		this.$.picker.setValue(items[0].value);
 	},
+	serverPicked: function () {
+		if (this.$.picker.getValue() >= 0) {
+			this.urlScheme = this.$.picker.getValue();
+			var urlScheme = UrlSchemes.urlSchemes[this.urlScheme];
+			if (urlScheme.needPrefix) { //do we need an url at all?
+				this.$.txtURL.setDisabled(false);
+			} else {
+				this.$.txtURL.setDisabled(true);
+			}
+
+		} else {
+			this.$.txtURL.setDisabled(false);
+			delete this.urlScheme;
+		}
+	},
+
 	foundAccount: function (inSender, inResponse) {
 		enyo.scrim.hide();
 		var account = inResponse.results[0];
@@ -109,6 +140,18 @@ enyo.kind({
 			this.$.txtURL.setValue(account.url);
 			this.$.txtServerName.setValue(account.name);
 			this.$.txtUsername.setValue(account.username);
+			if (account.urlScheme) {
+				this.$.picker.setValue(account.urlScheme);
+				if (UrlSchemes && UrlSchemes.urlSchemes && UrlSchemes.urlSchemes[account.urlScheme]) {
+					if (UrlSchemes.urlSchemes[account.urlScheme].needPrefix) {
+						this.$.txtURL.setDisabled(false);
+					} else {
+						this.$.txtURL.setDisabled(true);
+					}
+				}
+			} else {
+				this.$.picker.setValue(-1);
+			}
 			this.$.ckIgnoreSSLCertificateErrors.setChecked(!!account.ignoreSSLCertificateErrors);
 		} else {
 			this.showLoginError("Change credentials", "Could not find account info in db. Best is to delete account and create new one.");
@@ -126,6 +169,7 @@ enyo.kind({
 		this.account = {
 			name: this.$.txtServerName.getValue(),
 			url: this.$.txtURL.getValue(),
+			urlScheme: this.urlScheme,
 			credentials: {
 				user: this.$.txtUsername.getValue(),
 				password: this.$.txtPassword.getValue()
@@ -146,7 +190,7 @@ enyo.kind({
 			return;
 		}
 
-		if (!this.account.url) {
+		if (!this.account.url || !this.account.urlScheme) {
 			log("Need account.url to add account");
 			this.showLoginError("URL", "Please specify a valid account url.");
 			return;
@@ -171,6 +215,7 @@ enyo.kind({
 			username: this.account.credentials.user,
 			password: this.account.credentials.password,
 			url: this.account.url,
+			urlScheme: this.account.urlScheme,
 			name: this.account.name,
 			ignoreSSLCertificateErrors: this.account.ignoreSSLCertificateErrors
 		});
