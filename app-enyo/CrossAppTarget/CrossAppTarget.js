@@ -142,6 +142,7 @@ enyo.kind({
 			this.$.txtUsername.setValue(account.username);
 			if (account.urlScheme) {
 				this.$.picker.setValue(account.urlScheme);
+				this.urlScheme = account.urlScheme;
 				if (UrlSchemes && UrlSchemes.urlSchemes && UrlSchemes.urlSchemes[account.urlScheme]) {
 					if (UrlSchemes.urlSchemes[account.urlScheme].needPrefix) {
 						this.$.txtURL.setDisabled(false);
@@ -190,7 +191,7 @@ enyo.kind({
 			return;
 		}
 
-		if (!this.account.url || !this.account.urlScheme) {
+		if (!this.account.url && !this.account.urlScheme) {
 			log("Need account.url to add account");
 			this.showLoginError("URL", "Please specify a valid account url.");
 			return;
