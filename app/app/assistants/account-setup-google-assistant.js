@@ -158,7 +158,7 @@ AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
 			this.accountSettings = {
 				template: template,
 				username: this.account.username,
-				alias: "C+DAV Google",
+				alias: this.account.username,
 				config: template.config,
 				defaultResult: {
 					result: {

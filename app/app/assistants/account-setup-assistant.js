@@ -35,7 +35,6 @@ AccountSetupAssistant.prototype.setup = function () {
 	if (UrlSchemes && UrlSchemes.urlSchemes) {
 		UrlSchemes.urlSchemes.forEach(function (scheme, index) {
 			if (scheme.name) {
-				console.log("Adding " + scheme.name + " with index " + index);
 				this.knownServersModel.choices.push({ label: scheme.name, value: index });
 			}
 		}.bind(this));
@@ -104,7 +103,7 @@ AccountSetupAssistant.prototype.disableControls = function () {
 
 AccountSetupAssistant.prototype.checkCredentials = function () {
 	this.disableControls();
-	var i, credFuture;
+	var i, credFuture, params;
 
 	if (!this.account.name) {
 		log("Need account.name to add account");
@@ -130,13 +129,15 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		return;
 	}
 
-	credFuture = PalmCall.call("palm://org.webosports.cdav.service/", "checkCredentials", {
+	params = {
 		username: this.account.credentials.user,
 		password: this.account.credentials.password,
 		url: this.account.url,
 		urlScheme: this.account.urlScheme,
 		name: this.account.name
-	});
+	};
+
+	credFuture = PalmCall.call("palm://org.webosports.cdav.service/", "checkCredentials", params);
 	credFuture.then(this, function (f) {
 		try {
 			var exception = f.exception, result = f.result, template, user;
