@@ -104,7 +104,9 @@ enyo.kind({
 				redirect_uri:   "urn:ietf:wg:oauth:2.0:oob", //means token will be returned as title of page.
 				grant_type:     "authorization_code"
 			});
-			navigator.InAppBrowser.close();
+			if (navigator.InAppBrowser) {
+				navigator.InAppBrowser.close();
+			}
 			this.$.pageHeader.setContent("Getting access token from google...");
 		} else {
 			log("Could not extract code: " + start);
