@@ -61,10 +61,10 @@ var getTransportObjByAccountId = function (args, kind) {
 	});
 
 	return future;
-	};
+};
 
 	//recursive method to search in config db. Will return a future that get's the config object as result.
-	var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
+var searchAccountConfigInConfigDB = function (config, param, next, nextNext) {
 	"use strict";
 	var future = new Future(), outerFuture = new Future();
 	if (!param) { //exit condition.

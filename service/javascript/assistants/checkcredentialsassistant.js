@@ -10,18 +10,18 @@ var checkCredentialsAssistant = function () { "use strict"; };
 
 checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	"use strict";
-	var args = this.controller.args, base64Auth, future = new Future(), url = args.url, urlScheme = args.urlScheme, name = args.name;
+	var args = this.controller.args, base64Auth, future = new Future(), url = args.url, urlScheme = args.urlScheme, name = args.name, userAuth;
 	//debug("Account args =", args);
 
 	// Base64 encode username and password
 	base64Auth = "Basic " + Base64.encode(args.username + ":" + args.password);
-	this.userAuth = {
+	userAuth = {
 		username: args.username,
 		password: args.password,
 		authToken: base64Auth
 	};
 	if (args.oauth) {
-		this.userAuth = args.oauth;
+		userAuth = args.oauth;
 	}
 
 	if (args && args.config) {
@@ -49,14 +49,14 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			success: true,
 			credentials: {
 				common: {
-					password: args.password,
-					username: args.username,
+					password: userAuth.password,
+					username: userAuth.username,
 					url: url
 				}
 			},
 			config: {
-				password: args.password,
-				username: args.username,
+				password: userAuth.password,
+				username: userAuth.username,
 				url: url,
 				urlScheme: urlScheme,
 				name: name
@@ -65,28 +65,41 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 	}
 
 	future.then(this, function gotConfigObject() {
-		var result = checkResult(future), path, newPath;
+		var result = checkResult(future), path, newPath, scheme;
 		if (result.returnValue === true) {
 			this.config = result.config;
 			this.config.ignoreSSLCertificateErrors = args.ignoreSSLCertificateErrors;
 
 			urlScheme = urlScheme || this.config.urlScheme;
 			url = url || this.config.url;
+			userAuth.username = this.config.username;
+			if (scheme && !scheme.oauth) {
+				Log.debug("Overwiting authToken with username from db: ", userAuth.username);
+				userAuth.authToken = "Basic " + Base64.encode(userAuth.username + ":" + args.password);
+			}
 		}
+		scheme = UrlSchemes.urlSchemes[urlScheme];
 
 		//use forced scheme to resolve here, otherwise search strings in URL.
-		url = UrlSchemes.resolveURL(url, args.username, "checkCredentials", urlScheme);
+		url = UrlSchemes.resolveURL(url, userAuth.username, "checkCredentials", urlScheme);
 
 		if (url) {
 			path = url;
 		} else {
 			Log.log("No URL. Can't check credentials!");
-			outerfuture.result = {returnValue: false, success: false, reason: "Could not determine URL..."};
-			throw new Transport.AuthenticationError();
+			outerfuture.exception = new Transport.BadRequestError("No URL. Can't check credentials!");
+			return;
+		}
+
+		//Do this here to prevent users from setting credentials with 2.2.4 app.
+		if (scheme && scheme.oauth && !userAuth.oauth) {
+			Log.log("Accounts needs oAuth, but none supplied.");
+			outerfuture.exception = new Transport.BadRequestError("Accounts needs oAuth, but none supplied. Change credentials won't work for oauth accounts in webOS 2.x.");
+			return;
 		}
 
 		// Test basic authentication. If this fails username and or password is wrong
-		future.nest(AuthManager.checkAuth(this.userAuth, path));
+		future.nest(AuthManager.checkAuth(userAuth, path));
 	});
 
 	future.then(this, function credentialsCheckCB() {
@@ -101,7 +114,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			if (args.accountId) {
 				Log.log("Had account id => this is change credentials call, update config object");
 
-				future.nest(KeyStore.putKey(args.accountId, this.userAuth));
+				future.nest(KeyStore.putKey(args.accountId, userAuth));
 			} else {
 			//send results back to UI:
 				buildResult();
@@ -137,8 +150,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			}
 			outerfuture.setException(exception);
 			Log.log("Error in CheckCredentials: ", exception.toString());
-			outerfuture.result = {returnValue: false, success: false, reason: msg, url: result.uri};
-			throw exception;
+			return; //don't run other thens.
 		}
 	});
 
@@ -149,7 +161,6 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		if (this.config) {
 			this.config.accountId = args.accountId || this.config.accountId;
 			this.config.name = name || this.config.name;
-			this.config.username = args.username || args.user || this.config.username;
 			this.config.url = url || this.config.url;
 			this.config.urlScheme = urlScheme || this.config.urlScheme;
 			this.config.ignoreSSLCertificateErrors = !!args.ignoreSSLCertificateErrors;

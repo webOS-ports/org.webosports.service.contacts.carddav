@@ -2,6 +2,11 @@
 /*exported UrlSchemes*/
 
 var UrlSchemes = {
+	//adjust these if reordering urlSchemes array.
+	iCloudScheme: 0,
+	googleScheme: 1,
+	yahooScheme: 2,
+
 	//known url schemes.
 	//idea: search user supplied URL for "key"
 	//replace URL for checkCredentials, caldav and carddav with known URLs.
@@ -15,6 +20,7 @@ var UrlSchemes = {
 			checkCredentials:  "https://p02-contacts.icloud.com:443"
 		},
 		{
+			oauth:             true,
 			keys:              [".googleapis.", ".google."],
 			calendar:          "https://www.googleapis.com:443/caldav/v2/%USERNAME%/",
 			contact:           "https://www.googleapis.com:443/carddav/v1/principals/%USERNAME%/lists/",
