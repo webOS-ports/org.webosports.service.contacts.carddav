@@ -128,7 +128,7 @@ enyo.kind({
 		this.$.pageHeader.setContent("All done, returning to account manager soon.");
 
 		this.accountSettings = {};
-		var i, template = this.params.template,
+		var i, template = this.params.template || this.params.account,
 			username = inResponse.email,
 			credentials = {
 				access_token: this.token_response.access_token,
@@ -141,11 +141,11 @@ enyo.kind({
 				refresh_url: BASE_URL + "token",
 				username: username
 			},
-			config = {
-				name: "C+DAV Google",
-				url: "https://www.googleapis.com/caldav/v2",
-				credentials: credentials
-			};
+			config;
+
+		if (template) {
+			config = template.config || {};
+		}
 
 		if (!username) {
 			username = Date.now();
@@ -172,6 +172,8 @@ enyo.kind({
 
 				if (!template.config) {
 					template.config = config;
+				} else {
+					template.config.credentials = credentials;
 				}
 			}
 		}
@@ -181,7 +183,7 @@ enyo.kind({
 			username: username,
 			credentials: credentials,
 			config: config,
-			alias: "C+Dav Google " + username,
+			alias: username,
 			returnValue: true
 		};
 
@@ -191,6 +193,7 @@ enyo.kind({
 				accountId: this.accountId,
 				oauth: credentials,
 				url: config.url,
+				urlScheme: config.urlScheme,
 				name: config.name
 			});
 		} else {
