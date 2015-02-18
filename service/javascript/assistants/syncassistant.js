@@ -653,7 +653,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 
-		for (i = 0; i < folders.length; i += 1) {
+		for (i = folders.length - 1; i >= 0; i -= 1) {
 			folder = folders[i];
 			remoteFolder = ETag.findMatch(folder.uri, remoteFolders, "uri");
 
