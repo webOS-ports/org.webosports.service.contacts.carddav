@@ -10,7 +10,7 @@ var CalDav = (function () {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
 	}
 
-	function getValue(obj, field) {
+	function getValue(obj, field, noDecode) {
 		var f, f2 = field.toLowerCase();
 		if (!obj) {
 			return;
@@ -20,6 +20,9 @@ var CalDav = (function () {
 			if (obj.hasOwnProperty(f)) {
 				if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
 					if (typeof obj[f] === "string") {
+						if (noDecode) {
+							return obj[f];
+						}
 						return decodeURIComponent(obj[f]);
 					} else {
 						return obj[f];
@@ -81,7 +84,7 @@ var CalDav = (function () {
 	function processResponse(res) {
 		Log.log_calDavParsingDebug("Processing response ", res);
 		var response = {
-			href: getValue(getValue(res, "href"), "$t"),
+			href: getValue(getValue(res, "href"), "$t", true),
 			propstats: getValue(res, "propstat")
 		}, i;
 		if (!response.propstats) {

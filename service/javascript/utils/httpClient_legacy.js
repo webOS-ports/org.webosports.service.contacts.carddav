@@ -400,7 +400,9 @@ var httpClient = (function () {
 
 	return {
 		sendRequest: function (options, data) {
-			options.path = encodeURI(decodeURI(options.path)); //make sure URI is properly encoded.
+			//Log.debug("before encode: ", options.path);
+			//options.path = encodeURI(decodeURI(options.path)); //make sure URI is properly encoded.
+			//Log.debug("After encode: ", options.path);
 			return sendRequestImpl(options, data);
 		},
 
