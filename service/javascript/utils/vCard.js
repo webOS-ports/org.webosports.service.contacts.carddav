@@ -170,7 +170,7 @@ var vCard = (function () {
 					delete obj.accounts;
 					delete obj.accountId;
 					delete obj.syncSource;
-					obj.uId = uid;
+					obj.uid = uid;
 					obj.categories = categories;
 
 					if (photo.photoData.length > 0) { //got a photo!! :)
@@ -261,9 +261,15 @@ var vCard = (function () {
 					if (filewritten) {
 						data = repairNote(input.contact.note, data);
 					}
-					//need to add uId in any case:
-					if (input.contact.uId) {
-						data = data.replace("END:VCARD", "UID:" + input.contact.uId + "\r\nEND:VCARD");
+
+					if (contact.uId) {
+						contact.uid = contact.uid || contact.uId;
+						delete contact.uId;
+					}
+
+					//need to add uId in any case, vCard export can't do that for us, because it works on contacts:
+					if (input.contact.uid) {
+						data = data.replace("END:VCARD", "UID:" + input.contact.uid + "\r\nEND:VCARD");
 					}
 
 					//add categories if contact had them

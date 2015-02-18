@@ -700,7 +700,7 @@ var iCal = (function () {
 			"TZID"          :    "tzId",
 			"URL"           :    "url",
 			"RECURRENCE-ID" :    "recurrenceId",
-			"UID"           :    "uId"
+			"UID"           :    "uid"
 		};
 		translationQuote = {
 			"COMMENT"       :    "comment",
@@ -876,7 +876,7 @@ var iCal = (function () {
 				event.parentId = revent._id;
 			}
 			event.parentDtstart = parentdtstart;
-			event.relatedTo = revent.uId;
+			event.relatedTo = revent.uid || revent.uId;
 
 			addToExdates(revent.exdates, event.originalDtstart);
 
@@ -1122,7 +1122,7 @@ var iCal = (function () {
 			"url"               :    "URL",
 			"recurrenceId"      :    "RECURRENCE-ID;VALUE=DATE-TIME",
 			"aalarm"            :    "AALARM",
-			"uId"               :    "UID" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
+			"uid"               :    "UID" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
 		};
 		translationQuote = {
 			"comment"           :    "COMMENT",
@@ -1140,6 +1140,11 @@ var iCal = (function () {
 		if (event._del === true) {
 			return "";
 		}
+		if (event.uId) {
+			event.uid = event.uid || event.uId;
+			delete event.uId;
+		}
+
 		/*if (!event.tzId) {
 			event.tzId = localTzId;
 		}*/

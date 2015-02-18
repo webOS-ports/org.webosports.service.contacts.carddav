@@ -297,9 +297,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							to.remoteId = from.remoteId;
 						}
 						if (from.uId) {
-							to.uId = from.uId;
+							from.uid = from.uid || from.uId;
+							delete from.uId;
+						}
+
+						if (from.uid) {
+							to.uid = from.uid;
 						} else {
-							to.uId = from.remoteId;
+							to.uid = from.remoteId;
 						}
 					}
 
