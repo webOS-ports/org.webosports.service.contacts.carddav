@@ -557,6 +557,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			future.nest(this._initCollectionId(kindName));
 		});
 		future.then(this, function () {
+			var result = checkResult(future);
+
+			if (!result.returnValue) {
+				Log.log("No local id for ", folder.name, ". Stopping sync for this folder.");
+				future.result = {needsUpdate: false};
+				return;
+			}
+
 			if (folder.entries &&
 					folder.entries.length > 0) {
 				//trigger download directly.
