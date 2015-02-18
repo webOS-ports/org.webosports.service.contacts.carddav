@@ -271,7 +271,8 @@ var httpClient = (function () {
 			} else if (e) {
 				checkRetry("Connection closed " + (e ? " with error." : " without error."));
 			} else {
-				Log.log("Connection ", reqName(origin, retry), " closed, but no answer, yet? Wait a little longer.");
+				Log.log("Connection ", reqName(origin, retry), " closed, but no answer, yet? Wait a minute.");
+				setTimeout(timeoutCB, 60000);
 			}
 		}
 
