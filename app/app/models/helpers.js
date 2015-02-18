@@ -9,7 +9,7 @@ var logData = function (controller, logInfo) {
 };
 
 var log = function (logmsg) {
-	Mojo.Log.error(logmsg);
+	Mojo.Log.info(logmsg);
 };
 
 //global accounts container:

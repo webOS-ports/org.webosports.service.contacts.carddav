@@ -1,5 +1,5 @@
 //JSLint options:
-/*global $L, Mojo, AppAssistant, console, PalmCall */
+/*global $L, Mojo, AppAssistant, console, PalmCall, UrlSchemes, log */
 function MainAssistant() {
 	"use strict";
 }
@@ -9,6 +9,7 @@ MainAssistant.prototype.setup = function () {
 	this.triggerSlowModel = {label: $L("Trigger Slow Sync"), disabled: true};
 	this.discoveryModel = {label: $L("Do auto discovery"), disabled: true};
 	this.startSyncModel = {label: $L("Start sync"), disabled: true};
+	this.buttonUpdateOauthModel = { label: $L("Regain OAuth token"), disabled: true };
 
 	//this.controller.setupWidget(Mojo.Menu.appMenu, {}, AppAssistant.prototype.MenuModel);
 
@@ -16,8 +17,9 @@ MainAssistant.prototype.setup = function () {
 	this.controller.setupWidget("btnTriggerSlow", {}, this.triggerSlowModel);
 	this.controller.setupWidget("btnTriggerDiscovery", {}, this.discoveryModel);
 	this.controller.setupWidget("btnStartSync", {}, this.startSyncModel);
+	this.controller.setupWidget("btnUpdateOauth", {}, this.buttonUpdateOauthModel);
 
-	this.dropboxModel = {choices: [], disabled: true };
+	this.dropboxModel = {choices: [], value: -1, disabled: true };
 	this.dropBox = this.controller.setupWidget("lsAccounts", {label: $L("Account")}, this.dropboxModel);
 
 	this.spinnerModel = { spinning: true };
@@ -27,6 +29,23 @@ MainAssistant.prototype.setup = function () {
 	Mojo.Event.listen(this.controller.get("btnTriggerSlow"), Mojo.Event.tap, this.triggerSlow.bind(this));
 	Mojo.Event.listen(this.controller.get("btnTriggerDiscovery"), Mojo.Event.tap, this.startDiscovery.bind(this));
 	Mojo.Event.listen(this.controller.get("btnStartSync"), Mojo.Event.tap, this.startSync.bind(this));
+	Mojo.Event.listen(this.controller.get("btnUpdateOauth"), Mojo.Event.tap, this.regainOauthToken.bind(this));
+	Mojo.Event.listen(this.controller.get("lsAccounts"), Mojo.Event.propertyChange, this.handleAccountChange.bind(this));
+};
+
+MainAssistant.prototype.handleAccountChange = function () {
+	"use strict";
+	var index = this.dropboxModel.value,
+		account = this.accounts[index],
+		scheme;
+	this.buttonUpdateOauthModel.disabled = true;
+	if (account.urlScheme !== undefined) {
+		scheme = UrlSchemes.urlSchemes[account.urlScheme];
+		if (scheme && scheme.oauth) {
+			this.buttonUpdateOauthModel.disabled = false;
+		}
+	}
+	this.controller.modelChanged(this.buttonUpdateOauthModel);
 };
 
 MainAssistant.prototype.startSync = function (event) {
@@ -99,29 +118,46 @@ MainAssistant.prototype.refreshAccounts = function () {
 	this.dropboxModel.disabled = this.accounts.length === 0;
 	this.controller.modelChanged(this.dropboxModel);
 	this.setControlsEnabled(true);
+	this.handleAccountChange();
 };
 
 MainAssistant.prototype.activate = function (event) {
 	"use strict";
 	this.setControlsEnabled(false);
 
-	PalmCall.call("palm://com.palm.db/", "find",
-				  {query: {from: "org.webosports.cdav.account.config:1"}}).then(this, function (f) {
-		var result = f.result;
-		if (result.returnValue === true) {
-			console.error("Got accounts.");
-			this.accounts = f.result.results;
-			console.error("Now have " + this.accounts.length + " accounts.");
-			if (this.accounts.length > 0) {
-				this.currentAccount = 0;
+	if (event) {
+		log("Got params:" + JSON.stringify(event));
+		this.currentAccount = this.dropboxModel.value;
+		if (event.config && event.config.credentials) {
+			if (!this.accounts[this.currentAccount]) {
+				console.error("ARGH. NO ACCOUNT???");
+				return;
 			}
-			this.refreshAccounts();
-			console.error("Ready to go.");
-		} else {
-			console.error("Could not get accounts..." + JSON.stringify(f.result));
-			this.showMessage("Error", "Could not get accounts. Error: " + JSON.stringify(f.result));
+			if (!this.accounts[this.currentAccount].config) {
+				this.accounts[this.currentAccount].config = {};
+			}
+			this.accounts[this.currentAccount].config.credentials = event.config.credentials;
+			this.callService("onCredentialsChanged");
 		}
-	});
+	} else {
+		PalmCall.call("palm://com.palm.db/", "find",
+					  {query: {from: "org.webosports.cdav.account.config:1"}}).then(this, function (f) {
+			var result = f.result;
+			if (result.returnValue === true) {
+				console.error("Got accounts.");
+				this.accounts = f.result.results;
+				console.error("Now have " + this.accounts.length + " accounts.");
+				if (this.accounts.length > 0) {
+					this.currentAccount = 0;
+				}
+				this.refreshAccounts();
+				console.error("Ready to go.");
+			} else {
+				console.error("Could not get accounts..." + JSON.stringify(f.result));
+				this.showMessage("Error", "Could not get accounts. Error: " + JSON.stringify(f.result));
+			}
+		});
+	}
 };
 
 MainAssistant.prototype.showMessage = function (title, message) {
@@ -133,6 +169,14 @@ MainAssistant.prototype.showMessage = function (title, message) {
 	});
 };
 
+MainAssistant.prototype.regainOauthToken = function () {
+	"use strict";
+	//TODO: show account-setup-google
+	//How to set params?
+	//How to get what it writes back?
+	var params = { initialTemplate: { config: {} } };
+	this.controller.stageController.pushScene("accountSetupGoogle", params);
+};
 
 MainAssistant.prototype.deactivate = function (event) {
 	"use strict";
