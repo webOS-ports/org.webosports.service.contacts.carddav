@@ -32,11 +32,11 @@ DiscoveryAssistant.prototype.run = function (outerFuture) {
 	return outerFuture;
 };
 
-DiscoveryAssistant.prototype.resolveHome = function (params, username, type) {
+DiscoveryAssistant.prototype.resolveHome = function (params, username, type, urlSchemeKey) {
 	"use strict";
 	var future = new Future(), home;
 
-	home = UrlSchemes.resolveURL(params.originalUrl, username, type);
+	home = UrlSchemes.resolveURL(params.originalUrl, username, type, urlSchemeKey);
 	if (home) {
 		Log.log("Could resolve ", type, " home from known URL schemes, get folders from there");
 		params.path = home;
@@ -87,7 +87,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 			config.urlScheme = args.urlScheme;
 		}
 
-		//if have urlScheme that does not need url, no useful url is stored in db. So use checkCredentials url as home here.
+		//if have urlScheme that does not need url, no usefull url is stored in db. So use checkCredentials url as home here.
 		if (config.urlScheme && UrlSchemes.urlSchemes[config.urlScheme] && !UrlSchemes.urlSchemes[config.urlScheme].needPrefix) {
 			config.url = UrlSchemes.resolveURL(config.url, config.username, "checkCredentials", config.urlScheme);
 		}
@@ -114,7 +114,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		};
 
 		params.cardDav = false;
-		future.nest(this.resolveHome(params, config.username, "calendar"));
+		future.nest(this.resolveHome(params, config.username, "calendar", config.urlScheme));
 
 		future.then(this, function calendarResolveCB() {
 			var result = checkResult(future);
@@ -125,7 +125,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 			}
 
 			params.cardDav = true;
-			future.nest(this.resolveHome(params, config.username, "contact"));
+			future.nest(this.resolveHome(params, config.username, "contact", config.urlScheme));
 		});
 
 		future.then(this, function contactResolveCB() {

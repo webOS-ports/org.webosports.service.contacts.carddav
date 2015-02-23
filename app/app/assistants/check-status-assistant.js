@@ -1,6 +1,6 @@
 //JSLint options:
 /*jslint browser: true */
-/*global $L, Mojo, AppAssistant, console, PalmCall, UrlSchemes, log */
+/*global $L, Mojo, AppAssistant, console, PalmCall, log */
 function CheckStatusAssistant(params) {
 	"use strict";
 	if (params) {

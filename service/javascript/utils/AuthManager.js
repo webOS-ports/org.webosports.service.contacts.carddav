@@ -113,7 +113,7 @@ var AuthManager = (function () {
 			return userAuth.authToken;
 		},
 
-		checkAuth: function (userAuth, url) {
+		checkAuth: function (userAuth, url, urlScheme) {
 			Log.debug("AUTH CHECK STARTING.");
 			var path, future = new Future(), outerFuture = new Future();
 			//for OAuth: maybe need to refresh tokens.
@@ -121,7 +121,9 @@ var AuthManager = (function () {
 				return doOAuthCheck(userAuth); //no need for the other stuff.
 			}
 
-			path = UrlSchemes.resolveURL(url, userAuth.username, "checkCredentials");
+			if (urlScheme !== -1) { //-1 means already resolved.
+				path = UrlSchemes.resolveURL(url, userAuth.username, "checkCredentials", urlScheme); //force right url scheme here, too.
+			}
 			if (!path) {
 				path = url;
 			}

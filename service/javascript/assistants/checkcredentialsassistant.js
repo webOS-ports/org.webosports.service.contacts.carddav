@@ -81,7 +81,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		scheme = UrlSchemes.urlSchemes[urlScheme];
 
 		//use forced scheme to resolve here, otherwise search strings in URL.
-		url = UrlSchemes.resolveURL(url, userAuth.username, "checkCredentials", urlScheme);
+		url = UrlSchemes.resolveURL(url, userAuth.username, "checkCredentials", urlScheme) || url;
 
 		if (url) {
 			path = url;
@@ -99,7 +99,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		}
 
 		// Test basic authentication. If this fails username and or password is wrong
-		future.nest(AuthManager.checkAuth(userAuth, path));
+		future.nest(AuthManager.checkAuth(userAuth, path, -1));
 	});
 
 	future.then(this, function credentialsCheckCB() {

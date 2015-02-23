@@ -23,7 +23,7 @@
 	},
 	"config": {
 		"name": "iCloud",
-		"urlScheme": 0,
+		"urlScheme": "icloud",
 		"url": "https://p02-contacts.icloud.com"
 	},
 	"capabilityProviders": [
