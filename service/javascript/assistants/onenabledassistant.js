@@ -35,7 +35,7 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
 				date = new Date();
 				PalmCall.call("palm://com.palm.activitymanager", "create", {
 					activity: {
-						name: "RecreatePeriodicSyncCapabilitieFix:" + serviceName + ":" + accountId,
+						name: "RecreatePeriodicSync:" + serviceName + ":" + accountId,
 						description: "Recreate Periodic Sync activity if other capabilities are still enabled.",
 						type: {
 							background: true,

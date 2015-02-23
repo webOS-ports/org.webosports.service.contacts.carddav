@@ -1,4 +1,4 @@
-/*jslint nomen: true */
+/*jslint nomen: true, node: true */
 /*global Log, checkResult, Kinds, DB, Future */
 
 var ETag = (function () {

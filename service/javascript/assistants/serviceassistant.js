@@ -151,7 +151,8 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 					future.then(this, function getKeyCB() {
 						var result = checkResult(future);
-						Log.log("------------->Got Key"); //, result);
+						Log.log("------------->Got Key");
+						//Log.debug("------------->Got Key", result);
 						this.userAuth = result.credentials;
 
 						future.nest(AuthManager.checkAuth(this.userAuth, this.config.url));
@@ -160,6 +161,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					future.then(this, function checkAuthCB() {
 						var result = checkResult(future);
 						if (result.credentials) { //need to store changed credentials.
+							//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result));
 							KeyStore.putKey(this.accountId, this.userAuth).then(this, function putOAuthCB(putKey) {
 								var result = checkResult(putKey);
 								Log.debug("------------->Saved OAuth Key", result.returnValue);
@@ -213,6 +215,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 							return;
 						}
 
+						//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result) + "\nusername: " + username + "\npassword: " + password + "\noauth: " + oauth);
 						KeyStore.putKey(this.accountId, this.userAuth).then(this, function (putKey) {
 							var result = checkResult(putKey);
 							Log.debug("------------->Saved Key ", result.returnValue);
