@@ -2,7 +2,7 @@
 KeyStore - used to handle storage of authentication data
 within key manager.
 **************************************************/
-/*jslint nomen: true */
+/*jslint nomen: true, node: true */
 /*global PalmCall, Log, checkResult, servicePath */
 //this is taken from MojoSyncFramework example in PalmSDK
 var Base64 = require(servicePath + "/javascript/utils/Base64.js");

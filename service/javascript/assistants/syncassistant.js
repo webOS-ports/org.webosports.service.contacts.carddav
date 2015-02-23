@@ -11,9 +11,10 @@ var ETag = require(servicePath + "/javascript/utils/ETag.js");
 var ID = require(servicePath + "/javascript/utils/ID.js");
 var SyncKey = require(servicePath + "/javascript/utils/SyncKey.js");
 var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
+var SyncStatus = require(servicePath + "/javascript/utils/SyncStatus.js");
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
-	run: function run(outerfuture) {
+	run: function run(outerfuture, subscription) {
 		"use strict";
 		var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
 
@@ -101,7 +102,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			});
 		} else {
 			//we have a capability, run usual sync
-			this.SyncKey = new SyncKey(this.client);
+			this.SyncKey = new SyncKey(this.client, this.handler);
 
 			this.$super(run)(outerfuture);
 		}
@@ -135,27 +136,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getCapabilityProviderId: function () {
 		"use strict";
 		return "CALENDAR, CONTACTS, TASKS";
-	},
-
-	/*
-	 * Sets error = true for kindName. Makes sure that object is saved in database.
-	 */
-	_saveErrorState: function (kindName, errorState) {
-		"use strict";
-		this.client.transport.syncKey[kindName].error = (errorState === undefined || errorState); //trigger "slow" sync.
-		var future = this.handler.updateAccountTransportObject(this.client.transport, {syncKey: this.client.transport.syncKey});
-
-		future.then(this, function putCB() {
-			var result = checkResult(future);
-			if (!result.results.length) {
-				Log.log("Could not store config object: ", result);
-			} else {
-				this.client.transport._rev = result.results[0].rev;
-			}
-			future.result = {returnValue: true};
-		});
-
-		return future;
 	},
 
 	/*
@@ -297,9 +277,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							to.remoteId = from.remoteId;
 						}
 						if (from.uId) {
-							to.uId = from.uId;
+							from.uid = from.uid || from.uId;
+							delete from.uId;
+						}
+
+						if (from.uid) {
+							to.uid = from.uid;
 						} else {
-							to.uId = from.remoteId;
+							to.uid = from.remoteId;
 						}
 					}
 
@@ -419,7 +404,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 
+		SyncStatus.setRunning(this.client.clientId, kindName);
 		if (!home) {
+			SyncStatus.setStatus(this.client.clientId, kindName, "Need discovery");
 			Log.debug("Need to get home folders first, doing discovery.");
 			future.nest(PalmCall.call("palm://org.webosports.cdav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
 		} else {
@@ -440,7 +427,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				home = this.client.config.url;
 			}
 
-			future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+			future.nest(this.SyncKey.saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 		});
 
 		future.then(this, function saveTransportCB() {
@@ -460,6 +447,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				future.nest(CalDav.getFolders(this.params, filter));
 			} else {
 				Log.log("Could not get local folders.");
+				SyncStatus.setDone(this.client.clientId, kindName);
 				future.result = {
 					returnValue: false,
 					more: false,
@@ -476,6 +464,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				Log.debug("Got ", rFolders, " remote folders, comparing them to ", localFolders, " local ones.");
 				if (rFolders.length === 0) {
 					Log.log("Remote did not supply folders in listing. Using home URL as fall back.");
+					SyncStatus.setStatus(this.client.clientId, kindName, "Did not find folders, syncing home folder directly.");
+					SyncStatus.setDone(this.client.clientId, kindName);
 					rFolders.push({
 						name: "Home",
 						uri: home,
@@ -492,15 +482,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				//wait till updateCollectionsConfig is finished, because this might delete all entries of a kind.
 				future.then(this, function updateConfigCB() {
 					checkResult(future);
+					SyncStatus.setStatus(this.client.clientId, kindName, "Folder changes processed.");
 					future.result = {
 						more: false,
 						entries: entries //etags will be undefined for both. But that is fine. Just want to compare uris.
 					};
 
 					this.client.transport.syncKey[kindName].error = false; //if we reached here, then there were no errors.
+					SyncStatus.setDone(this.client.clientId, kindName);
 				});
 			} else {
 				Log.log("Could not get remote collection. Skipping down sync.");
+				SyncStatus.setDone(this.client.clientId, kindName);
 				future.result = {
 					more: false,
 					entries: []
@@ -526,6 +519,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		if (!folder || !folder.uri) {
 			Log.log("No folder for index ", index, " in ", kindName);
+			if (!this.SyncKey.hasMoreFolders(kindName)) {
+				SyncStatus.setDone(this.client.clientId, kindName);
+			}
 			future.result = {
 				more: this.SyncKey.hasMoreFolders(kindName),
 				entries: []
@@ -536,6 +532,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		//if we had error during folder sync or previous folders, cancel sync here.
 		if (this.SyncKey.hasError(kindName)) {
+			SyncStatus.setDone(this.client.clientId, kindName);
 			Log.log("We are in error state. Stop sync and return empty set.");
 			future.result = { more: false, entries: [] };
 			return future;
@@ -549,14 +546,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		folder.downloadsFailed = false; //reset that flag here.
 
-		future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+		SyncStatus.setRunning(this.client.clientId, kindName);
+		future.nest(this.SyncKey.saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
 		future.then(this, function saveTransportCB() {
 			checkResult(future); //will always be true.
 			Log.debug("Starting sync for ", folder.name);
+			SyncStatus.setStatus(this.client.clientId, kindName, "Syncing " + folder.name);
 			future.nest(this._initCollectionId(kindName));
 		});
 		future.then(this, function () {
+			var result = checkResult(future);
+
+			if (!result.returnValue) {
+				Log.log("No local id for ", folder.name, ". Stopping sync for this folder.");
+				future.result = {needsUpdate: false};
+				return;
+			}
+
 			if (folder.entries &&
 					folder.entries.length > 0) {
 				//trigger download directly.
@@ -589,6 +596,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						Log.debug("Sync for folder ", folder.name, " finished.");
 						this.SyncKey.nextFolder(kindName);
 						result.more = this.SyncKey.hasMoreFolders(kindName);
+						if (!this.SyncKey.hasMoreFolders(kindName)) {
+							SyncStatus.setDone(this.client.clientId, kindName);
+						}
 					}
 
 					//if downloads failed or had error -> check etags next time, again.
@@ -608,8 +618,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else {
 				//we don't need an update, tell sync engine that we are finished.
 				Log.log("Don't need update. Return empty set.");
+				SyncStatus.setStatus(this.client.clientId, kindName, "No update needed.");
 				this.client.transport.syncKey[kindName].error = false;
 				this.SyncKey.nextFolder(kindName);
+				if (!this.SyncKey.hasMoreFolders(kindName)) {
+					SyncStatus.setDone(this.client.clientId, kindName);
+				}
 				future.result = {
 					more: this.SyncKey.hasMoreFolders(kindName),
 					entries: []
@@ -645,7 +659,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 
-		for (i = 0; i < folders.length; i += 1) {
+		for (i = folders.length - 1; i >= 0; i -= 1) {
 			folder = folders[i];
 			remoteFolder = ETag.findMatch(folder.uri, remoteFolders, "uri");
 
@@ -688,7 +702,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (change) {
 			deleteFuture.then(this, function deleteCB() {
 				checkResult(deleteFuture);
-				deleteFuture.nest(this._saveErrorState(subKind)); //trigger slow sync for subKind because of collection changes.
+				deleteFuture.nest(this.SyncKey.saveErrorState(subKind)); //trigger slow sync for subKind because of collection changes.
 				delete this.collectionIds; //reset this for orphaned checks.
 			});
 
@@ -823,6 +837,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					}
 				}
 
+				SyncStatus.setDownloadTotal(this.client.clientId, kindName, entries.length);
 				if (retries.length > 0) {
 					future.nest(DB.merge(retries));
 				} else {
@@ -852,6 +867,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		if (entriesIndex < entries.length && entriesIndex < 10) {
 			if (entries[entriesIndex].doDelete || entries[entriesIndex].alreadyDownloaded) { //no need to download for deleted entry, skip.
+				SyncStatus.downloadedOne(this.client.clientId, kindName);
 				future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 			} else {
 				//this is currently just a get, should work fine for vCard and iCal alike.
@@ -907,6 +923,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 						future.then(this, function () {
 							//done with this object, do next one.
+							SyncStatus.downloadedOne(this.client.clientId, kindName);
 							future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 						});
 
@@ -914,6 +931,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
 						this.SyncKey.currentFolder(kindName).downloadsFailed = true;
 						entries.splice(entriesIndex, 1);
+						SyncStatus.downloadedOne(this.client.clientId, kindName);
 						future.nest(this._downloadData(kindName, entries, entriesIndex));
 					}
 				});
@@ -959,7 +977,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		//add this here to also track errors during upsync -> will trigger comparison of all etags on next downsync.
 		if (results.length > 0) {
-			future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+			SyncStatus.setUploadTotal(this.client.clientId, kindName, remoteIds.length);
+			SyncStatus.setStatus(this.client.clientId, kindName, "Upload started.");
+			SyncStatus.setRunning(this.client.clientId, kindName);
+			future.nest(this.SyncKey.saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
 			future.then(this, function saveStateCB() {
 				checkResult(future);
@@ -1045,6 +1066,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//save remote id for local <-> remote mapping
 			remoteIds[index] = rid;
 
+			SyncStatus.uploadedOne(this.client.clientId, kindName);
 			//process next object
 			if (index + 1 < batch.length) {
 				future.nest(this._processOne(index + 1, batch, kindName));
@@ -1260,6 +1282,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 		}
 
+		SyncStatus.setDone(this.client.clientId, kindName);
 		future.result = result;
 		return future;
 	},
@@ -1299,6 +1322,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					.setExplicit(true)
 					.setPersist(true)
 					.setReplace(true)
+					.setPower(true) //prevent narcolepsy
 					.setRequirements({ internetConfidence: "fair" })
 					.setTrigger("fired", "palm://com.palm.db/watch", queryParams)
 					.setCallback("palm://" + this.controller.service.name + "/" + this.controller.config.name,

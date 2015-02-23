@@ -7,7 +7,7 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient */
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient, PackageVersion, fs */
 /*exported ServiceAssistant, OnCredentialsChanged*/
 
 var iCal = require(servicePath + "/javascript/utils/iCal.js");
@@ -25,7 +25,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 		setup: function setup(service, accountid, launchConfig, launchArgs) {
 			"use strict";
-			Log.log("\n\n**************************START SERVICEASSISTANT 0.3.19 *****************************");
+			Log.log("\n\n**************************START SERVICEASSISTANT " + PackageVersion + " *****************************");
 			//for testing only - will expose credentials to log file if left open
 			Log.debug("\n------------------->accountId: ", accountid);
 			Log.debug("\n------------------->launchConfig: ", launchConfig);
@@ -44,12 +44,14 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 			}
 
 			this.config.url = launchArgs.url || this.config.url;
+			this.config.urlScheme = launchArgs.urlScheme || this.config.urlScheme;
 			this.config.ignoreSSLCertificateErrors = launchArgs.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
 
 			//in onCreate call we will store config away in transport object. First store it in this, later on will be put into transport.
 			if (launchArgs.config) {
 				this.config.name =      launchArgs.config.name || this.config.name;
 				this.config.url  =      launchArgs.config.url  || this.config.url;
+				this.config.urlScheme = launchArgs.config.urlScheme || this.config.urlScheme;
 				this.config.username =  launchArgs.config.username || launchArgs.username || this.config.username;
 				this.config.accountId = this.accountId || this.config.accountId;
 				this.config.ignoreSSLCertificateErrors = launchArgs.config.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
@@ -149,7 +151,8 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 					future.then(this, function getKeyCB() {
 						var result = checkResult(future);
-						Log.log("------------->Got Key"); //, result);
+						Log.log("------------->Got Key");
+						//Log.debug("------------->Got Key", result);
 						this.userAuth = result.credentials;
 
 						future.nest(AuthManager.checkAuth(this.userAuth, this.config.url));
@@ -158,6 +161,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					future.then(this, function checkAuthCB() {
 						var result = checkResult(future);
 						if (result.credentials) { //need to store changed credentials.
+							//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result));
 							KeyStore.putKey(this.accountId, this.userAuth).then(this, function putOAuthCB(putKey) {
 								var result = checkResult(putKey);
 								Log.debug("------------->Saved OAuth Key", result.returnValue);
@@ -171,47 +175,52 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					future.nest(KeyStore.checkKey(this.accountId));
 
 					future.then(this, function () {
-						var result = checkResult(future), username, password, authToken;
+						var result = checkResult(future), username, password, authToken, oauth;
 						Log.debug("------------->Checked Key" + JSON.stringify(result));
 
 						if (result.value) {  //found key
-							Log.debug("------------->Existing Key Found, no need to store auth data.");
-							future.result = { returnValue: true }; //continue with future execution.
-						} else { //no key found - check for username / password and save
+							Log.debug("------------->Existing Key Found, will overwrite data.");
+							//future.result = { returnValue: true }; //continue with future execution.
+						} else {
 							Log.debug("------------->No Key Found - Putting Key Data and storing globally");
-
-							//somehow this is VERY inconsistent!
-							username = launchArgs.username || launchArgs.user;
-							password = launchArgs.password;
-							if (launchArgs.config) {
-								username = launchArgs.config.user || username;
-								username = launchArgs.config.username || username;
-								password = launchArgs.config.password || password;
-							}
-
-							if (launchArgs.config && launchArgs.config.credentials) {
-								username = launchArgs.config.credentials.user || username;
-								username = launchArgs.config.credentials.username || username;
-								password = launchArgs.config.credentials.password || password;
-							}
-
-							if (username && password) {
-								authToken = "Basic " + Base64.encode(username + ":" + password);
-								this.userAuth = {"user": username, "password": password, "authToken": authToken};
-							} else if (launchArgs.config && launchArgs.config.credentials) {
-								Log.log("Saving oAuth2.0 credentials.");
-								this.userAuth = launchArgs.config.credentials;
-							} else {
-								Log.debug("---->No config, can't do anything.");
-								future.result = { returnValue: false }; //continue with future execution.
-							}
-
-							KeyStore.putKey(this.accountId, this.userAuth).then(this, function (putKey) {
-								var result = checkResult(putKey);
-								Log.debug("------------->Saved Key ", result.returnValue);
-								future.result = { returnValue: true }; //continue with future execution.
-							});
 						}
+
+						//write key!
+						//somehow this is VERY inconsistent over different versions of webos.!
+						username = launchArgs.username || launchArgs.user;
+						password = launchArgs.password;
+						if (launchArgs.config) {
+							username = launchArgs.config.user || username;
+							username = launchArgs.config.username || username;
+							password = launchArgs.config.password || password;
+						}
+
+						oauth = launchArgs.config && launchArgs.config.credentials && launchArgs.config.credentials.oauth;
+
+						if (launchArgs.config && launchArgs.config.credentials) {
+							username = launchArgs.config.credentials.user || username;
+							username = launchArgs.config.credentials.username || username;
+							password = launchArgs.config.credentials.password || password;
+						}
+
+						if (username && password && !oauth) {
+							authToken = "Basic " + Base64.encode(username + ":" + password);
+							this.userAuth = {"user": username, "password": password, "authToken": authToken};
+						} else if (oauth) {
+							Log.log("Saving oAuth2.0 credentials.");
+							this.userAuth = launchArgs.config.credentials;
+						} else {
+							Log.debug("---->No config, can't do anything.");
+							future.result = { returnValue: result.value }; //continue with future execution.
+							return;
+						}
+
+						//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result) + "\nusername: " + username + "\npassword: " + password + "\noauth: " + oauth);
+						KeyStore.putKey(this.accountId, this.userAuth).then(this, function (putKey) {
+							var result = checkResult(putKey);
+							Log.debug("------------->Saved Key ", result.returnValue);
+							future.result = { returnValue: true }; //continue with future execution.
+						});
 					});
 				} else { //most assistants do not need credentials, continue.
 					future.result = { returnValue: true };

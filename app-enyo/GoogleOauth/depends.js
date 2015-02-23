@@ -1,4 +1,4 @@
 enyo.depends(
-    "CrossAppTarget.js",
-    "accounts.css"
+	"CrossAppTarget.js",
+	"accounts.css"
 );

@@ -8,16 +8,17 @@
  * OAuth keys are refreshed if necessary.
  * Can switch from basic auth to MD5 digest, if necessary.
  */
+/*jslint node: true */
 /*global servicePath, checkResult, Future, CalDav, UrlSchemes, Log */
 
 var OAuth = require(servicePath + "/javascript/utils/OAuth.js");
 
-var AuthManager = (function() {
+var AuthManager = (function () {
 	"use strict";
 
 	function doOAuthCheck(userAuth) {
 		var future = new Future();
-		if(OAuth.needsRefresh(userAuth)) {
+		if (OAuth.needsRefresh(userAuth)) {
 			future.nest(OAuth.refreshToken(userAuth));
 
 			future.then(function refreshCB(future) {
