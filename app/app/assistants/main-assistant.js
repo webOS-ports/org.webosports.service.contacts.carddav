@@ -169,7 +169,6 @@ MainAssistant.prototype.activate = function (event) {
 
 MainAssistant.prototype.checkStatus = function () {
 	"use strict";
-	this.callService("sync");
 	this.currentAccount = this.dropboxModel.value;
 	if (!this.accounts[this.currentAccount]) {
 		console.error("ARGH. NO ACCOUNT???");

@@ -31,7 +31,7 @@ CheckStatusAssistant.prototype.startSync = function () {
 	if (!this.syncing) {
 		this.syncing = true;
 
-		this.button.activate();
+		this.button.mojo.activate();
 		this.startSyncModel.disabled = true;
 		this.controller.modelChanged(this.startSyncModel);
 
@@ -41,7 +41,7 @@ CheckStatusAssistant.prototype.startSync = function () {
 			var result = f.exception || f.result;
 
 			this.syncing = false;
-			this.button.deactivate();
+			this.button.mojo.deactivate();
 			this.startSyncModel.disabled = false;
 			this.controller.modelChanged(this.startSyncModel);
 
@@ -159,16 +159,17 @@ CheckStatusAssistant.prototype.processStatus = function (status) {
 					stat = status[kind];
 					if (stat.status) {
 						this.messageDisplay.innerHTML = "Status: " + stat.status;
+						this.lastStatus = stat.status;
 					}
 					if (stat.uploadTotal) {
 						this.upNumbersDisplay.innerHTML = "Uploading " + (stat.uploadsDone || 0) + " of " + stat.uploadTotal;
 					} else {
-						this.upNumbersDisplay.innerHTML = "";
+						this.upNumbersDisplay.innerHTML = "No uploads";
 					}
 					if (stat.downloadTotal) {
 						this.upNumbersDisplay.innerHTML = "Downloading " + (stat.downloadsDone || 0) + " of " + stat.downloadTotal;
 					} else {
-						this.upNumbersDisplay.innerHTML = "";
+						this.upNumbersDisplay.innerHTML = "No downloads";
 					}
 				}
 			}
@@ -176,9 +177,13 @@ CheckStatusAssistant.prototype.processStatus = function (status) {
 
 	} else {
 		this.runningDisplay.innerHTML = "Sync is not running.";
-		this.downNumbersDisplay.innerHTML = "";
-		this.upNumbersDisplay.innerHTML = "";
-		this.messageDisplay.innerHTML = "";
+		this.downNumbersDisplay.innerHTML = "No downloads";
+		this.upNumbersDisplay.innerHTML = "No uploads";
+		if (this.lastStatus) {
+			this.messageDisplay.innerHTML = "Last status: " + this.lastStatus;
+		} else {
+			this.messageDisplay.innerHTML = "Status:";
+		}
 	}
 };
 
