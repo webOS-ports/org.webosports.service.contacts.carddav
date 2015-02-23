@@ -18,7 +18,6 @@ var SyncStatus = (function () {
 	}
 
 	function setValue(accountId, kindName, field, value, silent) {
-		Log.debug("==================== SET VALUE FOR ", accountId, " => ", kindName, " => ", field, " = ", value);
 		var acctObj = perAccountStatus[accountId], kind;
 		if (!acctObj) {
 			acctObj = {};

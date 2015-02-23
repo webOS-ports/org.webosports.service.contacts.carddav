@@ -10,8 +10,6 @@ statusAssistant.prototype.run = function (outerfuture, subscription) {
 	"use strict";
 	var args = this.controller.args, accountId, status, changeCallback;
 
-	Log.log("_reply: " + typeof this.controller._reply);
-
 	if (args.accountId) {
 		accountId = args.accountId;
 		Log.log("Got accountId: ", accountId);
@@ -34,17 +32,14 @@ statusAssistant.prototype.run = function (outerfuture, subscription) {
 
 	changeCallback = function (change) {
 		if (this && this.controller && typeof this.controller._reply === "function") {
-			Log.log("cdav.app Callback called with ", change);
-			Log.log("Send result via subscription to cdav.app.");
 			this.controller._reply("subscribe", change);
 		} else {
-			Log.log("cdav.app Seems subscription is gone, deregister Callback. ", !!this, " && ", !!this.controller, " && ", typeof this.controller._reply);
+			Log.debug("Seems subscription is gone, deregister Callback. ", !!this, " && ", !!this.controller, " && ", typeof this.controller._reply);
 			SyncStatus.deregisterChangeCallback(accountId, changeCallback);
 		}
 	}.bind(this);
 
 	//have subscription, i.e. need to stay here:
-	Log.log("Have subscription, registering callback and sending current status as result.");
 	SyncStatus.registerChangeCallback(accountId, changeCallback);
 	this.controller._reply("subscribe", SyncStatus.getStatus(accountId)); //send first status immediately
 
