@@ -102,7 +102,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			});
 		} else {
 			//we have a capability, run usual sync
-			this.SyncKey = new SyncKey(this.client);
+			this.SyncKey = new SyncKey(this.client, this.handler);
 
 			this.$super(run)(outerfuture);
 		}
@@ -136,27 +136,6 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getCapabilityProviderId: function () {
 		"use strict";
 		return "CALENDAR, CONTACTS, TASKS";
-	},
-
-	/*
-	 * Sets error = true for kindName. Makes sure that object is saved in database.
-	 */
-	_saveErrorState: function (kindName, errorState) {
-		"use strict";
-		this.client.transport.syncKey[kindName].error = (errorState === undefined || errorState); //trigger "slow" sync.
-		var future = this.handler.updateAccountTransportObject(this.client.transport, {syncKey: this.client.transport.syncKey});
-
-		future.then(this, function putCB() {
-			var result = checkResult(future);
-			if (!result.results.length) {
-				Log.log("Could not store config object: ", result);
-			} else {
-				this.client.transport._rev = result.results[0].rev;
-			}
-			future.result = {returnValue: true};
-		});
-
-		return future;
 	},
 
 	/*
@@ -448,7 +427,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				home = this.client.config.url;
 			}
 
-			future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
+			future.nest(this.SyncKey.saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 		});
 
 		future.then(this, function saveTransportCB() {
@@ -567,8 +546,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		folder.downloadsFailed = false; //reset that flag here.
 
-		future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 		SyncStatus.setRunning(this.client.clientId, kindName);
+		future.nest(this.SyncKey.saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
 		future.then(this, function saveTransportCB() {
 			checkResult(future); //will always be true.
@@ -723,7 +702,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (change) {
 			deleteFuture.then(this, function deleteCB() {
 				checkResult(deleteFuture);
-				deleteFuture.nest(this._saveErrorState(subKind)); //trigger slow sync for subKind because of collection changes.
+				deleteFuture.nest(this.SyncKey.saveErrorState(subKind)); //trigger slow sync for subKind because of collection changes.
 				delete this.collectionIds; //reset this for orphaned checks.
 			});
 
@@ -998,10 +977,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		//add this here to also track errors during upsync -> will trigger comparison of all etags on next downsync.
 		if (results.length > 0) {
-			future.nest(this._saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 			SyncStatus.setUploadTotal(this.client.clientId, kindName, remoteIds.length);
 			SyncStatus.setStatus(this.client.clientId, kindName, "Upload started.");
 			SyncStatus.setRunning(this.client.clientId, kindName);
+			future.nest(this.SyncKey.saveErrorState(kindName)); //set error state, so if something goes wrong, we'll do a check of all objects next time.
 
 			future.then(this, function saveStateCB() {
 				checkResult(future);

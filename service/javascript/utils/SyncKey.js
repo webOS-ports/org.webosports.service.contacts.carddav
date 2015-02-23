@@ -1,9 +1,11 @@
-/*jslint node: true */
-/*global Kinds, Log */
+/*jslint node: true, nomen: true */
+/*global Kinds, Log, checkResult, Future */
 
-function SyncKey(client) {
+function SyncKey(client, handler) {
 	"use strict";
 	this.client = client;
+	this.handler = handler;
+	this.updateFuture = new Future(true); //run immideately the first then.
 }
 
 SyncKey.prototype.setKindName = function (kindName) {
@@ -64,6 +66,37 @@ SyncKey.prototype.getConfig = function () {
 	return this.client.config;
 };
 
+SyncKey.prototype._saveTransportObject = function () {
+	"use strict";
+	var outerFuture = new Future();
+
+	this.updateFuture.then(this, function updateCB() {
+		this.handler.updateAccountTransportObject(this.client.transport, {syncKey: this.client.transport.syncKey}).then(this, function putCB(f) {
+			var result = checkResult(f);
+			if (!result.results.length) {
+				Log.log("Could not store config object: ", result);
+			} else {
+				this.client.transport._rev = result.results[0].rev;
+			}
+			this.updateFuture.result = true;
+			outerFuture.result = true;
+		});
+	});
+
+	return outerFuture;
+};
+
+/*
+ * Sets error = true for kindName. Makes sure that object is saved in database.
+ */
+SyncKey.prototype.saveErrorState = function (kindName, errorState, noUpdate) {
+	"use strict";
+	this.client.transport.syncKey[kindName].error = (errorState === undefined || errorState); //trigger "slow" sync.
+	if (!noUpdate) {
+		return this._saveTransportObject();
+	}
+};
+
 SyncKey.prototype.prepare = function (kindName, state) {
 	"use strict";
 	var key;
@@ -93,8 +126,6 @@ SyncKey.prototype.prepare = function (kindName, state) {
 		//reset index:
 		this.client.transport.syncKey[kindName || this.kindName].folderIndex = 0;
 
-
-
 		// if error on previous sync reset ctag.
 		if (this.client.transport.syncKey[kindName || this.kindName].error ||
 				this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error) {
@@ -108,6 +139,7 @@ SyncKey.prototype.prepare = function (kindName, state) {
 		//clear possibly stored entries from previous syncs:
 		this.forEachFolder(kindName, function (folder) {
 			delete folder.entries;
+			delete folder.downloadsFailed;
 		});
 
 		Log.debug("Modified SyncKey: ", this.client.transport.syncKey[kindName || this.kindName]);
