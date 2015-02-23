@@ -8,7 +8,7 @@
 	o "uId" field got renamed to "uid" field for compability with Calendar.IO
 	o Exit on uncaught exceptions, maybe prevents some service hanging issues.
 	o Added statistics and status display to the apps and an assistant to the service to fill these
-2015-XX-XX: Achim Königs <garfonso@mobo.info>
+2015-02-23: Achim Königs <garfonso@mobo.info>
 
 0.3.19:
 	o fixed possible issue with contact pictures
