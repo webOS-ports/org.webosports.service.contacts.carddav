@@ -67,6 +67,11 @@
 					"public": true
 				},
 				{
+					"name": "checkStatus",
+					"assistant": "statusAssistant",
+					"public": true
+				},
+				{
 					"name": "addEvent",
 					"assistant": "AddEventAssistant",
 					"public": true

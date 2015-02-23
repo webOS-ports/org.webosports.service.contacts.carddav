@@ -75,6 +75,9 @@
 		"source": "javascript/assistants/serviceassistant.js"
 	},
 	{
+		"source": "javascript/assistants/statusassistant.js"
+	},
+	{
 		"source": "javascript/assistants/triggerslowsyncassistant.js"
 	}
 ]

@@ -14,6 +14,10 @@
 		"source": "app/assistants/account-setup-google-assistant.js"
 	},
 	{
+		"scenes": "checkStatus",
+		"source": "app/assistants/check-status-assistant.js"
+	},
+	{
 		"scenes": "main",
 		"source": "app/assistants/main-assistant.js"
 	},

@@ -10,6 +10,7 @@ MainAssistant.prototype.setup = function () {
 	this.discoveryModel = {label: $L("Do auto discovery"), disabled: true};
 	this.startSyncModel = {label: $L("Start sync"), disabled: true};
 	this.buttonUpdateOauthModel = { label: $L("Regain OAuth token"), disabled: true };
+	this.buttonCheckStatusModel = { label: $L("Check status"), disabled: true };
 
 	//this.controller.setupWidget(Mojo.Menu.appMenu, {}, AppAssistant.prototype.MenuModel);
 
@@ -18,6 +19,7 @@ MainAssistant.prototype.setup = function () {
 	this.controller.setupWidget("btnTriggerDiscovery", {}, this.discoveryModel);
 	this.controller.setupWidget("btnStartSync", {}, this.startSyncModel);
 	this.controller.setupWidget("btnUpdateOauth", {}, this.buttonUpdateOauthModel);
+	this.controller.setupWidget("btnChecktStatus", {}, this.buttonCheckStatusModel);
 
 	this.dropboxModel = {choices: [], value: -1, disabled: true };
 	this.dropBox = this.controller.setupWidget("lsAccounts", {label: $L("Account")}, this.dropboxModel);
@@ -30,6 +32,7 @@ MainAssistant.prototype.setup = function () {
 	Mojo.Event.listen(this.controller.get("btnTriggerDiscovery"), Mojo.Event.tap, this.startDiscovery.bind(this));
 	Mojo.Event.listen(this.controller.get("btnStartSync"), Mojo.Event.tap, this.startSync.bind(this));
 	Mojo.Event.listen(this.controller.get("btnUpdateOauth"), Mojo.Event.tap, this.regainOauthToken.bind(this));
+	Mojo.Event.listen(this.controller.get("btnChecktStatus"), Mojo.Event.tap, this.checkStatus.bind(this));
 	Mojo.Event.listen(this.controller.get("lsAccounts"), Mojo.Event.propertyChange, this.handleAccountChange.bind(this));
 };
 
@@ -69,9 +72,11 @@ MainAssistant.prototype.callService = function (method) {
 	console.error("Selecting account " + this.dropboxModel.value);
 	this.currentAccount = this.dropboxModel.value;
 	if (this.currentAccount !== -1) {
+		var params = this.accounts[this.currentAccount];
+		params.subscribe = method === "sync";
 		PalmCall.call("palm://org.webosports.cdav.service/",
 					  method,
-					  this.accounts[this.currentAccount]).then(this, function serviceCB(f) {
+					  params).then(this, function serviceCB(f) {
 			var result = f.result;
 			this.setControlsEnabled(true);
 			this.showMessage(method + " Result", method + " result: " + JSON.stringify(result));
@@ -86,9 +91,11 @@ MainAssistant.prototype.setControlsEnabled = function (enabled) {
 	this.triggerSlowModel.disabled = !enabled;
 	this.discoveryModel.disabled = !enabled;
 	this.startSyncModel.disabled = !enabled;
+	this.buttonCheckStatusModel.disabled = !enabled;
 	this.controller.modelChanged(this.triggerSlowModel);
 	this.controller.modelChanged(this.discoveryModel);
 	this.controller.modelChanged(this.startSyncModel);
+	this.controller.modelChanged(this.buttonCheckStatusModel);
 	if (enabled) {
 		this.controller.get('Scrim').hide();
 		this.controller.get('loadSpinner').mojo.stop();
@@ -158,6 +165,17 @@ MainAssistant.prototype.activate = function (event) {
 			}
 		});
 	}
+};
+
+MainAssistant.prototype.checkStatus = function () {
+	"use strict";
+	this.callService("sync");
+	this.currentAccount = this.dropboxModel.value;
+	if (!this.accounts[this.currentAccount]) {
+		console.error("ARGH. NO ACCOUNT???");
+		return;
+	}
+	this.controller.stageController.pushScene("checkStatus", this.accounts[this.currentAccount]);
 };
 
 MainAssistant.prototype.showMessage = function (title, message) {
