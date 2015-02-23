@@ -1322,6 +1322,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					.setExplicit(true)
 					.setPersist(true)
 					.setReplace(true)
+					.setPower(true) //prevent narcolepsy
 					.setRequirements({ internetConfidence: "fair" })
 					.setTrigger("fired", "palm://com.palm.db/watch", queryParams)
 					.setCallback("palm://" + this.controller.service.name + "/" + this.controller.config.name,
