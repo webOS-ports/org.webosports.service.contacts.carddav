@@ -1,13 +1,20 @@
 0.3.20:
 	o changed reaction to connection close, will wait if something happens.
 	o improved app to select urlSchems during account creation.
+	o Fixed: In webOS 2.x OAuth based authentication could be sabotaged by change password dialog in account manager.
+	o Added button in 2.x app to regain oauth token for accounts that use oauth authentification.
+	o changed URI handling, should improve downloading from google?
+	o Prevent sync of deleted folders and fixed deleting multiple folders at once
+	o "uId" field got renamed to "uid" field for compability with Calendar.IO
+	o Exit on uncaught exceptions, maybe prevents some service hanging issues.
+	o Added statistics and status display to the apps and an assistant to the service to fill these
 2015-XX-XX: Achim Königs <garfonso@mobo.info>
 
 0.3.19:
-    o fixed possible issue with contact pictures
-    o fixed allday events get prolonged on sync
-    o worked around issue with P0D alarm triggers in webOS
-    o worked around issue where webOS creates alarms with trigger "none".
+	o fixed possible issue with contact pictures
+	o fixed allday events get prolonged on sync
+	o worked around issue with P0D alarm triggers in webOS
+	o worked around issue where webOS creates alarms with trigger "none".
 2015-01-12: Achim Königs <garfonso@mobo.info>
 
 0.3.18:

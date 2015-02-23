@@ -1,6 +1,6 @@
 #!/bin/bash
 
-RESULT=org.webosports.cdav_0.3.18_all
+RESULT=org.webosports.cdav_0.3.20_all
 
 rm *.ipk
 
