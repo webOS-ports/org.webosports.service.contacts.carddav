@@ -43,13 +43,15 @@ CheckStatusAssistant.prototype.startSync = function () {
 			this.syncing = false;
 			this.button.mojo.deactivate();
 			this.startSyncModel.disabled = false;
-			this.controller.modelChanged(this.startSyncModel);
+			if (this.controller) { //otherwise scene was already popped.
+				this.controller.modelChanged(this.startSyncModel);
 
-			this.controller.showAlertDialog({
-				title: "Sync finished",
-				message: "Sync came back with result: " + JSON.stringify(result),
-				choices: [{label: $L("OK"), value: "OK"}]
-			});
+				this.controller.showAlertDialog({
+					title: "Sync finished",
+					message: "Sync came back with result: " + JSON.stringify(result),
+					choices: [{label: $L("OK"), value: "OK"}]
+				});
+			}
 		});
 	}
 };
