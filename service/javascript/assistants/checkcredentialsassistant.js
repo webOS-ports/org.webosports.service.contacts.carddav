@@ -40,7 +40,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		Log.debug("Have account id => this is change credentials call, get config object from db.");
 		future.nest(searchAccountConfig(args));
 	} else {
-		future.result = {returnValue: true,  config: {url: url, urlScheme: urlScheme, name: name}};
+		future.result = {returnValue: true,  config: {url: url, urlScheme: urlScheme, name: name, username: args.username}};
 	}
 
 	//build result and send it back to UI.
@@ -72,7 +72,7 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 
 			urlScheme = urlScheme || this.config.urlScheme;
 			url = url || this.config.url;
-			userAuth.username = this.config.username;
+			userAuth.username = userAuth.username || this.config.username;
 			if (scheme && !scheme.oauth) {
 				Log.debug("Overwiting authToken with username from db: ", userAuth.username);
 				userAuth.authToken = "Basic " + Base64.encode(userAuth.username + ":" + args.password);

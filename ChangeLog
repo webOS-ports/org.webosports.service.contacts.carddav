@@ -1,3 +1,7 @@
+0.3.22:
+	o fix for account creation and URL resolving that required username in URL.
+2015-02-24: Achim Königs <garfonso@mobo.info>
+
 0.3.21:
 	o hot-fix for account creation with known-server-templates. Accounts created with 0.3.20 might stop working after this version. So please consider recreation if you created an account with 0.3.20.
 2015-02-23: Achim Königs <garfonso@mobo.info>
