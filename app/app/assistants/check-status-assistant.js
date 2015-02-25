@@ -99,7 +99,7 @@ CheckStatusAssistant.prototype.getNumobjects = function (kind, callback) {
 			if (result.fired) {
 				console.log("Watch fired, get items again.");
 				return this.getNumobjects(kind, callback); //should nest futures and prevents our then.
-			} else if (result.count) {
+			} else if (result.count !== undefined) {
 				console.log("Count result");
 				callback(result.count);
 			}
