@@ -99,7 +99,17 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 		}
 
 		// Test basic authentication. If this fails username and or password is wrong
-		future.nest(AuthManager.checkAuth(userAuth, path, -1));
+		future.nest(
+			AuthManager.checkAuth(
+				userAuth,
+				path,
+				-1,
+				{
+					userAuth: userAuth,
+					ignoreSSLCertificateErrors: this.config.ignoreSSLCertificateErrors
+				}
+			)
+		);
 	});
 
 	future.then(this, function credentialsCheckCB() {

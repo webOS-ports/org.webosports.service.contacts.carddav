@@ -107,10 +107,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					this.config = result.config;
 				}
 
-				if (this.config.ignoreSSLCertificateErrors && this.config.url) {
-					httpClient.setIgnoreSSLCertificateErrorsForHost(this.config.url, true);
-				}
-
 				future.nest(iCal.initialize());
 			});
 
@@ -155,7 +151,17 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 						//Log.debug("------------->Got Key", result);
 						this.userAuth = result.credentials;
 
-						future.nest(AuthManager.checkAuth(this.userAuth, this.config.url));
+						future.nest(
+							AuthManager.checkAuth(
+								this.userAuth,
+								this.config.url,
+								this.config.urlScheme,
+								{
+									userAuth: this.userAuth,
+									ignoreSSLCertificateErrors: this.config.ignoreSSLCertificateErrors
+								}
+							)
+						);
 					});
 
 					future.then(this, function checkAuthCB() {

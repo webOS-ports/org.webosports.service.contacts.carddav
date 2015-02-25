@@ -375,7 +375,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			this.blacklist = [];
 		}
 
-		this.params = { userAuth: this.client.userAuth, path: path, blacklist: this.blacklist };
+		this.params = {
+			userAuth: this.client.userAuth,
+			path: path,
+			blacklist: this.blacklist,
+			ignoreSSLCertificateErrors: this.client.config.ignoreSSLCertificateErrors,
+		};
 
 		this.SyncKey.prepare(kindName, state);
 

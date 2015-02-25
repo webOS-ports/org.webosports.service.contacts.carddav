@@ -409,10 +409,6 @@ var httpClient = (function () {
 
 		parseURLIntoOptions: function (inUrl, options) {
 			return parseURLIntoOptionsImpl(inUrl, options);
-		},
-
-		setIgnoreSSLCertificateErrorsForHost: function () {
-			Log.log("setIgnoreSSLCertificateErrorsForHost not supported for legacy http client.");
 		}
 	};
 }());

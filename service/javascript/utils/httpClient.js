@@ -14,7 +14,6 @@ var httpClient = (function () {
 	var proxy = {port: 0, host: "", valid: false},
 		httpsProxy = {port: 0, host: "", valid: false},
 		globalReqNum = 0,
-		ignoreSSLCertificateErrors = {},
 		retries = {};
 
 	function setProxy(proxyString, inProxy) {
@@ -74,7 +73,7 @@ var httpClient = (function () {
 		options.prefix = options.protocol + "//" + options.headers.host + ":" + options.port;
 		options.originalUrl = inUrl;
 
-		if (ignoreSSLCertificateErrors[options.host] && options.protocol === "https:") {
+		if (options.ignoreSSLCertificateErrors && options.protocol === "https:") {
 			options.rejectUnauthorized = false;
 			options.requestCert = true;
 		}
@@ -428,12 +427,6 @@ var httpClient = (function () {
 
 		parseURLIntoOptions: function (inUrl, options) {
 			return parseURLIntoOptionsImpl(inUrl, options);
-		},
-
-		setIgnoreSSLCertificateErrorsForHost: function (inUrl, value) {
-			var tmpOptions = {};
-			parseURLIntoOptionsImpl(inUrl, tmpOptions);
-			ignoreSSLCertificateErrors[tmpOptions.host] = value;
 		}
 	};
 }());

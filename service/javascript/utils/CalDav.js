@@ -333,7 +333,8 @@ var CalDav = (function () {
 					"Content-Type": "text/xml; charset=utf-8", //necessary
 					Connection: "keep-alive",
 					"User-Agent": "org.webosports.cdav-connector"
-				}
+				},
+				ignoreSSLCertificateErrors: params.ignoreSSLCertificateErrors,
 			};
 
 		Log.debug("Path: ", params.path);

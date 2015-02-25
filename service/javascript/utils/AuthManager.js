@@ -113,7 +113,7 @@ var AuthManager = (function () {
 			return userAuth.authToken;
 		},
 
-		checkAuth: function (userAuth, url, urlScheme) {
+		checkAuth: function (userAuth, url, urlScheme, cdavConfig) {
 			Log.debug("AUTH CHECK STARTING.");
 			var path, future = new Future(), outerFuture = new Future();
 			//for OAuth: maybe need to refresh tokens.
@@ -127,7 +127,8 @@ var AuthManager = (function () {
 			if (!path) {
 				path = url;
 			}
-			future.nest(CalDav.checkCredentials({userAuth: userAuth, path: path}));
+			cdavConfig.path = path;
+			future.nest(CalDav.checkCredentials(cdavConfig));
 
 			future.then(function checkCredentialsCB() {
 				var result = checkResult(future), urlParser, authString;
@@ -144,7 +145,7 @@ var AuthManager = (function () {
 							Log.debug("Trying digest auth.");
 							userAuth.authToken = authString;
 							userAuth.digest.PROPFIND = authString;
-							future.nest(CalDav.checkCredentials({userAuth: userAuth, path: path}));
+							future.nest(CalDav.checkCredentials(cdavConfig));
 						} else {
 							Log.debug("CREDENTIALS ARE WRONG!!");
 							outerFuture.result = result;
