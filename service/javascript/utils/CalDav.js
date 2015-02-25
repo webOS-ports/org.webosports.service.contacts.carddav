@@ -517,7 +517,7 @@ var CalDav = (function () {
 
 			future.then(function () {
 				var result = checkResult(future);
-				future.result = { returnValue: result.returnValue, data: result.body };
+				future.result = { returnValue: result.returnValue, returnCode: result.returnCode, data: result.body };
 			});
 
 			return future;
