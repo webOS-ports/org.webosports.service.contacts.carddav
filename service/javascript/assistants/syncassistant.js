@@ -380,6 +380,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			path: path,
 			blacklist: this.blacklist,
 			ignoreSSLCertificateErrors: this.client.config.ignoreSSLCertificateErrors,
+			authCallback: this.client.config.authCallback
 		};
 
 		this.SyncKey.prepare(kindName, state);

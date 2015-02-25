@@ -110,7 +110,9 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		params = {
 			path: config.url,
 			userAuth: this.client.userAuth,
-			originalUrl: config.url
+			originalUrl: config.url,
+			ignoreSSLCertificateErrors: this.client.config.ignoreSSLCertificateErrors,
+			authCallback: this.client.config.authCallback
 		};
 
 		params.cardDav = false;

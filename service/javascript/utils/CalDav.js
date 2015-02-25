@@ -335,6 +335,7 @@ var CalDav = (function () {
 					"User-Agent": "org.webosports.cdav-connector"
 				},
 				ignoreSSLCertificateErrors: params.ignoreSSLCertificateErrors,
+				authCallback: params.authCallback
 			};
 
 		Log.debug("Path: ", params.path);
@@ -406,6 +407,7 @@ var CalDav = (function () {
 			options.headers.Depth = 0;
 			data = "<d:propfind xmlns:d=\"DAV:\"><d:prop><d:current-user-principal /></d:prop></d:propfind>";
 
+			delete options.authCallback; //make sure we don't run into endless loop. AuthManager might call checkCredentials.
 			future.nest(httpClient.sendRequest(options, data));
 			return future;
 		},

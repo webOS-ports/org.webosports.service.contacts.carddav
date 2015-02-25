@@ -12,22 +12,23 @@
 /*global servicePath, checkResult, Future, CalDav, UrlSchemes, Log */
 
 var OAuth = require(servicePath + "/javascript/utils/OAuth.js");
+var urlParser;
 
 var AuthManager = (function () {
 	"use strict";
 
-	function doOAuthCheck(userAuth) {
+	function doOAuthCheck(userAuth, force) {
 		var future = new Future();
-		if (OAuth.needsRefresh(userAuth)) {
+		if (force || OAuth.needsRefresh(userAuth)) {
 			future.nest(OAuth.refreshToken(userAuth));
 
 			future.then(function refreshCB(future) {
 				var result = checkResult(future);
-				//just pipe oauth result through:
+				result.authCallback = doOAuthCheck.bind(AuthManager, userAuth, true); //tell service assistant that we might use authRetry. :)
 				future.result = result;
 			});
 		} else {
-			future.result = {returnValue: true};
+			future.result = {returnValue: true, authCallback: doOAuthCheck.bind(AuthManager, userAuth, true) };
 		}
 		return future;
 	}
@@ -131,7 +132,7 @@ var AuthManager = (function () {
 			future.nest(CalDav.checkCredentials(cdavConfig));
 
 			future.then(function checkCredentialsCB() {
-				var result = checkResult(future), urlParser, authString;
+				var result = checkResult(future), authString;
 				if (result.returnValue) {
 					//all is fine, coninue! :)
 					outerFuture.result = {returnValue: true};
@@ -165,10 +166,19 @@ var AuthManager = (function () {
 				} else {
 					Log.debug("auth failed.");
 				}
+				result.authCallback = this.refreshDigest.bind(this, userAuth); //we might loose our digest auth, so allow to rebuild it later.
 				outerFuture.result = result;
 			});
 
 			return outerFuture;
+		},
+
+		refreshDigest: function (userAuth, failedResult) {
+			var result = {
+				returnValue: true,
+				newAuthHeader: getNewDigestToken(failedResult.headers, failedResult.method, urlParser.parse(failedResult.uri).pathname, userAuth)
+			};
+			return new Future(result);
 		}
 	};
 }());
