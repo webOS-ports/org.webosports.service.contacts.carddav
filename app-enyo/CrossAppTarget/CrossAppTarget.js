@@ -102,12 +102,13 @@ enyo.kind({
 		console.error("<<<<<<<<<<<<<<<<<<<< create");
 
 		//setup picker items:
-		var items = [{caption: $L("Manual setup"), value: -1}];
+		var items = [{caption: $L("Manual setup"), value: "manualsetup"}];
 		if (UrlSchemes && UrlSchemes.urlSchemes) {
-			UrlSchemes.urlSchemes.forEach(function (scheme, index) {
+			Object.keys(UrlSchemes.urlSchemes).forEach(function (schemeKey) {
+				var scheme = UrlSchemes.urlSchemes[schemeKey];
 				if (scheme.name) {
-					console.log("Adding " + scheme.name + " with index " + index);
-					items.push({ caption: scheme.name, value: index });
+					console.log("Adding " + scheme.name + " with index " + schemeKey);
+					items.push({ caption: scheme.name, value: schemeKey });
 				}
 			}.bind(this));
 		}
@@ -116,7 +117,7 @@ enyo.kind({
 		this.$.picker.setValue(items[0].value);
 	},
 	serverPicked: function () {
-		if (this.$.picker.getValue() >= 0) {
+		if (this.$.picker.getValue() !== "manualsetup") {
 			this.urlScheme = this.$.picker.getValue();
 			var urlScheme = UrlSchemes.urlSchemes[this.urlScheme];
 			if (urlScheme.needPrefix) { //do we need an url at all?

@@ -3,20 +3,23 @@ Summary
 
 Node.js service to provide synergy connector for CardDav and CalDav.
 
-In its current status it is partly functional.
+In its current status it is quite functional.
 
 Currently working:
-* One way sync of contacts and calendar entries from server
+* Two way sync of contacts and calendar entries
 * Periodic sync
+* Sync on local changes
+* OAuth authorization (currently only Google)
+* MDigest authorization
+* Retries for downloads and uploads after failed syncs
+* Auto discovery of c+dav URLs or setting URL using a list of known servers
+* An app to show some statistics and sync status
 
 Roadmap would look roughly like this:
-* Implement two way sync
 * Add tasks support via calDAV VTODO items
+* Improve VCard and VEVENT compability
 
 No timeline is given for this. Pull requests are always welcome.
-
-
-
 
 Icon source:
 http://www.intridea.com/blog/2010/6/1/authbuttons-free-and-open-source-web-logo-icons

@@ -108,7 +108,7 @@ var ETag = (function () {
 									entries.push(r);
 									stats.update += 1;
 								} else {
-									if (l.uploadFailed) { //retry upload if no change on server only.
+									if (l.uploadFailed > 0) { //retry upload if no change on server only.
 										l.doRetry = true;
 										entries.push(l);
 										//Log.debug("RETRY ALREADY ON SERVER => ", entries);
@@ -124,7 +124,7 @@ var ETag = (function () {
 						if (!found) {
 							//only delete if object is in same collection.
 							if (!l.calendarId || l.calendarId === currentCollectionId) {
-								if (l.uploadFailed) { //upload failed and not on server => probably was never on server
+								if (l.uploadFailed > 0) { //upload failed and not on server => probably was never on server
 									stats.retriesNecessary += 1;
 									l.doRetry = true;
 									entries.push(l);

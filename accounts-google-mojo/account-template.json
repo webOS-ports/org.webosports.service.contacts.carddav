@@ -29,7 +29,7 @@
 	},
 	"config": {
 		"name": "Google C+DAV",
-		"urlScheme": 1,
+		"urlScheme": "google",
 		"url": "https://www.googleapis.com/caldav/v2"
 	},
 	"capabilityProviders": [

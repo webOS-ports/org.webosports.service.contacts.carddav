@@ -128,7 +128,6 @@ AccountSetupGoogleAssistant.prototype.tokenCB = function (response) {
 };
 
 AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
-	debug("Blargh?");
 	try {
 		var body, i, template = this.params.initialTemplate;
 		//debug("Get-Token call came back: " + JSON.stringify(response));

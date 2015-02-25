@@ -26,16 +26,17 @@ AccountSetupAssistant.prototype.setup = function () {
 	}
 
 	this.knownServersModel = {
-		value: -1,
+		value: "manualsetup",
 		choices: [
-			{ label: $L("Manual setup"), value: -1 }
+			{ label: $L("Manual setup"), value: "manualsetup" }
 		]
 	};
 
 	if (UrlSchemes && UrlSchemes.urlSchemes) {
-		UrlSchemes.urlSchemes.forEach(function (scheme, index) {
-			if (scheme.name) {
-				this.knownServersModel.choices.push({ label: scheme.name, value: index });
+		Object.keys(UrlSchemes.urlSchemes).forEach(function (schemeKey) {
+			var scheme = UrlSchemes.urlSchemes[schemeKey];
+			if (!scheme.hidden) {
+				this.knownServersModel.choices.push({ label: scheme.name, value: schemeKey });
 			}
 		}.bind(this));
 	}
@@ -67,7 +68,7 @@ AccountSetupAssistant.prototype.setup = function () {
 };
 
 AccountSetupAssistant.prototype.handleServerSelect = function () {
-	if (this.knownServersModel.value >= 0) {
+	if (this.knownServersModel.value !== "manualsetup") {
 		var urlScheme = UrlSchemes.urlSchemes[this.knownServersModel.value];
 		if (urlScheme.needPrefix) { //do we need an url at all?
 			this.urlWidget.show();

@@ -107,10 +107,6 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					this.config = result.config;
 				}
 
-				if (this.config.ignoreSSLCertificateErrors && this.config.url) {
-					httpClient.setIgnoreSSLCertificateErrorsForHost(this.config.url, true);
-				}
-
 				future.nest(iCal.initialize());
 			});
 
@@ -155,11 +151,27 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 						//Log.debug("------------->Got Key", result);
 						this.userAuth = result.credentials;
 
-						future.nest(AuthManager.checkAuth(this.userAuth, this.config.url));
+						future.nest(
+							AuthManager.checkAuth(
+								this.userAuth,
+								this.config.url,
+								this.config.urlScheme,
+								{
+									userAuth: this.userAuth,
+									ignoreSSLCertificateErrors: this.config.ignoreSSLCertificateErrors
+								}
+							)
+						);
 					});
 
 					future.then(this, function checkAuthCB() {
 						var result = checkResult(future);
+						if (typeof result.authCallback === "function") {
+							//under some circumstance we might lose auth during sync (i.e. oauth needs refresh)
+							 //if so, we will do the AuthCheck again for this servers on 401 errors.
+							this.config.authCallback = result.authCallback;
+						}
+
 						if (result.credentials) { //need to store changed credentials.
 							//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result));
 							KeyStore.putKey(this.accountId, this.userAuth).then(this, function putOAuthCB(putKey) {

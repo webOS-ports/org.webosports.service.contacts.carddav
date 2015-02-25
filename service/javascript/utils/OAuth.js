@@ -14,6 +14,9 @@ var OAuth = (function () {
 				data = "client_id=" + credObj.client_id + "&client_secret=" + credObj.client_secret + "&refresh_token=" + credObj.refresh_token + "&grant_type=refresh_token",
 				options = { method: "POST", headers: {"Content-Type": "application/x-www-form-urlencoded"}};
 
+			//in theory we would have to get ignoreSSLErrors here somewhere and put that into options.
+			//Don't want to do that right now. Also it's just a work around that should go away someday.
+
 			//fill host and stuff.
 			httpClient.parseURLIntoOptions(credObj.refresh_url, options);
 

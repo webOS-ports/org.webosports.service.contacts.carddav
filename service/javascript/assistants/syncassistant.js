@@ -375,7 +375,13 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			this.blacklist = [];
 		}
 
-		this.params = { userAuth: this.client.userAuth, path: path, blacklist: this.blacklist };
+		this.params = {
+			userAuth: this.client.userAuth,
+			path: path,
+			blacklist: this.blacklist,
+			ignoreSSLCertificateErrors: this.client.config.ignoreSSLCertificateErrors,
+			authCallback: this.client.config.authCallback
+		};
 
 		this.SyncKey.prepare(kindName, state);
 
@@ -929,7 +935,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 					} else {
 						Log.log("Download of entry ", entriesIndex, " failed... trying next one. :(");
-						this.SyncKey.currentFolder(kindName).downloadsFailed = true;
+						//413 - Entity too large, allows retry
+						//Most of the 500 errors are server issues that might resolve in the future.
+						//401 can happen if oauth token runs out.. hm. :-/
+						if (result.returnCode === undefined || (result.returnCode >= 400 && result.returnCode !== 413 && result.returnCode < 500 && result.returnCode !== 401)) {
+							Log.log("Failed with unrecoverable status code ", result.returnCode, " will never retry download.");
+						} else {
+							Log.debug("Failed with probably recoverable status code ", result.returnCode, " will retry download next sync.");
+							this.SyncKey.currentFolder(kindName).downloadsFailed = true;
+						}
+
 						entries.splice(entriesIndex, 1);
 						SyncStatus.downloadedOne(this.client.clientId, kindName);
 						future.nest(this._downloadData(kindName, entries, entriesIndex));

@@ -80,7 +80,7 @@ enyo.kind({
 				{name: "numEvents", content: $L("Number of events: tbd")}
 			]},
 			{ kind: "RowGroup", caption: $L("Status"), components: [
-				{name: "running", content: $L("Sync not running."), showing: false },
+				{name: "running", content: $L("Sync not running.") },
 				{name: "lastMessage", content: $L("Status: ") },
 				{name: "numDownloaded", content: $L("Downloads: ") },
 				{name: "numUploaded", content: $L("Uploads: ") }
@@ -188,6 +188,8 @@ enyo.kind({
 	endAcitivity: function () {
 		this.$.spinner.hide();
 		this.$.buttonContainer.show();
+
+		this.getStats();
 	},
 
 	resetStats: function () {
@@ -196,30 +198,41 @@ enyo.kind({
 		this.$.numEvents.setContent($L("Number of events: tbd"));
 
 		this.$.running.setContent($L("Sync is not running."));
-		this.$.lastMessage.setContent($L("Status: "));
-		this.$.numDownloaded.setContent($L("Downloads: "));
-		this.$.numUploaded.setContent($L("Uploads: "));
+		if (this.lastStatus) {
+			this.$.lastMessage.setContent($L("Last Status: ") + this.lastStatus);
+		} else {
+			this.$.lastMessage.setContent($L("Status: "));
+		}
+		this.$.numDownloaded.setContent($L("Downloads: No downloads"));
+		this.$.numUploaded.setContent($L("Uploads: No uploads"));
 	},
 	gotConactNumbers: function (inSender, inResponse) {
-		if (inResponse) {
+		if (inResponse && inResponse.count !== undefined) {
 			console.log("Got contactNumbers: " + JSON.stringify(inResponse));
 			this.$.numContacts.setContent($L("Number of contacts: ") + inResponse.count);
+		} else if (inResponse.fired) {
+			this.getStats();
 		}
 	},
 	gotCalendarNumbers: function (inSender, inResponse) {
-		if (inResponse) {
+		if (inResponse && inResponse.count !== undefined) {
 			console.log("Got calendarNumbers: " + JSON.stringify(inResponse));
 			this.$.numCalendars.setContent($L("Number of calendars: ") + inResponse.count);
+		} else if (inResponse.fired) {
+			this.getStats();
 		}
 	},
 	gotCalendarEventNumbers: function (inSender, inResponse) {
-		if (inResponse) {
+		if (inResponse && inResponse.count !== undefined) {
 			console.log("Got calendarEventNumbers: " + JSON.stringify(inResponse));
 			this.$.numEvents.setContent($L("Number of events: ") + inResponse.count);
+		} else if (inResponse.fired) {
+			this.getStats();
 		}
 	},
 	accountChanged: function () {
 		console.log("accountChanged to " + this.$.picker.getValue());
+		this.lastStatus = "";
 		this.resetStats();
 		this.getStats();
 		this.getStatus();
@@ -260,6 +273,7 @@ enyo.kind({
 						stat = status[kind];
 						if (stat.status) {
 							this.$.lastMessage.setContent("Status: " + stat.status);
+							this.lastStatus = stat.status;
 						}
 						if (stat.uploadTotal) {
 							this.$.numDownloaded.setContent("Uploading " + (stat.uploadsDone || 0) + " of " + stat.uploadTotal);
@@ -277,9 +291,13 @@ enyo.kind({
 
 		} else {
 			this.$.running.setContent($L("Sync is not running."));
-			this.$.lastMessage.setContent($L("Status: "));
-			this.$.numDownloaded.setContent($L("Downloads: "));
-			this.$.numUploaded.setContent($L("Uploads: "));
+			if (this.lastStatus) {
+				this.$.lastMessage.setContent($L("Last Status: ") + this.lastStatus);
+			} else {
+				this.$.lastMessage.setContent($L("Status: "));
+			}
+			this.$.numDownloaded.setContent($L("Downloads: No downloads"));
+			this.$.numUploaded.setContent($L("Uploads: No uploads"));
 		}
 	}
 

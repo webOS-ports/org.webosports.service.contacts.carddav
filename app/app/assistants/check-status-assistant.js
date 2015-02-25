@@ -1,6 +1,6 @@
 //JSLint options:
 /*jslint browser: true */
-/*global $L, Mojo, AppAssistant, console, PalmCall, UrlSchemes, log */
+/*global $L, Mojo, AppAssistant, console, PalmCall, log */
 function CheckStatusAssistant(params) {
 	"use strict";
 	if (params) {
@@ -43,13 +43,19 @@ CheckStatusAssistant.prototype.startSync = function () {
 			this.syncing = false;
 			this.button.mojo.deactivate();
 			this.startSyncModel.disabled = false;
-			this.controller.modelChanged(this.startSyncModel);
+			if (this.controller) { //otherwise scene was already popped.
+				this.controller.modelChanged(this.startSyncModel);
 
-			this.controller.showAlertDialog({
-				title: "Sync finished",
-				message: "Sync came back with result: " + JSON.stringify(result),
-				choices: [{label: $L("OK"), value: "OK"}]
-			});
+				this.getNumobjects("org.webosports.cdav.contact:1", this.setNumContacts.bind(this));
+				this.getNumobjects("org.webosports.cdav.calendar:1", this.setNumCalendars.bind(this));
+				this.getNumobjects("org.webosports.cdav.calendarevent:1", this.setNumEvents.bind(this));
+
+				this.controller.showAlertDialog({
+					title: "Sync finished",
+					message: "Sync came back with result: " + JSON.stringify(result),
+					choices: [{label: $L("OK"), value: "OK"}]
+				});
+			}
 		});
 	}
 };
@@ -97,7 +103,7 @@ CheckStatusAssistant.prototype.getNumobjects = function (kind, callback) {
 			if (result.fired) {
 				console.log("Watch fired, get items again.");
 				return this.getNumobjects(kind, callback); //should nest futures and prevents our then.
-			} else if (result.count) {
+			} else if (result.count !== undefined) {
 				console.log("Count result");
 				callback(result.count);
 			}
