@@ -188,6 +188,8 @@ enyo.kind({
 	endAcitivity: function () {
 		this.$.spinner.hide();
 		this.$.buttonContainer.show();
+
+		this.getStats();
 	},
 
 	resetStats: function () {
@@ -205,21 +207,27 @@ enyo.kind({
 		this.$.numUploaded.setContent($L("Uploads: No uploads"));
 	},
 	gotConactNumbers: function (inSender, inResponse) {
-		if (inResponse) {
+		if (inResponse && inResponse.count !== undefined) {
 			console.log("Got contactNumbers: " + JSON.stringify(inResponse));
 			this.$.numContacts.setContent($L("Number of contacts: ") + inResponse.count);
+		} else if (inResponse.fired) {
+			this.getStats();
 		}
 	},
 	gotCalendarNumbers: function (inSender, inResponse) {
-		if (inResponse) {
+		if (inResponse && inResponse.count !== undefined) {
 			console.log("Got calendarNumbers: " + JSON.stringify(inResponse));
 			this.$.numCalendars.setContent($L("Number of calendars: ") + inResponse.count);
+		} else if (inResponse.fired) {
+			this.getStats();
 		}
 	},
 	gotCalendarEventNumbers: function (inSender, inResponse) {
-		if (inResponse) {
+		if (inResponse && inResponse.count !== undefined) {
 			console.log("Got calendarEventNumbers: " + JSON.stringify(inResponse));
 			this.$.numEvents.setContent($L("Number of events: ") + inResponse.count);
+		} else if (inResponse.fired) {
+			this.getStats();
 		}
 	},
 	accountChanged: function () {

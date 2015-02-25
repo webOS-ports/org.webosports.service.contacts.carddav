@@ -46,6 +46,10 @@ CheckStatusAssistant.prototype.startSync = function () {
 			if (this.controller) { //otherwise scene was already popped.
 				this.controller.modelChanged(this.startSyncModel);
 
+				this.getNumobjects("org.webosports.cdav.contact:1", this.setNumContacts.bind(this));
+				this.getNumobjects("org.webosports.cdav.calendar:1", this.setNumCalendars.bind(this));
+				this.getNumobjects("org.webosports.cdav.calendarevent:1", this.setNumEvents.bind(this));
+
 				this.controller.showAlertDialog({
 					title: "Sync finished",
 					message: "Sync came back with result: " + JSON.stringify(result),
