@@ -23,18 +23,20 @@ var SyncStatus = (function () {
 			acctObj = {};
 			perAccountStatus[accountId] = acctObj;
 		}
-		kind = acctObj[kindName];
-		if (!kind) {
+		kind = acctObj[(kindName || "empty")];
+		if (kindName && !kind) {
 			kind = {};
 			acctObj[kindName] = kind;
 		}
 
 		//transport running status to outside
-		if (field === "running") {
+		if (field === "running" && !kindName) {
 			acctObj.running = value;
 		}
 
-		kind[field] = value;
+		if (kind) {
+			kind[field] = value;
+		}
 		if (!silent) {
 			callCallbacks(accountId);
 		}

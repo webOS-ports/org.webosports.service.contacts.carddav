@@ -181,6 +181,10 @@ CheckStatusAssistant.prototype.processStatus = function (status) {
 			}
 		}
 
+		if (!found) {
+			this.runningDisplay.innerHTML = "Sync is running.";
+		}
+
 	} else {
 		this.runningDisplay.innerHTML = "Sync is not running.";
 		this.downNumbersDisplay.innerHTML = "No downloads";
