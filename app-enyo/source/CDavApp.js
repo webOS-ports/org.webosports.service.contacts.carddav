@@ -198,11 +198,7 @@ enyo.kind({
 		this.$.numEvents.setContent($L("Number of events: tbd"));
 
 		this.$.running.setContent($L("Sync is not running."));
-		if (this.lastStatus) {
-			this.$.lastMessage.setContent($L("Last Status: ") + this.lastStatus);
-		} else {
-			this.$.lastMessage.setContent($L("Status: "));
-		}
+		this.$.lastMessage.setContent($L("Status: "));
 		this.$.numDownloaded.setContent($L("Downloads: No downloads"));
 		this.$.numUploaded.setContent($L("Uploads: No uploads"));
 	},
@@ -287,6 +283,10 @@ enyo.kind({
 						}
 					}
 				}
+			}
+
+			if (!found) {
+				this.$.running.setContent($L("Sync is running."));
 			}
 
 		} else {

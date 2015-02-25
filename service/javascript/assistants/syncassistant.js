@@ -21,8 +21,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		this.recreateActivitiesOnComplete = true;
 
 		if (!args.capability) {
+			SyncStatus.setRunning(this.client.clientId);
 			errorOut = function (msg) {
 				Log.log(msg);
+				SyncStatus.setStatus("Error: " + msg);
+				SyncStatus.setDone(this.client.clientId);
 				outerfuture.result = { returnValue: false, success: false, message: msg };
 				return outerfuture;
 			};
@@ -98,13 +101,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			future.then(this, function syncsCB() {
 				var result = checkResult(future);
 				Log.log("All syncs done, returning.");
+				SyncStatus.setDone(this.client.clientId);
 				outerfuture.result = result;
 			});
 		} else {
+			if (args.syncOnEdit) {
+				SyncStatus.setRunning(this.client.clientId);
+			}
 			//we have a capability, run usual sync
 			this.SyncKey = new SyncKey(this.client, this.handler);
 
-			this.$super(run)(outerfuture);
+			this.$super(run)(future);
+			future.then(function syncCameBackCB() {
+				var result = checkResult(future);
+				Log.debug("Sync came back: ", result);
+				if (args.syncOnEdit) {
+					SyncStatus.setDone(this.client.clientId);
+				}
+				outerfuture.result = result;
+			});
 		}
 
 		return outerfuture;
