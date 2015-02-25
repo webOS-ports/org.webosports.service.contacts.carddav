@@ -1,3 +1,10 @@
+0.3.23:
+	o App: stats and status display improvements
+	o refresh Auth on 401 errors for OAuth and Digest Auth
+	o reworked ignoreSSLCertificateErrors
+	o Prevent unnecessary downloads of etags if we see unrecoverable download errors for single items like 404.
+2015-02-25: Achim Königs <garfonso@mobo.info>
+
 0.3.22:
 	o fix for account creation and URL resolving that required username in URL.
 2015-02-24: Achim Königs <garfonso@mobo.info>
