@@ -173,9 +173,9 @@ CheckStatusAssistant.prototype.processStatus = function (status) {
 						this.upNumbersDisplay.innerHTML = "No uploads";
 					}
 					if (stat.downloadTotal) {
-						this.upNumbersDisplay.innerHTML = "Downloading " + (stat.downloadsDone || 0) + " of " + stat.downloadTotal;
+						this.downNumbersDisplay.innerHTML = "Downloading " + (stat.downloadsDone || 0) + " of " + stat.downloadTotal;
 					} else {
-						this.upNumbersDisplay.innerHTML = "No downloads";
+						this.downNumbersDisplay.innerHTML = "No downloads";
 					}
 				}
 			}
