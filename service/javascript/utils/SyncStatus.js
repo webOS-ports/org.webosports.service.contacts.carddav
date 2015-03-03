@@ -59,6 +59,9 @@ var SyncStatus = (function () {
 		if (!perAccountStatus[accountId]) {
 			return;
 		}
+		if (kindName) {
+			return perAccountStatus[accountId][field];
+		}
 		if (!perAccountStatus[accountId][kindName]) {
 			return;
 		}
