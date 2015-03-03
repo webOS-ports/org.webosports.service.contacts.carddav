@@ -1,3 +1,4 @@
+/*jslint node: true, nomen: true */
 /*global Log, DB, Kinds, checkResult, Future, servicePath */
 
 var iCal = require(servicePath + "/javascript/utils/iCal.js");
@@ -150,7 +151,7 @@ var CalendarEventHandler = (function () {
 					if (result.results.length > 0) {
 						//have children!
 						result.results.forEach(function (e, index) {
-							e.uId = parentEvent.uId;
+							e.uid = parentEvent.uid || parentEvent.uId;
 							e.remoteId = parentEvent.remoteId + "exception" + index;
 							e.uri = parentEvent.uri;
 						});
@@ -165,7 +166,7 @@ var CalendarEventHandler = (function () {
 				}
 			});
 
-			future.then(this, function() {
+			future.then(this, function () {
 				var result = checkResult(future);
 
 				if (parentEvent) {
@@ -228,7 +229,7 @@ var CalendarEventHandler = (function () {
 					//add the exceptions to the end of the entries, indicating that they are already downloaded.
 					result.exceptions.forEach(function (event, index) {
 						event.collectionId = entries[entriesIndex].collectionId;
-						event.uId = entries[entriesIndex].uId;
+						event.uid = entries[entriesIndex].uid || entries[entriesIndex].uId;
 						event.remoteId = entries[entriesIndex].remoteId;
 						entries.push({
 							alreadyDownloaded: true,
