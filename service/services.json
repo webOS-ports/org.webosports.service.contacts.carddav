@@ -72,8 +72,8 @@
 					"public": true
 				},
 				{
-					"name": "addEvent",
-					"assistant": "AddEventAssistant",
+					"name": "addItem",
+					"assistant": "AddItemAssistant",
 					"public": true
 				},
 				{
