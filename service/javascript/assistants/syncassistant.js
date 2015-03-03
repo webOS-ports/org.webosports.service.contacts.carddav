@@ -112,7 +112,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			this.SyncKey = new SyncKey(this.client, this.handler);
 
 			this.$super(run)(future);
-			future.then(function syncCameBackCB() {
+			future.then(this, function syncCameBackCB() {
 				var result = checkResult(future);
 				Log.debug("Sync came back: ", result);
 				if (args.syncOnEdit) {
