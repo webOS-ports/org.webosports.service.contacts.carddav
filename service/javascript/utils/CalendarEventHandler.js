@@ -150,6 +150,7 @@ var CalendarEventHandler = (function () {
 						//have children!
 						result.results.forEach(function (e, index) {
 							e.uid = parentEvent.uid || parentEvent.uId;
+							e.relateTo = e.uid;
 							e.remoteId = parentEvent.remoteId + "exception" + index;
 							e.uri = parentEvent.uri;
 						});
