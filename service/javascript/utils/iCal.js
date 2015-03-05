@@ -2,6 +2,24 @@
 /*global Log, PalmCall, Calendar, Future, checkResult, libPath */
 
 var Quoting = require(libPath + "Quoting.js");
+var Time = require(libPath + "iCalTimeHandling.js");
+
+//from later node.js versions. If we fade out 2.x support, this can go away and be replaced by node.js util._extend method.
+var extend = function (origin, add) {
+	"use strict";
+	// Don't do anything if add isn't an object
+	if (!add || typeof add !== 'object') {
+		return origin;
+	}
+
+	var keys = Object.keys(add),
+		i = keys.length;
+	while (i) {
+		i -= 1;
+		origin[keys[i]] = add[keys[i]];
+	}
+	return origin;
+};
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.
@@ -83,149 +101,13 @@ var iCal = (function () {
 	var dayToNum = { "SU": 0, "MO": 1, "TU": 2, "WE": 3, "TH": 4, "FR": 5, "SA": 6 },
 		numToDay = { "0": "SU", "1": "MO", "2": "TU", "3": "WE", "4": "TH", "5": "FR", "6": "SA"},
 		DATETIME = /^(\d{4})(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(Z?)$/,
-		DATE = /^(\d{4})(\d\d)(\d\d)$/,
+		DATE = /^(\d{4})(\d\d)(\d\d)$/;
 		//DATE: yyyymmdd, time: hhmmss, if both are present they are divided by a T. A Z at the end is optional.
 		//if only a Date is given (=> allDay), no letters are present and just 8 numbers should be given.
 		//Usually the Z at the end of DATE-TIME should say that it's UTC. But I'm quite sure that most programs do this wrong... :(
 		//there is a timezone property that could be set.
 		//it could also be a comma seperated list of dates / date times. But we don't support that, yet.. ;)
 		//used to try timeZone correction...
-		localTzId = "UTC",
-		TZManager = Calendar.TimezoneManager(),
-		shiftAllDay = true;
-
-	function iCalTimeToWebOsTime(time, tz) {
-		var t = {offset: 0}, result, date, offset, ts2;
-		t.allDayCue = !DATETIME.test(time);
-		if (!tz || !tz.tzId) {
-			if (time.charAt(time.length - 1) === "Z") {
-				tz = {tzId: "UTC"};
-				t.tzId = "UTC";
-			} else {
-				tz = {tzId: localTzId};
-				t.tzId = localTzId;
-			}
-		} else {
-			t.tzId = tz.tzId;
-		}
-		if (t.allDayCue) {
-			//only have DATE, add hours, minutes, and seconds
-			result = DATE.exec(time);
-			result.push(12); //use 12 here, so that time is in the middle of day and timezone changes, i.e. daylight saving times, won't spread all day events to multiple days.
-			result.push(0);
-			result.push(0);
-		} else {
-			//have date and time:
-			result = DATETIME.exec(time);
-		}
-		//look at tzId. Shift whole thing that we have all day events on the right day, no matter the TZ.
-		date = new Date(result[1], result[2] - 1, result[3], result[4], result[5], result[6]);
-		t.offset = date.getTimezoneOffset() * 60000;
-		if (localTzId === tz.tzId) {
-			//for times in the local tz, this will be ok in any case.
-			t.ts = date.getTime();
-		} else if (tz.tzId === "UTC") { //got UTC time, we can easily correct that:
-			t.ts = Date.UTC(result[1], result[2] - 1, result[3], result[4], result[5], result[6]); //get UTC timestamp from UTC date values :)
-			if (t.allDayCue && shiftAllDay) { //move to 0:00 in local timeZone.
-				t.ts += date.getTimezoneOffset() * 60000;
-			}
-		} else { //this relies on a framework function from webOs.
-			ts2 = date.getTime();
-			t.ts = TZManager.convertTime(ts2, t.tzId, localTzId);
-			if (t.allDayCue && shiftAllDay) {
-				offset = (t.ts - ts2) * 2;
-				t.ts -= offset;
-			}
-		}
-		return t;
-	}
-
-	function webOsTimeToICal(time, allDay, tzId, addTZIDParam) {
-		var t = "", date, time2, offset;
-		tzId = "UTC";    //we can't provide VTIMEZONE entries that are needed if a TZID parameter is set, so let's just transfer everything to UTC, it's the savest bet.
-						//"Floating" time would be possible, too, but seems to be ignored by some servers (??)
-
-		date = new Date(time);
-		if (!tzId) {
-			tzId = localTzId; //if nothing is specified, take "floating time" which means no timezone at all.
-		}
-		if (tzId === localTzId) {
-			t = date.getFullYear() + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + (date.getDate() < 10 ? "0" : "") + date.getDate();
-			if (!allDay) {
-				t += "T" + (date.getHours() < 10 ? "0" : "") + date.getHours();
-				t += (date.getMinutes() < 10 ? "0" : "") + date.getMinutes();
-				t += (date.getSeconds() < 10 ? "0" : "") + date.getSeconds();
-			}
-		} else if (tzId === "UTC") {
-			if (allDay && shiftAllDay) {
-				t = date.getFullYear() + (date.getMonth() + 1 < 10 ? "0" : "") + (date.getMonth() + 1) + (date.getDate() < 10 ? "0" : "") + date.getDate();
-			} else {
-				t = date.getUTCFullYear() + (date.getUTCMonth() + 1 < 10 ? "0" : "") + (date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + date.getUTCDate();
-				if (!allDay) {
-					t += "T" + (date.getUTCHours() < 10 ? "0" : "") + date.getUTCHours();
-					t += (date.getUTCMinutes() < 10 ? "0" : "") + date.getUTCMinutes();
-					t += (date.getUTCSeconds() < 10 ? "0" : "") + date.getUTCSeconds();
-					t += "Z"; //is a hint that time is in UTC.
-				}
-			}
-		} else {
-			time2 = TZManager.convertTime(time, localTzId, tzId); //convert local ts to target, now should be correct UTC TS, right?
-			if (allDay && shiftAllDay) {
-				offset = (time2 - time) * 2;
-				time2 -= offset;
-			}
-			t = webOsTimeToICal(time2, allDay, localTzId, addTZIDParam);
-		}
-		return t;
-	}
-
-	function convertDurationIntoMicroseconds(duration) {
-		var signRegExp = /^([+\-])?PT?([0-9DHM]+)/gi, parts, sign, remaining,
-			weekRegExp = /(\d)+W/gi,
-			dayRegExp = /(\d)+D/gi,
-			hourRegExp = /(\d)+H/gi,
-			minuteRegExp = /(\d)+M/gi,
-			secondRegExp = /(\d)+S/gi,
-			offset = 0;
-
-		parts = signRegExp.exec(duration);
-		if (parts) {
-			sign = parts[1] === "-" ? -1 : 1;
-			remaining = parts[2];
-
-			parts = weekRegExp.exec(remaining);
-			if (parts) {
-				offset += parseInt(parts[1], 10) * 86400000 * 7;
-			}
-
-			parts = dayRegExp.exec(remaining);
-			if (parts) {
-				offset += parseInt(parts[1], 10) * 86400000;
-			}
-
-			parts = hourRegExp.exec(remaining);
-			if (parts) {
-				offset += parseInt(parts[1], 10) * 3600000;
-			}
-
-			parts = minuteRegExp.exec(remaining);
-			if (parts) {
-				offset += parseInt(parts[1], 10) * 60000;
-			}
-
-			parts = secondRegExp.exec(remaining);
-			if (parts) {
-				offset += parseInt(parts[1], 10) * 1000;
-			}
-
-			offset *= sign;
-			Log.log_icalDebug("Converted duration " + duration + " into offset " + offset);
-			return offset;
-		}
-		//else
-		Log.log("iCal.js======> DURATION DID NOT MATCH: ", duration);
-		return 0;
-	}
 
 	function parseDATEARRAY(str, exdates) {
 		var parts, times = [], i;
@@ -274,7 +156,7 @@ var iCal = (function () {
 			text += "INTERVAL=" + rr.interval + ";";
 		}
 		if (rr.until) {
-			text += "UNTIL=" + webOsTimeToICal(rr.until, false, tzId) + ";";
+			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, tzId === "UTC") + ";";
 		}
 		if (rr.wkst || rr.wkst === 0 || rr.wkst === "0") {
 			text += "WKST=" + numToDay(rr.wkst) + ";";
@@ -740,6 +622,11 @@ var iCal = (function () {
 				//UTC or floating time!
 				event[transTime[lObj.key]] = {tzId: false, value: lObj.value};
 			}
+
+			if (transTime[lObj.key] === "dtstart") {
+				event.allDay = !DATETIME.test(lObj.value); //if we only have DATE not DATETIME in dtstart, make event allday.
+			}
+
 		} else { //one of the more complex cases.
 			switch (lObj.key) {
 			case "ATTACH": //I still don't get why this is an array?
@@ -821,16 +708,6 @@ var iCal = (function () {
 		return event;
 	}
 
-	function addToExdates(exdates, stamp) {
-		var i;
-		for (i = 0; i < exdates.length; i += 1) {
-			if (exdates[i] === stamp) {
-				return;
-			}
-		}
-		exdates.push(stamp);
-	}
-
 	function tryToFillParentIds(events, exceptions) {
 		var i, event, revent, parentdtstart;
 		//try to fill "parent id" and parentdtstamp for exceptions to recurring dates.
@@ -842,18 +719,11 @@ var iCal = (function () {
 		//search for original event, should usually be the first event.
 		Log.log_icalDebug("processing ", events.length, " events in search of parentids.");
 		for (i = events.length - 1; i >= 0; i -= 1) {
-			if (!events[i].valid) {
-				Log.log_icalDebug("Event ", events[i], " was invalid.");
-				events.splice(i, 1);
-			}
-
 			if (events[i].rrule) {
 				revent = events[i];
 				parentdtstart = revent.dtstart;
 
 				events.splice(i, 1); //remove this event.
-
-				delete revent.originalDtstart; //clean that up
 			}
 		}
 
@@ -878,76 +748,74 @@ var iCal = (function () {
 			event.parentDtstart = parentdtstart;
 			event.relatedTo = revent.uid || revent.uId;
 
-			addToExdates(revent.exdates, event.originalDtstart);
-
 			exceptions.push(event);
-
-			delete event.originalDtstart; //clean that up
 		}
 
 		return revent;
 	}
 
-	function applyHacks(event) {
-		var i, val, start, diff, tz, tsStruct, date;
 
-		/*if (event.tzId && event.tzId !== "UTC") {
-			log_icalDebug("ERROR: Event was not specified in UTC. Can't currently handle anything else than UTC! Expect problems!!!! :(");
-			if(event.allDay) {    //only mangling with time, if event is allday event.
-				event.tzId = UTC;
+	function isTimeStringInTimeStringArray(timestring, tsArray, field) {
+		var i, ts;
+		if (!tsArray || !timestring) {
+			return false;
+		}
+		ts = Time.iCalTimeToWebOsTime(timestring);
+		for (i = 0; i < tsArray.length; i += 1) {
+			if (field) {
+				if (Time.iCalTimeToWebOsTime(tsArray[i][field]) === ts) {
+					Log.log_icalDebug("Found ", tsArray[i][field], " for ", timestring);
+					return true;
+				}
+			} else {
+				if (Time.iCalTimeToWebOsTime(tsArray[i]) === ts) {
+					Log.log_icalDebug("Found ", tsArray[i], " for ", timestring);
+					return true;
+				}
 			}
-		}*/
+		}
+
+		return false;
+	}
+
+	function applyHacks(event, children) {
+		var i, val, start, diff, date, recc, ex, lastChar;
 
 		//webOs does not support DATE-TIME as alarm trigger. Try to calculate a relative alarm from that...
 		//issue: this does not work, if server and device are in different timezones. Then the offset from
 		//server to GMT still exists... hm.
 		for (i = 0; event.alarm && i < event.alarm.length; i += 1) {
 			if (event.alarm[i].alarmTrigger.valueType === "DATETIME" || event.alarm[i].alarmTrigger.valueType === "DATE-TIME") {
-				tz = event.tz;
-				if (!tz) {
-					if (event.tzId) {
-						tz = { tzId: event.tzId };
-					}
-				}
 				//log_icalDebug("Calling iCalTimeToWebOsTime with " + event.alarm[i].alarmTrigger.value + " and " + {tzId: event.tzId});
-				tsStruct = iCalTimeToWebOsTime(event.alarm[i].alarmTrigger.value, {tzId: event.tzId});
-				val = tsStruct.ts;
-				val -= tsStruct.offset;
-				Log.log_icalDebug("Hacking alarm, got alarm TS: " + val);
-				Log.log_icalDebug("Value: " + event.alarm[i].alarmTrigger.value);
-				Log.log_icalDebug("Val: " + val);
+				val = Time.iCalTimeToWebOsTime(event.alarm[i].alarmTrigger.value);
+				Log.log_icalDebug("Hacking alarm, got alarm TS: ", val);
+				Log.log_icalDebug("Value: ", event.alarm[i].alarmTrigger.value);
 				start = event.dtstart;
-				Log.log_icalDebug("Start is: " + start);
-				Log.log_icalDebug("start: " + start);
+				Log.log_icalDebug("Start is: ", start);
 				date = new Date(start);
-				Log.log_icalDebug("Date: " + date);
+				Log.log_icalDebug("Date: ", date);
 				diff = (val - start) / 60000; //now minutes.
-				Log.log_icalDebug("Diff: " + diff);
-				Log.log_icalDebug("Diff is " + diff);
-				if (event.allDay) {
-					diff += date.getTimezoneOffset(); //remedy allday hack.
-					Log.log_icalDebug("localized: " + diff);
-				}
+				Log.log_icalDebug("Diff: ", diff);
 				if (diff < 0) {
 					val = "-PT";
 					diff *= -1;
 				} else {
 					val = "PT";
 				}
-				Log.log_icalDebug("Diff after < 0: " + diff + " val: " + val);
+				Log.log_icalDebug("Diff after < 0: ", diff, " val: ", val);
 				if (diff / 10080 >= 1) { //we have weeks.
 					val += (diff / 10080).toFixed() + "W";
 				} else if (diff / 1440 >= 1) { //we have days. :)
 					val += (diff / 1440).toFixed() + "D";
-					Log.log_icalDebug("Day: " + val);
+					Log.log_icalDebug("Day: ", val);
 				} else if (diff / 60 >= 1) {
 					val += (diff / 60).toFixed() + "H";
-					Log.log_icalDebug("Hour: " + val);
+					Log.log_icalDebug("Hour: ", val);
 				} else {
 					val += diff + "M";
-					Log.log_icalDebug("Minutes: " + val + ", diff: " + diff);
+					Log.log_icalDebug("Minutes: ", val, ", diff: ", diff);
 				}
-				Log.log_icalDebug("Val is: " + val);
+				Log.log_icalDebug("Val is: ", val);
 				event.alarm[i].alarmTrigger.value = val;
 				event.alarm[i].alarmTrigger.valueType = "DURATION";
 				Log.log_icalDebug("Hacked alarm to ", event.alarm[i]);
@@ -962,143 +830,69 @@ var iCal = (function () {
 		if (event.allDay) { //86400000 = one day.
 			event.dtend -= 86399000;
 		}
-		return event;
-	}
 
-	function convertTimestamps(events, index) {
-		var t, i, directTS = ["dtstart", "dtstamp", "dtend", "created", "lastModified"], makeAllDay = false, tzs = [localTzId], years = [], future = new Future(), event;
-		event = events[index];
-
-		if (!event || !event.valid) {
-			if (index >= events.length) {
-				future.result = {returnValue: true};
-				return future;
-			} else {
-				future.nest(convertTimestamps(events, index + 1)); //try next event
-				return future;
+		//webOS interprets RFC5545 a bit different here than the rest of the world.
+		//it requires *every* exception to be listed in exdates. Even those
+		//that have an own child event with different settings. That's not
+		//what the rest of the world does.
+		//So we need to add all recurrenceIds of children to exdates array here
+		//or webOS displays the unchange recurrence AND the changed one.
+		if (event.rrule && children) {
+			Log.log_icalDebug("Have parent with children. Adding recurrenceIds to exdates: ", event, " and ", children);
+			if (!event.exdates) {
+				event.exdates = [];
 			}
-		}
-
-		makeAllDay = event.allDay; //keep allDay setting from possible other cues.
-		//log_icalDebug("Converting timestamps for " + event.subject);
-
-		directTS.forEach(function buildYearsAndTZs(field) {
-			if (event[field]) {
-				if (event[field].tzId) {
-					tzs.push(event[field].tzId);
-					years.push(event[field].year);
-				}
-				event[field] = event[field].value;
-			}
-		});
-
-		event.originalDtstart = event.dtstart; //keep this for recurrence stuff
-
-		Log.log_icalDebug("Got tzIds and years for tzmanager: ", tzs, " ", years);
-		if (years.length > 0) {
-			if (event.tzId) {
-				tzs.push(event.tzId);
-			}
-			if (event.tz && event.tz.tzId) {
-				tzs.push(event.tz.tzId);
-			}
-
-			future.nest(TZManager.loadTimezones(tzs, years));
-		} else {
-			future.result = {returnValue: true};
-		}
-
-		future.then(function () {
-			var result = checkResult(future);
-			Log.log_icalDebug("TZ Result: ", result);
-			if (result.returnValue) {
-				if (!event.tz) {
-					if (event.tzId) {
-						//log_icalDebug("Did not have tz, setting event.tzId " + event.tzId);
-						event.tz = { tzId: event.tzId };
-					}
-				}
-				if (event.dtstart.indexOf("000000") !== -1 &&
-						((event.dtend.indexOf("235900") !== -1) ||
-						(event.dtend.indexOf("235959") !== -1) ||
-						(event.dtend.indexOf("000000") !== -1))) {
-					makeAllDay = true;
-				}
-				for (i = 0; i < directTS.length; i += 1) {
-					if (event[directTS[i]]) {
-						t = iCalTimeToWebOsTime(event[directTS[i]], event.tz);
-						event[directTS[i]] = t.ts;
-						if (directTS[i] === "dtstart") {
-							event.tzId = t.tzId;
-							event.allDay = t.allDayCue;
+			for (i = 0; i < children.length; i += 1) {
+				if (!children[i].recurrenceId) {
+					Log.log("========================== ERROR: child without reccurrenceId: ", children[i]);
+				} else {
+					//both can be either local or UTC => we can savely convert to webOS ts here.
+					if (!isTimeStringInTimeStringArray(children[i].recurrenceId, event.exdates)) {
+						recc = children[i].recurrenceId;
+						Log.log_icalDebug(recc, " missing in exdates ", event.exdates, ", adding.");
+						if (event.exdates.length) {
+							ex = event.exdates[0];
+							lastChar = ex[ex.length - 1];
+							if (lastChar !== recc[recc.length - 1]) {
+								recc = Time.webOsTimeToICal(Time.iCalTimeToWebOsTime(recc), event.allDay, lastChar === "Z" || lastChar === "z");
+								Log.log_icalDebug("Modifyed time string to match those in exdates array: ", ex, " and ", recc);
+							}
 						}
+						event.exdates.push(recc);
 					}
 				}
-
-				if (!event.dtend && event.duration) {
-					event.dtend = event.dtstart + convertDurationIntoMicroseconds(event.duration);
-					Log.log_icalDebug("Created dtend " + event.dtend + " from " + event.duration + " and " + event.dtstart);
-					delete event.duration;
-				}
-
-				if (event.rrule && event.rrule.until) {
-					t = iCalTimeToWebOsTime(event.rrule.until, event.tz);
-					event.rrule.until = t.ts;
-					event.rrule.untilOffset = t.offset;
-				}
-
-				if (makeAllDay) {
-					event.allDay = true;
-				}
-
-				applyHacks(event);
-
-				future.nest(convertTimestamps(events, index + 1)); //try next event
-			} else {
-				future.result = result;
 			}
-		});
-		return future;
-	}
+		}
 
-	function removeHacks(event) {
-		//do NOT change original event here!
 		return event;
 	}
 
-	function fillYearsTZids(event, tzids, years) {
-		if (event.tzId && event.tzId !== localTzId && event.tzId !== "UTC") {
-			years.push(new Date(event.dtstart).getFullYear());
-			years.push(new Date(event.dtend).getFullYear());
-			if (event.lastModified) {
-				years.push(new Date(event.lastModified).getFullYear());
+	function removeHacks(event, children) {
+		var i;
+		//webOS interprets RFC5545 a bit different here than the rest of the world.
+		//it requires *every* exception to be listed in exdates. Even those
+		//that have an own child event with different settings. That's not
+		//what the rest of the world does.
+		//So we need to remove all recurrenceIds of children from exdates array here
+		//or remote servers will do stupid things.
+		if (event.rrule && children) {
+			Log.log_icalDebug("Have parent with children. Removing recurrenceIds from exdates: ", event, " and ", children);
+			if (event.exdates) { //only necessary if we have exdates.
+				event.exdates = event.exdates.slice(0); //copy exdates array, to avoid changes in original event here.
+				for (i = event.exdates.length - 1; i >= 0; i -= 1) {
+					if (isTimeStringInTimeStringArray(event.exdates[i], children, "recurrenceId")) {
+						Log.log_icalDebug(event.exdates[i], " already in recurrenceIds, removing.");
+						event.exdates.splice(i, 1);
+					} else {
+						Log.log_icalDebug(event.exdates[i], " unique.");
+					}
+				}
+			} else {
+				Log.log_icalDebug("No exdates array in event, hack not applicabel");
 			}
-			if (event.created) {
-				years.push(new Date(event.created).getFullYear());
-			}
-			tzids.push(event.tzId);
-		}
-	}
-
-	function prepareTZManager(event, children) {
-		var future = new Future(), years = [], tzids = [];
-
-		fillYearsTZids(event, tzids, years);
-
-		if (children) {
-			children.forEach(function (e) {
-				fillYearsTZids(e, tzids, years);
-			});
 		}
 
-		if (years.length > 0) {
-			tzids.push(localTzId);
-			future = TZManager.loadTimezones(tzids, years);
-		} else {
-			future.result = {returnValue: true};
-		}
-
-		return future;
+		return event;
 	}
 
 	function generateICalIntern(event) {
@@ -1120,7 +914,6 @@ var iCal = (function () {
 			//"transp"          :    "TRANSP", //intentionally skip this to let server decide...
 			//"tzId"            :    "TZID", //skip this. It's not used anyway by most, and we now transmit everything using UTC.
 			"url"               :    "URL",
-			"recurrenceId"      :    "RECURRENCE-ID;VALUE=DATE-TIME",
 			"aalarm"            :    "AALARM",
 			"uid"               :    "UID" //try to sed uId. I hope it will be saved in DB although docs don't talk about it. ;)
 		};
@@ -1168,7 +961,10 @@ var iCal = (function () {
 						value += 43199000;
 					}
 					text.push(transTime[field] +
-						(allDay ? ";VALUE=DATE:" : ":") + webOsTimeToICal(value, allDay, event.tzId));
+						(allDay ? ";VALUE=DATE:" : "") +
+						(event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
+						":" +
+						Time.webOsTimeToICal(value, allDay, event.tzId === "UTC"));
 				} else { //more complex fields.
 					switch (field) {
 					case "attach":
@@ -1302,21 +1098,30 @@ var iCal = (function () {
 					event = getNewEvent();
 				}
 			}
+
+			for (i = events.length - 1; i >= 0; i -= 1) {
+				if (!events[i].valid) {
+					events.splice(i, 1);
+				}
+				delete events[i].valid;
+			}
+
 			Log.log_icalDebug("Parsing finished, event:", events);
 
-			convertTimestamps(events, 0).then(function (future) {
+			Time.normalizeToLocalTimezone(events).then(function (future) {
 				var result = checkResult(future), exceptions = [], revent;
 				if (result.returnValue) {
 					revent = tryToFillParentIds(events, exceptions);
-					if (!revent || !revent.valid) {
+					if (!revent) {
 						Log.log("VCALENDAR Object did not contain valid VEVENT.");
 						outerFuture.result = {returnValue: false};
 						return;
 					}
-					events.forEach(function (event) {
-						delete event.valid;
+					exceptions.forEach(function (event) {
+						applyHacks(event);
 					});
-					Log.log_icalDebug("After TZ conversion:", events);
+					applyHacks(revent, exceptions);
+					Log.log_icalDebug("After TZ conversion:", revent, " and ", exceptions);
 					outerFuture.result = {returnValue: true, result: revent, hasExceptions: exceptions.length > 0, exceptions: exceptions};
 				} else {
 					outerFuture.result = result;
@@ -1331,12 +1136,12 @@ var iCal = (function () {
 		 * @param event the event object
 		 * @return future with the text in result.result
 		 */
-		generateICal: function (event) {
-			var future;
+		generateICal: function (eventIn) {
+			var future, event;
 
+			event = extend({}, eventIn);
 			removeHacks(event);
-
-			future = prepareTZManager(event);
+			future = Time.normalizeToEventTimezone([event]);
 
 			future.then(this, function () {
 				checkResult(future);
@@ -1353,19 +1158,21 @@ var iCal = (function () {
 		 * @param event the event object
 		 * @return future with the text in result.result
 		 */
-		generateICalWithExceptions: function (event, children) {
-			var future;
+		generateICalWithExceptions: function (eventIn, childrenIn) {
+			var future, event, children = [];
 
-			if (!children) {
-				children = [];
+			event = extend({}, eventIn);
+			if (!childrenIn) {
+				childrenIn = [];
 			}
-
-			removeHacks(event);
-			children.forEach(function (e) {
-				removeHacks(e);
+			childrenIn.forEach(function (e) {
+				var event = extend({}, e);
+				removeHacks(event);
+				children.push(event);
 			});
+			removeHacks(event, children);
 
-			future = prepareTZManager(event, children);
+			future = Time.normalizeToEventTimezone([event].concat(children));
 			future.then(function tzManagerCB() {
 				checkResult(future);
 
@@ -1384,54 +1191,7 @@ var iCal = (function () {
 		},
 
 		initialize: function () {
-			var future = new Future();
-
-			if (!this.haveSystemTime) {
-				Log.log_icalDebug("iCal: need systemTime!");
-				future.nest(PalmCall.call("palm://com.palm.systemservice", "time/getSystemTime", { "subscribe": false}));
-				future.then(this, function palmCallReturn() {
-					var result = future.result;
-					if (result.timezone) {
-						localTzId = result.timezone;
-						Log.log_icalDebug("Got local timezone: " + localTzId);
-					}
-					this.haveSystemTime = true;
-					future.result = { returnValue: true };
-				});
-			} else { //already have system time.
-				future.result = { returnValue: true };
-			}
-
-			future.then(this, function initializeTZManager() {
-				if (!this.TZManagerInitialized) {
-					Log.log_icalDebug("iCal: init TZManager");
-					future.nest(TZManager.setup());
-					future.then(this, function tzManagerReturn() {
-						checkResult(future);
-						Log.log_icalDebug("TZManager initialized");
-						this.TZManagerInitialized = true;
-						future.result = { returnValue: true };
-					});
-				} else { //TZManager already initialized.
-					future.result = { returnValue: true };
-				}
-			});
-
-			future.then(this, function endInit() {
-				Log.log_icalDebug("iCal init checking " + this.haveSystemTime + " - " + this.TZManagerInitialized);
-				checkResult(future);
-				if (this.haveSystemTime && this.TZManagerInitialized) {
-					Log.log_icalDebug("iCal init finished");
-				}
-				future.result = { iCal: true};
-			});
-
-			future.onError(function () {
-				Log.log("Error in iCal.initialize:", future.exeption);
-				future.result = { returnValue: false };
-			});
-
-			return future;
+			return Time.initialize();
 		}
 	}; //end of public interface
 }());

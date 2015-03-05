@@ -112,7 +112,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 			future.then(this, function () {
 				var result = checkResult(future);
-				if (!result.iCal) {
+				if (!result.returnValue) {
 					Log.debug("iCal init not ok.");
 				} else {
 					Log.debug("iCal initialized");
