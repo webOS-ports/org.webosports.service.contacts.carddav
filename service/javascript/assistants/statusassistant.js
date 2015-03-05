@@ -1,7 +1,7 @@
 /*jslint node: true, nomen: true */
-/*global servicePath, Log */
+/*global libPath, Log */
 /*exported statusAssistant*/
-var SyncStatus = require(servicePath + "/javascript/utils/SyncStatus.js");
+var SyncStatus = require(libPath + "SyncStatus.js");
 
 /* Validate contact username/password */
 var statusAssistant = function () { "use strict"; };

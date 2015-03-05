@@ -1,7 +1,5 @@
 /*jslint node: true, nomen: true */
-/*global Log, DB, Kinds, checkResult, Future, servicePath */
-
-var iCal = require(servicePath + "/javascript/utils/iCal.js");
+/*global Log, DB, Kinds, checkResult, Future, iCal */
 
 var CalendarEventHandler = (function () {
 	"use strict";

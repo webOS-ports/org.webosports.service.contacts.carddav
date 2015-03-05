@@ -1,7 +1,7 @@
 /*jslint node: true */
-/*global Future, fs, Log, servicePath */
+/*global Future, fs, Log, libPath */
 
-var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
+var Quoting = require(libPath + "Quoting.js");
 
 var vCardWriter = function () {
 	"use strict";

@@ -7,14 +7,13 @@
 * run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
 */
 /*jslint node: true */
-/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, servicePath, httpClient, PackageVersion, fs */
-/*exported ServiceAssistant, OnCredentialsChanged*/
+/*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, libPath, httpClient, PackageVersion, fs, iCal */
+/*exported ServiceAssistant, OnCredentialsChanged */
 
-var iCal = require(servicePath + "/javascript/utils/iCal.js");
-var vCard = require(servicePath + "/javascript/utils/vCard.js");
-var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
-var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
-var Base64 = require(servicePath + "/javascript/utils/Base64.js");
+var vCard = require(libPath + "vCard.js");
+var AuthManager = require(libPath + "AuthManager.js");
+var KeyStore = require(libPath + "KeyStore.js");
+var Base64 = require(libPath + "Base64.js");
 
 var ServiceAssistant = Transport.ServiceAssistantBuilder({
 	clientId: "",

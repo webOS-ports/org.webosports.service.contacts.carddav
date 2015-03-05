@@ -1,8 +1,8 @@
 /*jslint nomen: true, node: true */
-/*global Class, Future, Log, Sync, DB, checkResult, servicePath */
+/*global Class, Future, Log, Sync, DB, checkResult, libPath */
 /*exported OnDelete*/
 
-var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
+var KeyStore = require(libPath + "KeyStore.js");
 
 var OnDelete = Class.create(Sync.DeleteAccountCommand, {
 	run: function run(outerFuture) {

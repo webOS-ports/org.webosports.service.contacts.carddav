@@ -9,9 +9,9 @@
  * Can switch from basic auth to MD5 digest, if necessary.
  */
 /*jslint node: true */
-/*global servicePath, checkResult, Future, CalDav, UrlSchemes, Log */
+/*global libPath, checkResult, Future, CalDav, UrlSchemes, Log */
 
-var OAuth = require(servicePath + "/javascript/utils/OAuth.js");
+var OAuth = require(libPath + "OAuth.js");
 var urlParser;
 
 var AuthManager = (function () {

@@ -1,10 +1,10 @@
 /*jslint regexp: true, node: true, nomen: true, newcap: true */
-/*global Contacts, fs, Log, Future, servicePath, checkResult */
+/*global Contacts, fs, Log, Future, libPath, checkResult */
 
 var path = require("path"); //required for vCard converter.
-var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
-var vCardReader = require(servicePath + "/javascript/utils/vCardReader.js");
-var vCardWriter = require(servicePath + "/javascript/utils/vCardWriter.js");
+var Quoting = require(libPath + "Quoting.js");
+var vCardReader = require(libPath + "vCardReader.js");
+var vCardWriter = require(libPath + "vCardWriter.js");
 
 var vCard = (function () {
 	"use strict";

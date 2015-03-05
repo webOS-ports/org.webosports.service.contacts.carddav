@@ -3,7 +3,7 @@
 var fs = require("fs");
 
 var path = fs.realpathSync(".");
-global.servicePath = path + "/../service";
+global.libPath = path + "/../service/javascript/utils/";
 
 
 global.Log = require('./../service/javascript/utils/Log.js');

@@ -3,15 +3,15 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint nomen: true, node: true */
-/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, servicePath */
+/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, libPath */
 /*exported SyncAssistant */
 
-var vCard = require(servicePath + "/javascript/utils/vCard.js");
-var ETag = require(servicePath + "/javascript/utils/ETag.js");
-var ID = require(servicePath + "/javascript/utils/ID.js");
-var SyncKey = require(servicePath + "/javascript/utils/SyncKey.js");
-var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
-var SyncStatus = require(servicePath + "/javascript/utils/SyncStatus.js");
+var vCard = require(libPath + "vCard.js");
+var ETag = require(libPath + "ETag.js");
+var ID = require(libPath + "ID.js");
+var SyncKey = require(libPath + "SyncKey.js");
+var CalendarEventHandler = require(libPath + "CalendarEventHandler.js");
+var SyncStatus = require(libPath + "SyncStatus.js");
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	run: function run(outerfuture, subscription) {

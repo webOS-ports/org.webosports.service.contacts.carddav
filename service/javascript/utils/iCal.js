@@ -1,7 +1,7 @@
 /*jslint node: true, nomen: true */
-/*global Log, PalmCall, Calendar, Future, checkResult, servicePath */
+/*global Log, PalmCall, Calendar, Future, checkResult, libPath */
 
-var Quoting = require(servicePath + "/javascript/utils/Quoting.js");
+var Quoting = require(libPath + "Quoting.js");
 
 // This is a small iCal to webOs event parser.
 // Its meant to be simple and has some deficiencies.

@@ -2,7 +2,7 @@
 
 var fs = require("fs");
 var path = fs.realpathSync(".");
-global.servicePath = path + "/../service";
+global.libPath = path + "/../service/javascript/utils/";
 global.Log = require("./../service/javascript/utils/Log.js");
 var CalDav = require("./../service/javascript/utils/CalDav.js");
 var xml = require("./foundations/xml.js");

@@ -28,21 +28,24 @@ var fs = require("fs"); //required for own node modules and current vCard conver
 
 //node in webos is a bit picky about require paths. Really point it to the library here.
 var servicePath = fs.realpathSync(".");
+var libPath = servicePath + "/javascript/utils/";
 console.log("Service Path: " + servicePath);
-var Log = require(servicePath + "/javascript/utils/Log.js");
+var Log = require(libPath + "Log.js");
 Log.setFilename("/media/internal/.org.webosports.cdav.service.log");
-var CalDav = require(servicePath + "/javascript/utils/CalDav.js");
+var CalDav = require(libPath + "CalDav.js");
 var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
 if (nodejsMajorVersion >= 4) {
-	var httpClient = require(servicePath + "/javascript/utils/httpClient.js");
+	var httpClient = require(libPath + "httpClient.js");
 } else {
-	var httpClient = require(servicePath + "/javascript/utils/httpClient_legacy.js");
+	var httpClient = require(libPath + "httpClient_legacy.js");
 }
-var checkResult = require(servicePath + "/javascript/utils/checkResult.js");
+var checkResult = require(libPath + "checkResult.js");
 var KindsModule = require(servicePath + "/javascript/kinds.js");
 var Kinds = KindsModule.Kinds;
 var KindsCalendar = KindsModule.KindsCalendar;
 var KindsContacts = KindsModule.KindsContacts;
+
+var iCal = require(libPath + "iCal.js");
 
 //load assistants:
 var SyncAssistant = require(servicePath + "/javascript/assistants/syncassistant.js");

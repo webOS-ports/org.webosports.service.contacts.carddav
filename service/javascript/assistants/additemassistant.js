@@ -1,9 +1,8 @@
 /*jslint node: true, nomen: true */
-/*global Log, DB, checkResult, fs, Future, servicePath, Kinds */
+/*global Log, DB, checkResult, fs, Future, libPath, Kinds, iCal */
 
-var vCard = require(servicePath + "/javascript/utils/vCard.js");
-var iCal = require(servicePath + "/javascript/utils/iCal.js");
-var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
+var vCard = require(libPath + "vCard.js");
+var CalendarEventHandler = require(libPath + "CalendarEventHandler.js");
 
 var AddItemAssistant = function () { "use strict"; };
 
