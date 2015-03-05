@@ -627,6 +627,22 @@ var iCal = (function () {
 				event.allDay = !DATETIME.test(lObj.value); //if we only have DATE not DATETIME in dtstart, make event allday.
 			}
 
+		} else if (lObj.key.indexOf("X-") === 0 && event.valid && !event.finished) {
+			if (lObj.key === "X-FUNAMBOL-ALLDAY") {
+				if (lObj.value === "1") {
+					event.allDay = true;
+				} else {
+					event.allDay = false;
+				}
+			}
+			if (lObj.key === "X-ALLDAYEVENT" || lObj.key === "X-MICROSOFT-CDO-ALLDAYEVENT") {
+				if (lObj.value.toLowerCase() === "true") {
+					event.allDay = true;
+				} else {
+					event.allDay = false;
+				}
+			}
+			event[lObj.key.toLowerCase()] = lObj.line; //keep X-* extensions in object.
 		} else { //one of the more complex cases.
 			switch (lObj.key) {
 			case "ATTACH": //I still don't get why this is an array?
@@ -676,21 +692,6 @@ var iCal = (function () {
 			case "VERSION":
 				if (lObj.value !== "2.0") {
 					Log.log("WARNING: Parser only tested for iCal version 2.0, read: ", lObj.value);
-				}
-				break;
-			case "X-FUNAMBOL-ALLDAY":
-				if (lObj.value === "1") {
-					event.allDay = true;
-				} else {
-					event.allDay = false;
-				}
-				break;
-			case "X-ALLDAYEVENT":
-			case "X-MICROSOFT-CDO-ALLDAYEVENT":
-				if (lObj.value.toLowerCase() === "true") {
-					event.allDay = true;
-				} else {
-					event.allDay = false;
 				}
 				break;
 			case "DURATION":
@@ -965,6 +966,8 @@ var iCal = (function () {
 						(event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
 						":" +
 						Time.webOsTimeToICal(value, allDay, event.tzId === "UTC"));
+				} else if (field.indexOf("x-") === 0 && typeof event[field] === "string") {
+					text.push(event[field]);
 				} else { //more complex fields.
 					switch (field) {
 					case "attach":
@@ -1010,9 +1013,6 @@ var iCal = (function () {
 			}
 		} //field loop
 
-		text.push("X-FUNAMBOL-ALLDAY:" + (event.allDay ? "1" : "0"));
-		text.push("X-MICROSOFT-CDO-ALLDAYEVENT:" + (event.allDay ? "TRUE" : "FALSE"));
-		text.push("X-ALLDAYEVENT:" + (event.allDay ? "TRUE" : "FALSE"));
 		text.push("END:VEVENT");
 
 		//lines "should not" be longer than 75 chars in icalendar spec.
