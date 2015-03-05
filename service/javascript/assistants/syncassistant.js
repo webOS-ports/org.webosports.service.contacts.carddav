@@ -1259,11 +1259,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					noReUpload = true;
 				}
 
-				//before I did throw an error here. This prevented the sync from finishing and triggered upsync for this object on
-				//next occasion... if we only return an error here, probably we loose local changes.
-				//issue is that on error code 412 (i.e. something changed on server on this object) sync will NEVER finish
-				//and always will be triggered.
-				if (result.returnCode === 412) {
+				if (result.returnCode === 412 || result.returnCode === 409) {
 					future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
 				} else {
 					future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
