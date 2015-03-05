@@ -184,35 +184,73 @@ var CalendarEventHandler = (function () {
 			var entry = entries[entriesIndex], future = new Future();
 
 			if (entry.obj.rrule) {
-				Log.debug("Event has rrule, deleting child events.", entry);
+				Log.debug("Event has rrule, deleting child events for remoteId ", remoteId, " and entry ", entry);
 				future.nest(findEventByRemoteId(remoteId));
 				future.then(function findByRemoteIdCB() {
-					Log.debug("Find event returned: ");
-					var result = checkResult(future);
-					if (result.returnValue && result.results && result.results[0]) {
-						future.nest(DB.merge(
-							{
-								from: Kinds.objects.calendarevent.id,
-								where: [
-									{
-										prop: "parentId",
-										op: "=",
-										val: result.results[0]._id
-									}
-								]
-							},
-							{
-								"_del": true,
-								preventSync: true
-							}
-						));
+					var result = checkResult(future), toMerge = [], parentId;
+					Log.debug("Find event returned: ", result);
+					result.results.forEach(function (res) {
+						if (res.parentId || res.relatedTo || res.parentDtstart) {
+							res._del = true;
+							res.preventSync = true;
+							toMerge.push(res);
+						} else {
+							Log.debug("Found partent with id ", res._id);
+							parentId = res._id;
+						}
+					});
+
+					Log.debug("To delete events: ", toMerge);
+					if (toMerge.length) {
+						future.nest(DB.merge(toMerge));
 					} else {
 						future.result = { returnValue: false};
 					}
 
+					future.then(function delByRemoteIDCD() {
+						var result = checkResult(future);
+						Log.debug("Delete children by remoteId result: ", result);
+						if (parentId) {
+							Log.debug("Have parentId, use that to delete, too.");
+							future.nest(getChildren({_id: parentId}));
+						} else {
+							future.result = result;
+						}
+					});
+
+					//delete by parentId here, too, because webOS creates new events for exceptions that don't have
+					//the remoteId set and are not caught by the above method. This will happen during upsync
+					//and might provoke db errors on device.
+					//But if we don't do that here, we will have exceptions showing up to often.
+					future.then(function getChildrenCB() {
+						var result = checkResult(future);
+						if (parentId) {
+							Log.debug("Got children by parentId: ", result);
+							toMerge = [];
+							if (result.results && result.results.length) {
+								result.results.forEach(function (res) {
+									if (res.parentId || res.relatedTo || res.parentDtstart) {
+										res._del = true;
+										res.preventSync = true;
+										toMerge.push(res);
+									}
+								});
+							}
+
+							Log.debug("To delete events by parentId: ", toMerge);
+							if (toMerge.length) {
+								future.nest(DB.merge(toMerge));
+							} else {
+								future.result = { returnValue: false};
+							}
+						} else {
+							future.result = { returnValue: false};
+						}
+					});
+
 					future.then(function delChildrenCB() {
 						var result = checkResult(future);
-						Log.debug("Delete children result: ", result);
+						Log.debug("Delete children by parentId result: ", result);
 						future.result = {returnValue: true};
 					});
 				});
