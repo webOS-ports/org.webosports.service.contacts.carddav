@@ -1176,11 +1176,16 @@ var iCal = (function () {
 						break;
 					case "exdates":
 						if (event.exdates.length > 0) {
-							text.push("EXDATE;VALUE=DATE-TIME:" + event.exdates.join(","));
+							text.push("EXDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
 						}
 						break;
 					case "rdates":
-						text.push("RDATE:" + event.rdates.join(","));
+						if (event.rdates.length > 0) {
+							text.push("RDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
+						}
+						break;
+					case "recurrenceId":
+						text.push("RECURRENCE-ID" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
 						break;
 					case "alarm":
 						text = buildALARM(event.alarm, text);
@@ -1292,6 +1297,7 @@ var iCal = (function () {
 
 				//END:VEVENT read. Prepare for next event.
 				if (event.finished) {
+					delete event.finished;
 					events.push(event);
 					event = getNewEvent();
 				}
