@@ -1,7 +1,7 @@
 /*jslint node: true  */
-/*global Log, httpClient, Future, checkResult, servicePath */
+/*global Log, httpClient, Future, checkResult, libPath */
 
-var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
+var AuthManager = require(libPath + "AuthManager.js");
 
 var CalDav = (function () {
 	"use strict";

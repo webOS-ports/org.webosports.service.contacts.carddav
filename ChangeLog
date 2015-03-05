@@ -1,3 +1,16 @@
+0.3.25:
+	o fixed: recurring events with exceptions could be added multiple times. Deleting one of them deleted the server event.
+	o change: (BIG CHANGE!) Now using event timezone id, again. Solves issues with daylight saving times and recurrences.
+				Please test this carefully. In local tests with Google, ownclound and eGroupware results are better than before.
+				One issue remains, but this is a bug in the calendar app:
+					For events from a foreing timezone exceptions are not handled properly and the original occurence will
+					show in the calendar in addition to possible differing occurences or even though the occurence it has been delete completely.
+2015-03-03: Achim Königs <garfonso@mobo.info>
+
+0.3.24:
+	o fixed issue with event exceptions not being upsynced properly and possibly lost afterwards.
+2015-03-03: Achim Königs <garfonso@mobo.info>
+
 0.3.23:
 	o App: stats and status display improvements
 	o refresh Auth on 401 errors for OAuth and Digest Auth

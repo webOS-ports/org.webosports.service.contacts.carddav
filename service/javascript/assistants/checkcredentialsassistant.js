@@ -1,9 +1,9 @@
 /*jslint nomen: true, node: true */
-/*global DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, servicePath */
+/*global DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, libPath */
 /*exported checkCredentialsAssistant*/
-var KeyStore = require(servicePath + "/javascript/utils/KeyStore.js");
-var Base64 = require(servicePath + "/javascript/utils/Base64.js");
-var AuthManager = require(servicePath + "/javascript/utils/AuthManager.js");
+var KeyStore = require(libPath + "KeyStore.js");
+var Base64 = require(libPath + "Base64.js");
+var AuthManager = require(libPath + "AuthManager.js");
 
 /* Validate contact username/password */
 var checkCredentialsAssistant = function () { "use strict"; };

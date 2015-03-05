@@ -3,15 +3,15 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint nomen: true, node: true */
-/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, servicePath */
+/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, libPath */
 /*exported SyncAssistant */
 
-var vCard = require(servicePath + "/javascript/utils/vCard.js");
-var ETag = require(servicePath + "/javascript/utils/ETag.js");
-var ID = require(servicePath + "/javascript/utils/ID.js");
-var SyncKey = require(servicePath + "/javascript/utils/SyncKey.js");
-var CalendarEventHandler = require(servicePath + "/javascript/utils/CalendarEventHandler.js");
-var SyncStatus = require(servicePath + "/javascript/utils/SyncStatus.js");
+var vCard = require(libPath + "vCard.js");
+var ETag = require(libPath + "ETag.js");
+var ID = require(libPath + "ID.js");
+var SyncKey = require(libPath + "SyncKey.js");
+var CalendarEventHandler = require(libPath + "CalendarEventHandler.js");
+var SyncStatus = require(libPath + "SyncStatus.js");
 
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	run: function run(outerfuture, subscription) {
@@ -112,7 +112,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			this.SyncKey = new SyncKey(this.client, this.handler);
 
 			this.$super(run)(future);
-			future.then(function syncCameBackCB() {
+			future.then(this, function syncCameBackCB() {
 				var result = checkResult(future);
 				Log.debug("Sync came back: ", result);
 				if (args.syncOnEdit) {
@@ -1259,11 +1259,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					noReUpload = true;
 				}
 
-				//before I did throw an error here. This prevented the sync from finishing and triggered upsync for this object on
-				//next occasion... if we only return an error here, probably we loose local changes.
-				//issue is that on error code 412 (i.e. something changed on server on this object) sync will NEVER finish
-				//and always will be triggered.
-				if (result.returnCode === 412) {
+				if (result.returnCode === 412 || result.returnCode === 409) {
 					future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
 				} else {
 					future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
