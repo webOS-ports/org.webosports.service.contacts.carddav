@@ -1,3 +1,7 @@
+0.3.26:
+	o fixed issue with recurring event and until rule.
+2015-03-06: Achim Königs <garfonso@mobo.info>
+
 0.3.25:
 	o fixed: recurring events with exceptions could be added multiple times. Deleting one of them deleted the server event.
 	o change: (BIG CHANGE!) Now using event timezone id, again. Solves issues with daylight saving times and recurrences.
