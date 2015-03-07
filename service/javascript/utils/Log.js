@@ -96,6 +96,7 @@ var logBase = function () {
 	}
 };
 
+exports.printObj                = printObj;
 exports.log                     = logBase;
 exports.debug                   = logBase;
 exports.log_icalDebug           = logBase;
