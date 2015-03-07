@@ -41,6 +41,9 @@ var httpClient = (function () {
 			parsedUrl = url.parse(inUrl.replace(":/", "://")); //somehow SOGo returns uri with only one / => this breaks URL parsing.
 		}
 		options.path = parsedUrl.pathname || "/";
+		if (parsedUrl.search) {
+			options.path += parsedUrl.search;
+		}
 		if (!options.headers) {
 			options.headers = {};
 		}
@@ -213,7 +216,9 @@ var httpClient = (function () {
 			}
 
 			retries[origin].received = true;
-			Log.log_calDavDebug("Body: " + body.toString("utf8"));
+			if (!options.binary) {
+				Log.log_calDavDebug("Body: " + body.toString("utf8"));
+			}
 
 			result = {
 				returnValue: (res.statusCode < 400),
