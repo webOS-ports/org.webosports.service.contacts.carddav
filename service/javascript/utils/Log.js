@@ -101,4 +101,5 @@ exports.log                     = logBase;
 exports.debug                   = logBase;
 exports.log_icalDebug           = logBase;
 exports.log_calDavDebug         = logBase;
+exports.log_httpClient          = logBase;
 exports.log_calDavParsingDebug  = dummy;

@@ -18,9 +18,9 @@ var httpClient = (function () {
 
 	//initialize proxy support:
 	if (process.env.http_proxy) {
-		Log.log_calDavDebug("http_proxy variable: ", process.env.http_proxy);
+		Log.log_httpClient("http_proxy variable: ", process.env.http_proxy);
 		proxyParts = process.env.http_proxy.match(/^(http:\/\/)?([A-Za-z0-9\.\-_]+)(:([0-9]+))?/i);
-		Log.log_calDavDebug("proxy match: ", proxyParts);
+		Log.log_httpClient("proxy match: ", proxyParts);
 		if (proxyParts) {
 			proxyHost = proxyParts[2];
 			proxyPort = proxyParts[4] || 80;
@@ -101,8 +101,8 @@ var httpClient = (function () {
 		}
 
 		function errorCB(e) {
-			Log.log_calDavDebug("Error in http connection: ", e);
-			Log.log_calDavDebug("Deactivating: ", key);
+			Log.log_httpClient("Error in http connection: ", e);
+			Log.log_httpClient("Deactivating: ", key);
 			httpClientCache[key].connected = false;
 		}
 
@@ -111,14 +111,14 @@ var httpClient = (function () {
 		}
 
 		if (httpClientCache[key].connected) {
-			Log.log_calDavDebug("Already connected");
+			Log.log_httpClient("Already connected");
 		} else {
 			if (haveProxy) {
-				Log.log_calDavDebug("Creatring connection to proxy ", proxyPort, proxyHost, false);
+				Log.log_httpClient("Creatring connection to proxy ", proxyPort, proxyHost, false);
 				httpClientCache[key].client = http.createClient(proxyPort, proxyHost, false);
 				httpClientCache[key].connected = true; //connected is not 100% true anymore. But can't really check for connection without adding unnecessary requests.
 			} else {
-				Log.log_calDavDebug("Creating connection from ", options.port, options.headers.host, options.protocol === "https:");
+				Log.log_httpClient("Creating connection from ", options.port, options.headers.host, options.protocol === "https:");
 				httpClientCache[key].client = http.createClient(options.port, host || options.headers.host, options.protocol === "https:");
 				httpClientCache[key].connected = true; //connected is not 100% true anymore. But can't really check for connection without adding unnecessary requests.
 			}
@@ -157,7 +157,7 @@ var httpClient = (function () {
 			if (!retries[origin].received && retries[origin].retry === retry && !retries[origin].abort) { //not yet received and not yet retried again.
 				Log.log("Message ", reqName(origin, retry), " had error: ", error);
 				if (retries[origin].retry < 5 && !override) {
-					Log.log_calDavDebug("Trying to resend message ", reqName(origin, retry), ".");
+					Log.log_httpClient("Trying to resend message ", reqName(origin, retry), ".");
 					sendRequestImpl(options, data, retry + 1, origin).then(function (f) {
 						future.result = f.result; //transfer future result.
 					});
@@ -172,17 +172,17 @@ var httpClient = (function () {
 				}
 			} else {
 				if (retries[origin].retry > retry) {
-					Log.log_calDavDebug("Already retrying message ", reqName(origin, retry), ", don't do this twice.");
+					Log.log_httpClient("Already retrying message ", reqName(origin, retry), ", don't do this twice.");
 				} else if (retries[origin].abort) {
-					Log.log_calDavDebug("Recieving of message ", reqName(origin, retry), " was aborted.");
+					Log.log_httpClient("Recieving of message ", reqName(origin, retry), " was aborted.");
 				} else {
-					Log.log_calDavDebug("Message ", reqName(origin, retry), " already received, returning.");
+					Log.log_httpClient("Message ", reqName(origin, retry), " already received, returning.");
 				}
 			}
 		}
 
 		function timeoutCB() {
-			Log.log_calDavDebug("Timeout for ", reqName(origin, retry));
+			Log.log_httpClient("Timeout for ", reqName(origin, retry));
 			checkRetry("Timeout");
 		}
 
@@ -196,7 +196,7 @@ var httpClient = (function () {
 		}
 
 		function dataCB(chunk) {
-			Log.log_calDavDebug("res", reqName(origin, retry), "-chunk:", chunk.length);
+			Log.log_httpClient("res", reqName(origin, retry), "-chunk:", chunk.length);
 			var buffer = new Buffer(chunk.length + body.length);
 			body.copy(buffer, 0, 0);
 			chunk.copy(buffer, body.length, 0);
@@ -207,17 +207,17 @@ var httpClient = (function () {
 			var result;
 			Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
 			if (retries[origin].received) {
-				Log.log_calDavDebug("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
+				Log.log_httpClient("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
 				return;
 			}
 			if (retries[origin].abort) {
-				Log.log_calDavDebug("Recieving of message ", reqName(origin, retry), " was aborted, exiting without callbacks");
+				Log.log_httpClient("Recieving of message ", reqName(origin, retry), " was aborted, exiting without callbacks");
 				return;
 			}
 
 			retries[origin].received = true;
 			if (!options.binary) {
-				Log.log_calDavDebug("Body: " + body.toString("utf8"));
+				Log.log_httpClient("Body: " + body.toString("utf8"));
 			}
 
 			result = {
@@ -234,7 +234,7 @@ var httpClient = (function () {
 			}
 
 			if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
-				Log.log_calDavDebug("Location: ", res.headers.location);
+				Log.log_httpClient("Location: ", res.headers.location);
 				if (res.headers.location.indexOf("http") < 0) {
 					res.headers.location = options.prefix + res.headers.location;
 				}
@@ -256,14 +256,14 @@ var httpClient = (function () {
 					return future;
 				}
 				parseURLIntoOptionsImpl(res.headers.location, options);
-				Log.log_calDavDebug("Redirected to ", res.headers.location);
+				Log.log_httpClient("Redirected to ", res.headers.location);
 				retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
 				sendRequestImpl(options, data, 0, origin).then(function (f) {
 					future.result = f.result; //transfer future result.
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
-				Log.log_calDavParsingDebug("Parsed Body: ", result.parsedBody);
+				Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
 				future.nest(options.authCallback(result));
@@ -286,7 +286,7 @@ var httpClient = (function () {
 		}
 
 		function closeCB(e) {
-			Log.log_calDavDebug("connection-closed for ", reqName(origin, retry), e ? " with error." : " without error.");
+			Log.log_httpClient("connection-closed for ", reqName(origin, retry), e ? " with error." : " without error.");
 			if (!e && res) { //close also happens if no res is there, yet. Hm. Catch this here and retry.
 				endCB(res);
 			} else if (e) {
@@ -299,11 +299,11 @@ var httpClient = (function () {
 
 		function responseCB(inRes) {
 			res = inRes;
-			Log.log_calDavDebug("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
-			Log.log_calDavDebug("HEADERS: ", res.headers, " for ", reqName(origin, retry));
+			Log.log_httpClient("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
+			Log.log_httpClient("HEADERS: ", res.headers, " for ", reqName(origin, retry));
 			addListenerOnlyOnce(res, "data", dataCB);
 			addListenerOnlyOnce(res, "end", function (e) { //sometimes this does not happen. One reason are empty responses..?
-				Log.log_calDavDebug("res-end successful: ", e);
+				Log.log_httpClient("res-end successful: ", e);
 				endCB(res);
 			});
 
@@ -319,7 +319,7 @@ var httpClient = (function () {
 					}
 					addListenerOnlyOnce(con, "timeout", timeoutCB);
 				} else {
-					Log.log_calDavDebug("No setTimeout method on response...?");
+					Log.log_httpClient("No setTimeout method on response...?");
 				}
 			} catch (e) {
 				Log.log("Error during response setup: ", e);
@@ -329,10 +329,10 @@ var httpClient = (function () {
 			addListenerOnlyOnce(res, "close", closeCB);
 		}
 
-		function connectCB(e) { Log.log_calDavDebug("request", reqName(origin, retry), "-connected:", e); }
-		function secureCB(e) { Log.log_calDavDebug("request", reqName(origin, retry), "-secure:", e); }
-		function dataCBCon(e) { Log.log_calDavDebug("request", reqName(origin, retry), "-data:", e.length); }
-		function drainCB(e) { Log.log_calDavDebug("request", reqName(origin, retry), "-drain:", e); }
+		function connectCB(e) { Log.log_httpClient("request", reqName(origin, retry), "-connected:", e); }
+		function secureCB(e) { Log.log_httpClient("request", reqName(origin, retry), "-secure:", e); }
+		function dataCBCon(e) { Log.log_httpClient("request", reqName(origin, retry), "-data:", e.length); }
+		function drainCB(e) { Log.log_httpClient("request", reqName(origin, retry), "-drain:", e); }
 
 		function doSendRequest() {
 			if (data) {
@@ -347,8 +347,8 @@ var httpClient = (function () {
 				}
 			}
 
-			Log.log_calDavDebug("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
-			Log.log_calDavDebug("Options: ", options);
+			Log.log_httpClient("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
+			Log.log_httpClient("Options: ", options);
 			Log.debug("Sending request ", reqName(origin, retry), " to " + options.prefix + options.path);
 
 			//make sure path includes domain if using proxy.
@@ -365,14 +365,14 @@ var httpClient = (function () {
 
 				var con = req.connection;
 				if (con && con.setTimeout) {
-					Log.log_calDavDebug("Set timeout on request to 60000");
+					Log.log_httpClient("Set timeout on request to 60000");
 					con.setTimeout(60000);
 					if (con.setKeepAlive) {
 						con.setKeepAlive(true);
 					}
 					addListenerOnlyOnce(con, "timeout", timeoutCB);
 				} else {
-					Log.log_calDavDebug("No setTimeout method on request?");
+					Log.log_httpClient("No setTimeout method on request?");
 				}
 
 				//what does our socket do?
