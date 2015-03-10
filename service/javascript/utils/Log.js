@@ -39,19 +39,30 @@ exports.setFilename = function (fn) {
 var printObj = function (obj, depth) {
 	"use strict";
 	var key, msg = "{";
-	if (depth < 5) {
-		for (key in obj) {
-			if (obj.hasOwnProperty(key)) {
-				try {
-					msg += " " + key + ": " + JSON.stringify(obj[key]) + ",";
-				} catch (e) {
-					msg += " " + key + ": " + printObj(obj[key], depth + 1) + ",";
+	if (undefined === depth) {
+		depth = 0;
+	}
+	if (typeof obj === "string") {
+		return obj;
+	}
+
+	try {
+		msg = JSON.stringify(obj);
+	} catch (e) {
+		if (depth < 5) {
+			for (key in obj) {
+				if (obj.hasOwnProperty(key)) {
+					try {
+						msg += " " + key + ": " + JSON.stringify(obj[key]) + ",";
+					} catch (e) {
+						msg += " " + key + ": " + printObj(obj[key], depth + 1) + ",";
+					}
 				}
 			}
+			msg[msg.length - 1] = "}";
+		} else {
+			msg = "...";
 		}
-		msg[msg.length - 1] = "}";
-	} else {
-		msg = "...";
 	}
 	return msg;
 };
@@ -62,13 +73,7 @@ var logBase = function () {
 		data;
 
 	for (i = 0; i < argsArr.length; i += 1) {
-		if (typeof argsArr[i] !== "string") {
-			try {
-				argsArr[i] = JSON.stringify(argsArr[i]);
-			} catch (e) {
-				argsArr[i] = printObj(argsArr[i], 0);
-			}
-		}
+		argsArr[i] = printObj(argsArr[i], 0);
 	}
 
 	data = argsArr.join("");

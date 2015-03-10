@@ -31,6 +31,53 @@ var httpClient = (function () {
 		}
 	}
 
+	function printHeaders(headers) {
+		var str = "{ ", first = true;
+		Object.keys(headers).forEach(function (key) {
+			var authStr;
+			if (!first) {
+				str += ", ";
+			} else {
+				first = false;
+			}
+			if (key === "Authorization") {
+				if (headers[key].indexOf("Basic") === 0) {
+					authStr = "Basic auth";
+				} else if (headers[key].indexOf("Bearer") === 0) {
+					authStr = "Oauth auth";
+				} else if (headers[key].indexOf("Digest") === 0) {
+					authStr = "Digest auth";
+				} else {
+					authStr = "Unknown?";
+				}
+
+				str += key + ": " + authStr;
+			} else {
+				str += key + ": " + headers[key];
+			}
+		});
+		str += " }";
+		return str;
+	}
+
+	function printOptions(options) {
+		var str = "{ ", first = true;
+		Object.keys(options).forEach(function (key) {
+			if (!first) {
+				str += ", ";
+			} else {
+				first = false;
+			}
+			if (key === "headers") {
+				str += key + ": " + printHeaders(options[key]);
+			} else {
+				str += key + ": " + Log.printObj(options[key]);
+			}
+		});
+		str += "}";
+		return str;
+	}
+
 	function parseURLIntoOptionsImpl(inUrl, options) {
 		if (!inUrl) {
 			return;
@@ -348,7 +395,7 @@ var httpClient = (function () {
 			}
 
 			Log.log_httpClient("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
-			Log.log_httpClient("Options: ", options);
+			Log.log_httpClient("Options: ", printOptions(options));
 			Log.debug("Sending request ", reqName(origin, retry), " to " + options.prefix + options.path);
 
 			//make sure path includes domain if using proxy.
