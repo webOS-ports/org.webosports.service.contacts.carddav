@@ -93,6 +93,7 @@ var UrlSchemes = {
 			checkCredentials:  "%URL_PREFIX%dav/%USERNAME%/"
 		},
 		foliofabasoftcom: {
+			name:              "Fabasoft.com",
 			keys:              [".folio.fabasoft.com"],
 			calendar:          "https://at.folio.fabasoft.com/folio/caldav/",
 			checkCredentials:  "https://at.folio.fabasoft.com/folio/caldav/"
@@ -129,8 +130,8 @@ var UrlSchemes = {
 			keys:              ["/horde/"],
 			needPrefix:        true,
 			calendar:          "%URL_PREFIX%rpc.php/calendars/%USERNAME%/",
-			contact:           "%URL_PREFIX%rpc.php/principals/%USERNAME%/",
-			checkCredentials:  "%URL_PREFIX%rpc.php/calendars/%USERNAME%/"
+			contact:           "%URL_PREFIX%rpc.php/addressbooks/%USERNAME%/",
+			checkCredentials:  "%URL_PREFIX%rpc.php"
 		},
 		telnetbe: {
 			name:              "Telnet.be",
