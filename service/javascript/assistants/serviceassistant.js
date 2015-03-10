@@ -150,6 +150,9 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 						Log.log("------------->Got Key");
 						//Log.debug("------------->Got Key", result);
 						this.userAuth = result.credentials;
+						if (!this.userAuth.username) {
+							this.userAuth.username = this.config.username;
+						}
 
 						future.nest(
 							AuthManager.checkAuth(
