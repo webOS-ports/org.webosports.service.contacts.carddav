@@ -1,3 +1,8 @@
+0.3.27:
+	o changed logging so that passwords are more save.
+	o fixed issue with url schems for horde and fabasoft.com
+2015-03-06: Achim Königs <garfonso@mobo.info>
+
 0.3.26:
 	o fixed issue with recurring event and until rule.
 2015-03-06: Achim Königs <garfonso@mobo.info>
