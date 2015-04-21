@@ -146,7 +146,17 @@ enyo.kind({
 			config;
 
 		if (template) {
-			config = template.config || {};
+			config = template.config;
+		}
+
+		if (!config) {
+			//LuneOS no template in params hack
+			config = {
+				name: "Google C+DAV",
+				urlScheme: "google",
+				url: "https://www.googleapis.com/caldav/v2",
+				credentials: credentials
+			};
 		}
 
 		if (!username) {

@@ -149,7 +149,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 						var result = checkResult(future);
 						Log.log("------------->Got Key");
 						//Log.debug("------------->Got Key", result);
-						this.userAuth = result.credentials;
+						this.userAuth = result.credentials || {};
 						if (!this.userAuth.username) {
 							this.userAuth.username = this.config.username;
 						}

@@ -54,7 +54,7 @@ var printObj = function (obj, depth) {
 				if (obj.hasOwnProperty(key)) {
 					try {
 						msg += " " + key + ": " + JSON.stringify(obj[key]) + ",";
-					} catch (e) {
+					} catch (e1) {
 						msg += " " + key + ": " + printObj(obj[key], depth + 1) + ",";
 					}
 				}
