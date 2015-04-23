@@ -48,6 +48,53 @@ var httpClient = (function () {
 		}
 	}
 
+	function printHeaders(headers) {
+		var str = "{ ", first = true;
+		Object.keys(headers).forEach(function (key) {
+			var authStr;
+			if (!first) {
+				str += ", ";
+			} else {
+				first = false;
+			}
+			if (key === "Authorization") {
+				if (headers[key].indexOf("Basic") === 0) {
+					authStr = "Basic auth";
+				} else if (headers[key].indexOf("Bearer") === 0) {
+					authStr = "Oauth auth";
+				} else if (headers[key].indexOf("Digest") === 0) {
+					authStr = "Digest auth";
+				} else {
+					authStr = "Unknown?";
+				}
+
+				str += key + ": " + authStr;
+			} else {
+				str += key + ": " + headers[key];
+			}
+		});
+		str += " }";
+		return str;
+	}
+
+	function printOptions(options) {
+		var str = "{ ", first = true;
+		Object.keys(options).forEach(function (key) {
+			if (!first) {
+				str += ", ";
+			} else {
+				first = false;
+			}
+			if (key === "headers") {
+				str += key + ": " + printHeaders(options[key]);
+			} else {
+				str += key + ": " + Log.printObj(options[key]);
+			}
+		});
+		str += "}";
+		return str;
+	}
+
 	function parseURLIntoOptionsImpl(inUrl, options) {
 		if (!inUrl) {
 			return;
@@ -58,6 +105,9 @@ var httpClient = (function () {
 			parsedUrl = url.parse(inUrl.replace(":/", "://")); //somehow SOGo returns uri with only one / => this breaks URL parsing.
 		}
 		options.path = parsedUrl.pathname || "/";
+		if (parsedUrl.search) {
+			options.path += parsedUrl.search;
+		}
 		if (!options.headers) {
 			options.headers = {};
 		}
@@ -198,6 +248,7 @@ var httpClient = (function () {
 		var body = new Buffer(0),
 			future = new Future(),
 			res,
+			receivedLength = 0,
 			reqNum = globalReqNum;
 
 		if (!retry && !origin) { //exclude redirects here!
@@ -213,7 +264,7 @@ var httpClient = (function () {
 			if (!retries[origin].received && retries[origin].retry === retry && !retries[origin].abort) {
 				Log.log("Message ", reqName(origin, retry), " had error: ", error);
 				if (retries[origin].retry < 5 && !override) {
-					Log.log_calDavDebug("Trying to resend message ", reqName(origin, retry), ".");
+					Log.log_httpClient("Trying to resend message ", reqName(origin, retry), ".");
 					sendRequestImpl(options, data, retry + 1, origin).then(function (f) {
 						future.result = f.result; //transfer future result.
 					});
@@ -228,17 +279,17 @@ var httpClient = (function () {
 				}
 			} else {
 				if (retries[origin].retry > retry) {
-					Log.log_calDavDebug("Already retrying message ", reqName(origin, retry), ", don't do this twice.");
+					Log.log_httpClient("Already retrying message ", reqName(origin, retry), ", don't do this twice.");
 				} else if (retries[origin].abort) {
-					Log.log_calDavDebug("Recieving of message ", reqName(origin, retry), " was aborted.");
+					Log.log_httpClient("Recieving of message ", reqName(origin, retry), " was aborted.");
 				} else {
-					Log.log_calDavDebug("Message ", reqName(origin, retry), " already received, returning.");
+					Log.log_httpClient("Message ", reqName(origin, retry), " already received, returning.");
 				}
 			}
 		}
 
 		function timeoutCB() {
-			Log.log_calDavDebug("Timeout for ", reqName(origin, retry));
+			Log.log_httpClient("Timeout for ", reqName(origin, retry));
 			checkRetry("Timeout");
 		}
 
@@ -252,26 +303,34 @@ var httpClient = (function () {
 		}
 
 		function dataCB(chunk) {
-			Log.log_calDavDebug("res", reqName(origin, retry), "-chunk:", chunk.length);
-			var buffer = new Buffer(chunk.length + body.length);
-			body.copy(buffer, 0, 0);
-			chunk.copy(buffer, body.length, 0);
-			body = buffer;
+			Log.log_httpClient("res", reqName(origin, retry), "-chunk:", chunk.length);
+			if (!options.filestream) {
+				var buffer = new Buffer(chunk.length + body.length);
+				body.copy(buffer, 0, 0);
+				chunk.copy(buffer, body.length, 0);
+				body = buffer;
+			}
+			if (typeof options.receivedCallback === "function") {
+				receivedLength += chunk.length;
+				options.receivedCallback(receivedLength);
+			}
 		}
 
 		function endCB() {
 			Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
 			if (retries[origin].received) {
-				Log.log_calDavDebug("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
+				Log.log_httpClient("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
 				return;
 			}
 			if (retries[origin].abort) {
-				Log.log_calDavDebug("Recieving of message ", reqName(origin, retry), " was aborted, exiting without callbacks");
+				Log.log_httpClient("Recieving of message ", reqName(origin, retry), " was aborted, exiting without callbacks");
 				return;
 			}
 
 			retries[origin].received = true;
-			Log.log_calDavDebug("Body: " + body.toString("utf8"));
+			if (!options.binary) {
+				Log.log_httpClient("Body: " + body.toString("utf8"));
+			}
 
 			var result = {
 				returnValue: (res.statusCode < 400),
@@ -287,7 +346,7 @@ var httpClient = (function () {
 			}
 
 			if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
-				Log.log_calDavDebug("Location: ", res.headers.location);
+				Log.log_httpClient("Location: ", res.headers.location);
 				if (res.headers.location.indexOf("http") < 0) {
 					res.headers.location = options.prefix + res.headers.location;
 				}
@@ -307,15 +366,18 @@ var httpClient = (function () {
 					future.result = result;
 					return future;
 				}
+				if (typeof options.redirectCallback === "function") {
+					options.redirectCallback(res.headers.location);
+				}
 				parseURLIntoOptionsImpl(res.headers.location, options);
-				Log.log_calDavDebug("Redirected to ", res.headers.location);
+				Log.log_httpClient("Redirected to ", res.headers.location);
 				retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
 				sendRequestImpl(options, data, 0, origin).then(function (f) {
 					future.result = f.result; //transfer future result.
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
-				Log.log_calDavParsingDebug("Parsed Body: ", result.parsedBody);
+				Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
 				future.nest(options.authCallback(result));
@@ -338,8 +400,8 @@ var httpClient = (function () {
 		}
 
 		function closeCB(e) {
-			Log.log_calDavDebug("close cb: ", e);
-			Log.log_calDavDebug("connection-closed for ", reqName(origin, retry), e ? " with error." : " without error.");
+			Log.log_httpClient("close cb: ", e);
+			Log.log_httpClient("connection-closed for ", reqName(origin, retry), e ? " with error." : " without error.");
 			if (!e && res) { //close also happens if no res is there, yet. Hm. Catch this here and retry.
 				endCB(res);
 			} else if (e) {
@@ -352,11 +414,18 @@ var httpClient = (function () {
 
 		function responseCB(inRes) {
 			res = inRes;
-			Log.log_calDavDebug("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
-			Log.log_calDavDebug("HEADERS: ", res.headers, " for ", reqName(origin, retry));
+			Log.log_httpClient("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
+			Log.log_httpClient("HEADERS: ", res.headers, " for ", reqName(origin, retry));
+			if (res.headers["content-length"] && typeof options.sizeCallback === "function") {
+				options.sizeCallback(res.headers["content-length"]);
+			}
+
+			if (options.filestream) {
+				res.pipe(options.filestream);
+			}
 			res.on("data", dataCB);
 			res.on("end", function (e) { //sometimes this does not happen. One reason are empty responses..?
-				Log.log_calDavDebug("res-end successful: ", e);
+				Log.log_httpClient("res-end successful: ", e);
 				endCB();
 			});
 
@@ -388,8 +457,8 @@ var httpClient = (function () {
 						}
 					}
 
-					Log.log_calDavDebug("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
-					Log.log_calDavDebug("Method: ", options.method, " Headers: ", options.headers);
+					Log.log_httpClient("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
+					Log.log_httpClient("Options: ", printOptions(options));
 					Log.debug("Sending request ", reqName(origin, retry), " to " + options.prefix + options.path);
 
 					if (options.protocol === "https:") {

@@ -187,9 +187,15 @@ var Time = (function () {
 
 			if (event.rrule && event.rrule.until) {
 				Log.log_icalDebug("fetchTimezones(): rrule: ", event.rrule);
-				until = new Date(event.rrule.until);
-				Log.log_icalDebug("Adding year ", until.getUTCFullYear(), " from rrule.");
-				years.push(until.getUTCFullYear());
+				if (typeof event.rrule.until === "string") {
+					until = parseInt(event.rrule.until.substr(0, 4), 10);
+					event.rrule.until = iCalTimeToWebOsTime(event.rrule.until); //overwrite objects with ts here.
+
+				} else {
+					until = new Date(event.rrule.until).getUTCFullYear();
+				}
+				Log.log_icalDebug("Adding year ", until, " from rrule.");
+				years.push(until);
 			}
 		});
 

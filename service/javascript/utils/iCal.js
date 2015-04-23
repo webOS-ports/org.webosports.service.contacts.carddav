@@ -146,7 +146,7 @@ var iCal = (function () {
 		return rule;
 	}
 
-	function buildRRULE(rr, tzId) {
+	function buildRRULE(rr) {
 		var text = "RRULE:", i, j, day;
 		text += "FREQ=" + rr.freq + ";";
 		if (rr.count) {
@@ -156,7 +156,7 @@ var iCal = (function () {
 			text += "INTERVAL=" + rr.interval + ";";
 		}
 		if (rr.until) {
-			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, tzId === "UTC") + ";";
+			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, true) + ";";
 		}
 		if (rr.wkst || rr.wkst === 0 || rr.wkst === "0") {
 			text += "WKST=" + numToDay(rr.wkst) + ";";
@@ -996,7 +996,7 @@ var iCal = (function () {
 						break;
 					case "rrule":
 						if (event.rrule) {
-							text.push(buildRRULE(event.rrule, event.tzId)); //tzId needed for until date.
+							text.push(buildRRULE(event.rrule));
 						}
 						break;
 					default:
