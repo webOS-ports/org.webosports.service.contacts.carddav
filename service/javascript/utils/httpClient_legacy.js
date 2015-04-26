@@ -215,7 +215,7 @@ var httpClient = (function () {
 					} else {
 						Log.log("Already tried message ", reqName(origin, retry), " 5 times. Seems as if server won't answer? Sync seems broken.");
 					}
-					future.result = { returnValue: false, msg: error };
+					future.result = { returnValue: false, returnCode: -1, msg: error };
 				}
 			} else {
 				if (retries[origin].retry > retry) {
@@ -251,7 +251,7 @@ var httpClient = (function () {
 		}
 
 		function endCB() {
-			var result;
+			var result, innerFuture;
 			Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
 			if (retries[origin].received) {
 				Log.log_httpClient("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
@@ -310,13 +310,13 @@ var httpClient = (function () {
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
-				Log.log_httpClient("Parsed Body: ", result.parsedBody);
+				//Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
-				future.nest(options.authCallback(result));
+				innerFuture = options.authCallback(result);
 
-				future.then(function authFailureCBResultHandling() {
-					var cbResult = future.result;
+				innerFuture.then(function authFailureCBResultHandling() {
+					var cbResult = innerFuture.result;
 					if (cbResult.returnValue === true && !authretry) {
 						if (cbResult.newAuthHeader) {
 							options.headers.Authorization = cbResult.newAuthHeader;

@@ -465,6 +465,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				//now get remote folders
 				this.params.path = home;
 				Log.debug("Getting remote collections for ", kindName, " from ", home, ", filtering for ", filter);
+				if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
+					this.params.cardDav = true;
+				} else {
+					this.params.cardDav = false;
+				}
 				future.nest(CalDav.getFolders(this.params, filter));
 			} else {
 				Log.log("Could not get local folders.");
@@ -484,14 +489,23 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (result.returnValue === true) {
 				Log.debug("Got ", rFolders, " remote folders, comparing them to ", localFolders, " local ones.");
 				if (rFolders.length === 0) {
-					Log.log("Remote did not supply folders in listing. Using home URL as fall back.");
-					SyncStatus.setStatus(this.client.clientId, kindName, "Did not find folders, syncing home folder directly.");
-					SyncStatus.setDone(this.client.clientId, kindName);
-					rFolders.push({
-						name: "Home",
-						uri: home,
-						remoteId: home
-					});
+					if (localFolders.length === 0) {
+						Log.log("Remote did not supply folders in listing. Using home URL as fall back.");
+						SyncStatus.setStatus(this.client.clientId, kindName, "Did not find folders, syncing home folder directly.");
+						SyncStatus.setDone(this.client.clientId, kindName);
+						rFolders.push({
+							name: "Home",
+							uri: home,
+							remoteId: home
+						});
+					}
+				} else {
+					Log.log("Could not get remote folders. Skipping down sync.");
+					future.result = {
+						more: false,
+						entries: []
+					};
+					return future;
 				}
 
 				entries = ETag.parseEtags(rFolders, localFolders, this.currentCollectionId, this.SyncKey, "uri");
@@ -953,7 +967,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						//413 - Entity too large, allows retry
 						//Most of the 500 errors are server issues that might resolve in the future.
 						//401 can happen if oauth token runs out.. hm. :-/
-						if (result.returnCode === undefined || (result.returnCode >= 400 && result.returnCode !== 413 && result.returnCode < 500 && result.returnCode !== 401)) {
+						if (result.returnCode >= 400 && result.returnCode !== 413 && result.returnCode < 500 && result.returnCode !== 401) {
 							Log.log("Failed with unrecoverable status code ", result.returnCode, " will never retry download.");
 						} else {
 							Log.debug("Failed with probably recoverable status code ", result.returnCode, " will retry download next sync.");
@@ -1238,10 +1252,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				} else {
 					Log.log("Need to get new etag from server.");
 					this.params.path = result.uri;
+					if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
+						this.params.cardDav = true;
+					} else {
+						this.params.cardDav = false;
+					}
 					future.nest(CalDav.downloadEtags(this.params, true));
 				}
 			} else {
-				Log.log("put object failed for ", obj.uri, " with code ", obj.returnCode);
+				Log.log("put object failed for ", obj.uri, " with code ", result.returnCode);
 
 				if (result.returnCode === 400 || result.returnCode === 411 || result.returnCode === 420) {
 					Log.log("Bad request, please report bug.", result, " for ", obj);

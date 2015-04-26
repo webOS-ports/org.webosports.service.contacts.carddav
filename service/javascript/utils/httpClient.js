@@ -275,7 +275,7 @@ var httpClient = (function () {
 					} else {
 						Log.log("Already tried message ", reqName(origin, retry), " 5 times. Seems as if server won't answer? Sync seems broken.");
 					}
-					future.result = { returnValue: false, msg: error };
+					future.result = { returnValue: false, returnCode: -1, msg: error };
 				}
 			} else {
 				if (retries[origin].retry > retry) {
@@ -340,7 +340,7 @@ var httpClient = (function () {
 				body: options.binary ? body : body.toString("utf8"),
 				uri: options.prefix + options.path,
 				method: options.method
-			};
+			}, innerfuture;
 			if (options.path.indexOf(":/") >= 0) {
 				result.uri = options.path; //path already was complete, maybe because of proxy usage.
 			}
@@ -377,13 +377,13 @@ var httpClient = (function () {
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
-				Log.log_httpClient("Parsed Body: ", result.parsedBody);
+				//Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
-				future.nest(options.authCallback(result));
+				innerfuture = options.authCallback(result);
 
-				future.then(function authFailureCBResultHandling() {
-					var cbResult = future.result;
+				innerfuture.then(function authFailureCBResultHandling() {
+					var cbResult = innerfuture.result;
 					if (cbResult.returnValue === true && !authretry) {
 						if (cbResult.newAuthHeader) {
 							options.headers.Authorization = cbResult.newAuthHeader;
