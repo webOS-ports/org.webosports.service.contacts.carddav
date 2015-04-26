@@ -275,7 +275,7 @@ var httpClient = (function () {
 					} else {
 						Log.log("Already tried message ", reqName(origin, retry), " 5 times. Seems as if server won't answer? Sync seems broken.");
 					}
-					future.result = { returnValue: false, msg: error };
+					future.result = { returnValue: false, returnCode: -1, msg: error };
 				}
 			} else {
 				if (retries[origin].retry > retry) {
