@@ -489,14 +489,23 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			if (result.returnValue === true) {
 				Log.debug("Got ", rFolders, " remote folders, comparing them to ", localFolders, " local ones.");
 				if (rFolders.length === 0) {
-					Log.log("Remote did not supply folders in listing. Using home URL as fall back.");
-					SyncStatus.setStatus(this.client.clientId, kindName, "Did not find folders, syncing home folder directly.");
-					SyncStatus.setDone(this.client.clientId, kindName);
-					rFolders.push({
-						name: "Home",
-						uri: home,
-						remoteId: home
-					});
+					if (localFolders.length === 0) {
+						Log.log("Remote did not supply folders in listing. Using home URL as fall back.");
+						SyncStatus.setStatus(this.client.clientId, kindName, "Did not find folders, syncing home folder directly.");
+						SyncStatus.setDone(this.client.clientId, kindName);
+						rFolders.push({
+							name: "Home",
+							uri: home,
+							remoteId: home
+						});
+					}
+				} else {
+					Log.log("Could not get remote folders. Skipping down sync.");
+					future.result = {
+						more: false,
+						entries: []
+					};
+					return future;
 				}
 
 				entries = ETag.parseEtags(rFolders, localFolders, this.currentCollectionId, this.SyncKey, "uri");
