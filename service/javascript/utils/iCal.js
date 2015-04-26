@@ -962,7 +962,7 @@ var iCal = (function () {
 						value += 43199000;
 					}
 					text.push(transTime[field] +
-						(allDay ? ";VALUE=DATE:" : "") +
+						(allDay ? ";VALUE=DATE" : "") +
 						(event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
 						":" +
 						Time.webOsTimeToICal(value, allDay, event.tzId === "UTC"));
