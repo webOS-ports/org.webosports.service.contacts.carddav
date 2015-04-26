@@ -251,7 +251,7 @@ var httpClient = (function () {
 		}
 
 		function endCB() {
-			var result;
+			var result, innerFuture;
 			Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
 			if (retries[origin].received) {
 				Log.log_httpClient("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
@@ -313,10 +313,10 @@ var httpClient = (function () {
 				Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
-				future.nest(options.authCallback(result));
+				innerFuture = options.authCallback(result);
 
-				future.then(function authFailureCBResultHandling() {
-					var cbResult = future.result;
+				innerFuture.then(function authFailureCBResultHandling() {
+					var cbResult = innerFuture.result;
 					if (cbResult.returnValue === true && !authretry) {
 						if (cbResult.newAuthHeader) {
 							options.headers.Authorization = cbResult.newAuthHeader;

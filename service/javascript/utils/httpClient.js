@@ -340,7 +340,7 @@ var httpClient = (function () {
 				body: options.binary ? body : body.toString("utf8"),
 				uri: options.prefix + options.path,
 				method: options.method
-			};
+			}, innerfuture;
 			if (options.path.indexOf(":/") >= 0) {
 				result.uri = options.path; //path already was complete, maybe because of proxy usage.
 			}
@@ -380,10 +380,10 @@ var httpClient = (function () {
 				Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
-				future.nest(options.authCallback(result));
+				innerfuture = options.authCallback(result);
 
-				future.then(function authFailureCBResultHandling() {
-					var cbResult = future.result;
+				innerfuture.then(function authFailureCBResultHandling() {
+					var cbResult = innerfuture.result;
 					if (cbResult.returnValue === true && !authretry) {
 						if (cbResult.newAuthHeader) {
 							options.headers.Authorization = cbResult.newAuthHeader;
