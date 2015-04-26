@@ -377,7 +377,7 @@ var httpClient = (function () {
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
-				Log.log_httpClient("Parsed Body: ", result.parsedBody);
+				//Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
 			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
 				innerfuture = options.authCallback(result);

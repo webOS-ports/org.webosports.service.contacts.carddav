@@ -1260,7 +1260,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					future.nest(CalDav.downloadEtags(this.params, true));
 				}
 			} else {
-				Log.log("put object failed for ", obj.uri, " with code ", obj.returnCode);
+				Log.log("put object failed for ", obj.uri, " with code ", result.returnCode);
 
 				if (result.returnCode === 400 || result.returnCode === 411 || result.returnCode === 420) {
 					Log.log("Bad request, please report bug.", result, " for ", obj);
