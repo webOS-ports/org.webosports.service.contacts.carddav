@@ -1,3 +1,10 @@
+0.3.28:
+	o fixed: LuneOS could not create Google accounts anymore.
+	o fixed: Under some circumstances allday events could not be synced to google
+	o fixed: sometimes timeout lead to never retry something
+	o fixed: OAuth timeout could lead to deletion of all folders
+2015-04-26: Achim Königs <garfonso@mobo.info>
+
 0.3.27:
 	o changed logging so that passwords are more save.
 	o fixed issue with url schems for horde and fabasoft.com
