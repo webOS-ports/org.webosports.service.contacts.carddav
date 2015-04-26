@@ -465,6 +465,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				//now get remote folders
 				this.params.path = home;
 				Log.debug("Getting remote collections for ", kindName, " from ", home, ", filtering for ", filter);
+				if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
+					this.params.cardDav = true;
+				} else {
+					this.params.cardDav = false;
+				}
 				future.nest(CalDav.getFolders(this.params, filter));
 			} else {
 				Log.log("Could not get local folders.");
@@ -1238,6 +1243,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				} else {
 					Log.log("Need to get new etag from server.");
 					this.params.path = result.uri;
+					if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
+						this.params.cardDav = true;
+					} else {
+						this.params.cardDav = false;
+					}
 					future.nest(CalDav.downloadEtags(this.params, true));
 				}
 			} else {
