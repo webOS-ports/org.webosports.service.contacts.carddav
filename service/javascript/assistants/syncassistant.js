@@ -498,14 +498,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							uri: home,
 							remoteId: home
 						});
+					} else {
+						Log.log("Could not get remote folders. Skipping down sync.");
+						future.result = {
+							more: false,
+							entries: []
+						};
+						return future;
 					}
-				} else {
-					Log.log("Could not get remote folders. Skipping down sync.");
-					future.result = {
-						more: false,
-						entries: []
-					};
-					return future;
 				}
 
 				entries = ETag.parseEtags(rFolders, localFolders, this.currentCollectionId, this.SyncKey, "uri");
