@@ -1,3 +1,7 @@
+0.3.29:
+	o fixed: Sync was not working anymore in 0.3.28.
+2015-04-28: Achim Königs <garfonso@mobo.info>
+
 0.3.28:
 	o fixed: LuneOS could not create Google accounts anymore.
 	o fixed: Under some circumstances allday events could not be synced to google
