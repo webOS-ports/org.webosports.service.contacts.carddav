@@ -267,6 +267,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.remoteId = ID.uriToRemoteId(from.uri, this.client.config);
 				}
 
+				//overwrite preventSync flag on download.
+				if (to.preventSync) {
+					to.preventSync = false;
+				}
+
 				return from.obj;
 			};
 		}
@@ -1167,6 +1172,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		if (!obj.local.remoteId && obj.remote.remoteId) {
 			obj.local.remoteId = obj.remote.remoteId;
+		}
+
+		if (obj.local.preventSync) {
+			Log.log("Prevent sync flag set, skipping upload.");
+			future.result = {
+				etag: "0", //maybe re-download
+				uri: obj.remote.uri,
+				returnValue: true
+			};
+			return future;
 		}
 
 		function conversionCB(f) {
