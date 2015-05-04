@@ -101,6 +101,15 @@ var vCardReader = function () {
 			}
 		},
 
+		peek: function () {
+			var line = lines[index] || "";
+			if (index >= lines.length) {
+				return null;
+			} else {
+				return line;
+			}
+		},
+
 		writeToFile: function (filename) {
 			var future = new Future();
 
