@@ -88,7 +88,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 		}
 
 		//if have urlScheme that does not need url, no usefull url is stored in db. So use checkCredentials url as home here.
-		if (config.urlScheme && UrlSchemes.urlSchemes[config.urlScheme] && !UrlSchemes.urlSchemes[config.urlScheme].needPrefix) {
+		if (config.urlScheme && UrlSchemes.urlSchemes[config.urlScheme] && !UrlSchemes.urlSchemes[config.urlScheme].needPrefix && !args.url) {
 			config.url = UrlSchemes.resolveURL(config.url, config.username, "checkCredentials", config.urlScheme);
 		}
 

@@ -29,7 +29,9 @@ var UrlSchemes = {
 			keys:              [".googleapis.", ".google."],
 			calendar:          "https://www.googleapis.com:443/caldav/v2/%USERNAME%/",
 			contact:           "https://www.googleapis.com:443/carddav/v1/principals/%USERNAME%/lists/",
-			checkCredentials:  "https://www.googleapis.com:443/.well-known/carddav"
+			checkCredentials:  "https://www.googleapis.com:443/caldav/v2/"	//make sure discovery works, if username is missing.
+																			//.well-known carddav will direct to the right carddav url.
+																			//but .well-known caldav returns 404, so use the right url here.
 		},
 		yahoo: {
 			keys:              ["yahoo."],
