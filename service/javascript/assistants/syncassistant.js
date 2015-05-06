@@ -1285,8 +1285,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					future.nest(CalDav.downloadEtags(this.params, true));
 				}
 			} else {
-				Log.log("put object failed for ", obj.uri, " with code ", result.returnCode);
+				Log.log("put object failed for ", obj.uri, ": ", result);
 
+				//noReUpload will trigger a download of that entity on next sync.
 				if (result.returnCode === 400 || result.returnCode === 411 || result.returnCode === 420) {
 					Log.log("Bad request, please report bug.", result, " for ", obj);
 					noReUpload = true;
@@ -1299,15 +1300,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						(result.returnCode === 506) ||
 						(result.returnCode === 508) ||
 						(result.returnCode === 510)) {
-					Log.log("Error won't go away, disallow reupload");
+					Log.log("Error " + result.returnCode + " won't go away, disallow reupload");
 					noReUpload = true;
 				}
 
-				if (result.returnCode === 412 || result.returnCode === 409) {
-					future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
-				} else {
-					future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
-				}
+				future.result = {returnValue: false, putError: true, noReUpload: noReUpload };
 			}
 		});
 
