@@ -1195,14 +1195,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (result.etag) {
 					obj.remote.etag = result.etag;
 				}
-			}
 
-			if (!obj.remote.uri) {
-				Log.log("Did not have uri in converted object. How can that happen?");
-				ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
-			}
+				if (!obj.remote.uri) {
+					Log.log("Did not have uri in converted object. How can that happen?");
+					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
+				}
 
-			future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+				future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+			} else {
+				Log.log("Conversion of ", obj.local, " failed: ", result);
+				if (!obj.remote.uri) {
+					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
+				}
+				//return failure, will count up uploadFailed.
+				future.result = {
+					uri: obj.remote.uri,
+					returnValue: false
+				};
+			}
 		}
 
 		if (obj.operation === "save") {
