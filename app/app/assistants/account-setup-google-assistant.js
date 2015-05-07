@@ -99,24 +99,30 @@ AccountSetupGoogleAssistant.prototype.handleTitle = function (event) {
 	}
 };
 
+AccountSetupGoogleAssistant.prototype.getName = function (body) {
+	debug("Now trying to get name");
+	this.req = new Ajax.Request("https://www.googleapis.com/userinfo/v2/me", {
+		method: "GET",
+		parameters: {
+			access_token: body.access_token
+		},
+		onSuccess: function (response) {
+			setTimeout(this.nameCB.bind(this, body, response), 500);
+		}.bind(this),
+		onFailure: function (response) {
+			showError(this.controller, "Token error", "Could not get name: " + JSON.stringify(response));
+		}.bind(this)
+	});
+};
+
 AccountSetupGoogleAssistant.prototype.tokenCB = function (response) {
-	var body, req;
+	var body;
 	try {
 		if (response.status < 300) { //success
 			debug("Got token ok: " + response.responseText);
 			body = response.responseJSON || JSON.parse(response.responseText);
 
-			debug("Now trying to get name");
-			req = new Ajax.Request("https://www.googleapis.com/userinfo/v2/me", {
-				method: "GET",
-				parameters: {
-					access_token: body.access_token
-				},
-				onSuccess: this.nameCB.bind(this, body),
-				onFailure: function (response) {
-					showError(this.controller, "Token error", "Could not get name: " + JSON.stringify(response));
-				}.bind(this)
-			});
+			this.getName(body);
 		}
 	} catch (e) {
 		this.controller.get('saveSpinner').mojo.stop();
@@ -129,48 +135,22 @@ AccountSetupGoogleAssistant.prototype.tokenCB = function (response) {
 
 AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
 	try {
-		var body, i, template = this.params.initialTemplate;
-		//debug("Get-Token call came back: " + JSON.stringify(response));
-		if (response.status < 300) { //success
+		var body;
+
+		debug("Get me came back: " + JSON.stringify(response));
+		if (response.status >= 200 && response.status < 300) { //success
 			debug("Get me came back: " + response.responseText);
-			body = response.responseJSON || JSON.parse(response.responseText);
-
-			this.account.credentials = {
-				access_token: credbody.access_token,
-				refresh_token: credbody.refresh_token,
-				token_type: credbody.token_type,
-				oauth: true,
-				client_id: CLIENT_ID,
-				client_secret: CLIENT_SECRET,
-				authToken: credbody.token_type + " " + credbody.access_token,
-				refresh_url: BASE_URL + "token",
-				username: body.email
-			};
-
-			this.account.username = body.email;
-
-			if (!this.account.username) {
-				this.account.username = Date.now();
+			try {
+				body = response.responseJSON || JSON.parse(response.responseText);
+			} catch (e1) {
+				body = { email: Date.now() };
+				log("Could not get username from " + response.responseText + " with code " + response.status + " error: " + e1.message);
+				throw response;
 			}
 
-			template.config.credentials = this.account.credentials;
-			this.accountSettings = {
-				template: template,
-				username: this.account.username,
-				alias: this.account.username,
-				config: template.config,
-				defaultResult: {
-					result: {
-						returnValue: true,
-						credentials: this.account.credentials,
-						config: template.config
-					}
-				},
-				returnValue: true
-			};
-			//Pop back to Account Creation Dialog
-			this.popScene();
+			this.preparePop(credbody, body.email);
 		} else {
+			debug("Get me was unsuccessful: " + JSON.stringify(response));
 			throw response;
 		}
 	} catch (e) {
@@ -178,8 +158,49 @@ AccountSetupGoogleAssistant.prototype.nameCB = function (credbody, response) {
 		this.controller.get('Scrim').hide();
 
 		log("Error during processing response: " + JSON.stringify(e));
-		showError(this.controller, "Token Error", "Could not get token: " + JSON.stringify(e));
+		showError(this.controller, "Name Error", "Could not get name: " + JSON.stringify(e));
+		//no username not THAT critical...
+		this.preparePop(credbody, Date.now());
 	}
+};
+
+AccountSetupGoogleAssistant.prototype.preparePop = function (credbody, username) {
+	var template = this.params.initialTemplate;
+	this.account.credentials = {
+		access_token: credbody.access_token,
+		refresh_token: credbody.refresh_token,
+		token_type: credbody.token_type,
+		oauth: true,
+		client_id: CLIENT_ID,
+		client_secret: CLIENT_SECRET,
+		authToken: credbody.token_type + " " + credbody.access_token,
+		refresh_url: BASE_URL + "token",
+		username: username
+	};
+
+	this.account.username = username;
+
+	if (!this.account.username) {
+		this.account.username = Date.now();
+	}
+
+	template.config.credentials = this.account.credentials;
+	this.accountSettings = {
+		template: template,
+		username: this.account.username,
+		alias: this.account.username,
+		config: template.config,
+		defaultResult: {
+			result: {
+				returnValue: true,
+				credentials: this.account.credentials,
+				config: template.config
+			}
+		},
+		returnValue: true
+	};
+	//Pop back to Account Creation Dialog
+	this.popScene();
 };
 
 AccountSetupGoogleAssistant.prototype.popScene = function () {

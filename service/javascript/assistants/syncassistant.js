@@ -267,6 +267,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.remoteId = ID.uriToRemoteId(from.uri, this.client.config);
 				}
 
+				//overwrite preventSync flag on download.
+				if (to.preventSync) {
+					to.preventSync = false;
+				}
+
 				return from.obj;
 			};
 		}
@@ -1169,6 +1174,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			obj.local.remoteId = obj.remote.remoteId;
 		}
 
+		if (obj.local.preventSync) {
+			Log.log("Prevent sync flag set, skipping upload.");
+			future.result = {
+				etag: "0", //maybe re-download
+				uri: obj.remote.uri,
+				returnValue: true
+			};
+			return future;
+		}
+
 		function conversionCB(f) {
 			var result = checkResult(f);
 			if (result.returnValue === true) {
@@ -1180,14 +1195,24 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (result.etag) {
 					obj.remote.etag = result.etag;
 				}
-			}
 
-			if (!obj.remote.uri) {
-				Log.log("Did not have uri in converted object. How can that happen?");
-				ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
-			}
+				if (!obj.remote.uri) {
+					Log.log("Did not have uri in converted object. How can that happen?");
+					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
+				}
 
-			future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+				future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+			} else {
+				Log.log("Conversion of ", obj.local, " failed: ", result);
+				if (!obj.remote.uri) {
+					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
+				}
+				//return failure, will count up uploadFailed.
+				future.result = {
+					uri: obj.remote.uri,
+					returnValue: false
+				};
+			}
 		}
 
 		if (obj.operation === "save") {
@@ -1260,8 +1285,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					future.nest(CalDav.downloadEtags(this.params, true));
 				}
 			} else {
-				Log.log("put object failed for ", obj.uri, " with code ", result.returnCode);
+				Log.log("put object failed for ", obj.uri, ": ", result);
 
+				//noReUpload will trigger a download of that entity on next sync.
 				if (result.returnCode === 400 || result.returnCode === 411 || result.returnCode === 420) {
 					Log.log("Bad request, please report bug.", result, " for ", obj);
 					noReUpload = true;
@@ -1274,15 +1300,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						(result.returnCode === 506) ||
 						(result.returnCode === 508) ||
 						(result.returnCode === 510)) {
-					Log.log("Error won't go away, disallow reupload");
+					Log.log("Error " + result.returnCode + " won't go away, disallow reupload");
 					noReUpload = true;
 				}
 
-				if (result.returnCode === 412 || result.returnCode === 409) {
-					future.result = {returnValue: false, putError: true, msg: "Put object failed, because it was changed on server, too: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
-				} else {
-					future.result = {returnValue: false, putError: true, msg: "Put object failed: " + JSON.stringify(result) + " for " + obj.uri, noReUpload: noReUpload };
-				}
+				future.result = {returnValue: false, putError: true, noReUpload: noReUpload };
 			}
 		});
 

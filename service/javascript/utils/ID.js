@@ -1,3 +1,4 @@
+/*jslint node: true */
 /*global Log */
 
 var url = require("url");   //required to parse urls
@@ -97,7 +98,7 @@ var ID = (function () {
 			}
 			obj.local.uri = uri;
 			obj.local.uId = remoteId;
-		},
+		}
 	};
 }());
 

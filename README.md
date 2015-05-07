@@ -19,6 +19,9 @@ Roadmap would look roughly like this:
 * Add tasks support via calDAV VTODO items
 * Improve VCard and VEVENT compability
 
+Known issues:
+* On webOS 2.1.* receiving the username for Google accounts does not work for unknown reasons. For the time beeing it will be filled with a random generated number. You can rename the account to something descrptive before creating. The wrong username won't hurt authorization which is done using OAuth 2, i.e. does not require the username and password on device.
+
 No timeline is given for this. Pull requests are always welcome.
 
 Icon source:

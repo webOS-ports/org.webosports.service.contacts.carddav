@@ -1,3 +1,8 @@
+0.3.30:
+	o fixed: contacts with "related" field were not downsynced properly.
+	o fixed: Could not create google account on webOS 2.1.x.
+2015-04-28: Achim Königs <garfonso@mobo.info>
+
 0.3.29:
 	o fixed: Sync was not working anymore in 0.3.28.
 2015-04-28: Achim Königs <garfonso@mobo.info>
