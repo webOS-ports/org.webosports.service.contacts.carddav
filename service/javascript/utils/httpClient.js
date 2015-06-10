@@ -379,12 +379,12 @@ var httpClient = (function () {
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
 				//Log.log_httpClient("Parsed Body: ", result.parsedBody);
 				future.result = result;
-			} else if (res.statusCode === 401 && typeof options.authCallback === "function") {
+			} else if (res.statusCode === 401 && !authretry && typeof options.authCallback === "function") {
 				innerfuture = options.authCallback(result);
 
 				innerfuture.then(function authFailureCBResultHandling() {
 					var cbResult = innerfuture.result;
-					if (cbResult.returnValue === true && !authretry) {
+					if (cbResult.returnValue === true) {
 						if (cbResult.newAuthHeader) {
 							options.headers.Authorization = cbResult.newAuthHeader;
 						}
