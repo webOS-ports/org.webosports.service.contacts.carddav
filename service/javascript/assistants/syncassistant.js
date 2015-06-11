@@ -28,7 +28,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				SyncStatus.setDone(this.client.clientId);
 				outerfuture.result = { returnValue: false, success: false, message: msg };
 				return outerfuture;
-			};
+			}.bind(this);
 
 			processCapabilities = function (capabilities, index) {
 				var capObj = capabilities[index], outerfuture = new Future(), syncCB;

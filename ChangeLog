@@ -1,3 +1,8 @@
+0.3.31:
+	o fixed: on 401 service could hang
+	o fixed: some exceptions if account that is marked as beeing deleted is synced
+2015-06-10: Achim Königs <garfonso@mobo.info>
+
 0.3.30:
 	o fixed: contacts with "related" field were not downsynced properly.
 	o fixed: Could not create google account on webOS 2.1.x.
