@@ -25,10 +25,11 @@ var AuthManager = (function () {
 			future.then(function refreshCB(future) {
 				var result = checkResult(future);
 				result.authCallback = doOAuthCheck.bind(AuthManager, userAuth, true); //tell service assistant that we might use authRetry. :)
+				result.newAuthHeader = userAuth.authToken;
 				future.result = result;
 			});
 		} else {
-			future.result = {returnValue: true, authCallback: doOAuthCheck.bind(AuthManager, userAuth, true) };
+			future.result = {returnValue: true, newAuthHeader: userAuth.authToken, authCallback: doOAuthCheck.bind(AuthManager, userAuth, true) };
 		}
 		return future;
 	}
