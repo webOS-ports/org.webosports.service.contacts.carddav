@@ -402,7 +402,7 @@ var CalDav = (function () {
 		 *                  accepted as ok (redirects are processed) all >= 400 are rejected as error.
 		 */
 		checkCredentials: function (params) {
-			if (!params || !params.options) {
+			if (!params) {
 				return new Future({returnValue: false});
 			}
 			var options = preProcessOptions(params, "PROPFIND"), future = new Future(), data;

@@ -265,7 +265,7 @@ var httpClient = (function () {
 				Log.log("Message ", reqName(origin, retry), " had error: ", error);
 				if (retries[origin].retry < 5 && !override) {
 					Log.log_httpClient("Trying to resend message ", reqName(origin, retry), ".");
-					sendRequestImpl(options, data, retry + 1, origin).then(function (f) {
+					sendRequestImpl(options, data, retry + 1, origin, authretry).then(function (f) {
 						future.result = f.result; //transfer future result.
 					});
 				} else {
@@ -372,7 +372,7 @@ var httpClient = (function () {
 				parseURLIntoOptionsImpl(res.headers.location, options);
 				Log.log_httpClient("Redirected to ", res.headers.location);
 				retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
-				sendRequestImpl(options, data, 0, origin).then(function (f) {
+				sendRequestImpl(options, data, 0, origin, authretry).then(function (f) {
 					future.result = f.result; //transfer future result.
 				});
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
@@ -389,7 +389,7 @@ var httpClient = (function () {
 							options.headers.Authorization = cbResult.newAuthHeader;
 						}
 						Log.debug("Retrying request with new auth data.");
-						future.nest(sendRequestImpl(options, data, 0, origin, true)); //retry request once with new auth.
+						future.nest(sendRequestImpl(options, data, 0, false, true)); //retry request once with new auth, as new number.
 					} else {
 						future.result = result; //just give back the old, failed, result non the less?
 					}
