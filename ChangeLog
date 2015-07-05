@@ -1,3 +1,8 @@
+0.3.32:
+	o fixed: accounts could not be created anymore under some circumstances
+	o fixed: service might hang indefinitely on 401 error (still)
+2015-07-05: Achim Königs <garfonso@mobo.info>
+
 0.3.31:
 	o fixed: on 401 service could hang
 	o fixed: some exceptions if account that is marked as beeing deleted is synced
