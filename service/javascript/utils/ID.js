@@ -97,7 +97,7 @@ var ID = (function () {
 				obj.local.remoteId = uri;
 			}
 			obj.local.uri = uri;
-			obj.local.uId = remoteId;
+			obj.local.uid = remoteId;
 		}
 	};
 }());

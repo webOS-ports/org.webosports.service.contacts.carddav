@@ -53,9 +53,9 @@ exports.fold = function (string) {
 	"use strict";
 	var parts = [];
 	while (string.length > 72) {
-		parts.push(string.substring(0, 72) + "\r\n ");
-		string = string.substring(72);
+		parts.push(string.substring(0, 72));
+		string = " " + string.substring(72);
 	}
 	parts.push(string);
-	return parts.join("");
+	return parts.join("\r\n");
 };
