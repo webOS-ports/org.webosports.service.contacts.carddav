@@ -606,8 +606,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 			if (folder.entries &&
 					folder.entries.length > 0) {
+				//it makes a bit of sense to download etags again, after such a sync. But it makes us run into endless syncs if a server missbehaves and reports changes all the time, that are not there..
+				//folder.forceEtags = true;
+
 				//trigger download directly.
-				folder.forceEtags = true;
 				future.result = {needsUpdate: true};
 			} else {
 				this.params.ctag = folder.ctag || 0;
@@ -619,6 +621,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function handleDoNeedSyncResponse() {
 			var result = checkResult(future), ctag = result.ctag;
 			Log.debug("------------- Got need update response: ", result.needsUpdate);
+			if (ctag) {
+				//store this here. Error will still be true, so ctag will be ignored on failures anyway
+				//But if not done here, ctag won't be stored on download of more than 10 objects.
+				Log.debug("Store ctag ", ctag, " in folder for next sync.");
+				folder.ctag = ctag;
+			}
 
 			if (result.needsUpdate) {
 				//download etags and possibly data
@@ -642,10 +650,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					}
 
 					//if downloads failed or had error -> check etags next time, again.
-					folder.ctag = 0;
-					if (!result.error && !folder.downloadsFailed) {
+					if (result.error || folder.downloadsFailed) {
 						//all went well, save ctag to fastly determine if sync is necessary at all
-						folder.ctag = ctag;
+						Log.debug("Not storing ctag ", ctag, " because: result.error = ", result.error, " and folder.downloadsFailed = ", folder.downloadsFailed);
+						folder.ctag = 0;
+					} else {
+						Log.debug("All went well, save ctag ", folder.ctag, " in folder.");
 					}
 
 					if (result.error) {
