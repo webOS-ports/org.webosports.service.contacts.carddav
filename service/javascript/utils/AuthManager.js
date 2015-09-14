@@ -167,7 +167,7 @@ var AuthManager = (function () {
 				} else {
 					Log.debug("auth failed.");
 				}
-				result.authCallback = this.refreshDigest.bind(this, userAuth); //we might loose our digest auth, so allow to rebuild it later.
+				result.authCallback = AuthManager.refreshDigest.bind(AuthManager, userAuth); //we might loose our digest auth, so allow to rebuild it later.
 				outerFuture.result = result;
 			});
 

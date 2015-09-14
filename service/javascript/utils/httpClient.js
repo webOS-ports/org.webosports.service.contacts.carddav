@@ -14,7 +14,8 @@ var httpClient = (function () {
 	var proxy = {port: 0, host: "", valid: false},
 		httpsProxy = {port: 0, host: "", valid: false},
 		globalReqNum = 0,
-		retries = {};
+		retries = {},
+		timeoutDefault = 60000;
 
 	function setProxy(proxyString, inProxy) {
 		var proxyParts = process.env.http_proxy.match(/^(https?:\/\/)?([A-Za-z0-9\.\-_]+)(:([0-9]+))?/i);
@@ -40,9 +41,9 @@ var httpClient = (function () {
 
 	function setTimeout(obj, callback) {
 		if (obj.setTimeout) {
-			obj.setTimeout(60000, callback);
+			obj.setTimeout(timeoutDefault, callback);
 		} else if (obj.connection) {
-			obj.connection.setTimeout(60000, callback);
+			obj.connection.setTimeout(timeoutDefault, callback);
 		} else {
 			Log.log("Error: Could not setTimeout!!");
 		}
@@ -354,11 +355,10 @@ var httpClient = (function () {
 				//check if redirected to identical location
 				if (res.headers.location === options.prefix + options.path || //if strings really are identical
 					//or we have default port and string without port is identical:
-						(
-							(
-								(options.port === 80 && options.protocol === "http:") ||
-								(options.port === 443 && options.protocol === "https:")
-							) && res.headers.location === options.protocol + "//" + options.headers.host + options.path
+						((
+							(options.port === 80 && options.protocol === "http:") ||
+							(options.port === 443 && options.protocol === "https:")
+						) && res.headers.location === options.protocol + "//" + options.headers.host + options.path
 						)) {
 					//don't run into redirection endless loop:
 					Log.log("Preventing enless redirect loop, because of redirection to identical location: " + res.headers.location + " === " + options.prefix + options.path);
@@ -367,7 +367,11 @@ var httpClient = (function () {
 					return future;
 				}
 				if (typeof options.redirectCallback === "function") {
-					options.redirectCallback(res.headers.location);
+					//let user create a new stream for piping to, i.e. new filename.
+					var newStream = options.redirectCallback(res.headers.location);
+					if (newStream) {
+						options.filestream = newStream;
+					}
 				}
 				parseURLIntoOptionsImpl(res.headers.location, options);
 				Log.log_httpClient("Redirected to ", res.headers.location);
@@ -421,7 +425,13 @@ var httpClient = (function () {
 			}
 
 			if (options.filestream) {
-				res.pipe(options.filestream);
+				//do not "waste" filestream on redirects, use it only after being redirected.
+				if (res.statusCode >= 200 && res.statusCode < 300) {
+					Log.log_httpClient("Piping data to filestream.");
+					res.pipe(options.filestream);
+				} else {
+					Log.log_httpClient("Not piping, because status code is ", res.statusCode);
+				}
 			}
 			res.on("data", dataCB);
 			res.on("end", function (e) { //sometimes this does not happen. One reason are empty responses..?
@@ -512,6 +522,12 @@ var httpClient = (function () {
 
 		parseURLIntoOptions: function (inUrl, options) {
 			return parseURLIntoOptionsImpl(inUrl, options);
+		},
+
+		setTimeoutDefault: function (inVal) {
+			if (inVal) {
+				timeoutDefault = inVal;
+			}
 		}
 	};
 }());

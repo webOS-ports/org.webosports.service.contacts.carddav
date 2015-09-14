@@ -314,24 +314,51 @@ var iCal = (function () {
 	}
 
 	function parseOneLine(line) {
-		var lObj = { line: line, parameters: {} }, parts, parameters, paramParts, i;
-		parts = line.split(":");
-		lObj.value = parts[1]; //value is always after :.
-		//: is allowed in the value part, add them again:
-		for (i = 2; i < parts.length; i += 1) {
-			lObj.value += ":" + parts[i]; //this should repair "mailTO:"... :)
+		//line:
+		//name *(";" param ) ":" value CRLF
+		//param = param-name "=" param-value *("," param-value)
+		//param-value = either forbidden [control, dquote, ;, :, ,] or dquoted, then everything but dquote and control.
+		//value = any textual character (i.e. no newline)
+
+		var lObj = { line: line, parameters: {} }, index, index2, oldIndex, paramName;
+		//first get name. This is the part before the first : or ;
+		index = line.indexOf(":");
+		index2 = line.indexOf(";");
+		if (index2 >= 0 && index2 < index) {
+			index = index2;
 		}
-		//first part can contain parameters which are seperated from key and themselves with ;
-		parameters = parts[0].split(";");
-		lObj.key = parameters[0].toUpperCase(); //now key is the first part of the parameters, allways.
-		for (i = 1; i < parameters.length; i += 1) {
-			//have a look at the rest of the parameters, they now have the form KEY=VALUE.
-			paramParts = parameters[i].split("=");
-			if (!lObj.parameters) {
-				lObj.parameters = {};
+		lObj.key = line.substring(0, index).toUpperCase();
+
+		//now extract parameters here
+		while (line[index] === ";") {
+			oldIndex = index + 1;
+			index = line.indexOf("=", oldIndex);
+			paramName = line.substring(oldIndex, index).toLowerCase();
+
+			//get parameter value
+			oldIndex = index + 1;
+			if (line[oldIndex] === '"') {
+				//parameter quoted => find next quote.
+				index = line.indexOf('"', oldIndex + 1) + 1; //need to include ending quote.
+				//line[index] now should be ";" or ":"
+				if (index < 0 || (line[index] !== ";" && line[index] !== ":")) {
+					throw "Could not correctly parse line " + line + " paramName = " + paramName + " remaining line: " + line.substring(oldIndex);
+				}
+			} else {
+				//parameter not quoted => find either ";" or ":"
+				index = line.indexOf(":", oldIndex);
+				index2 = line.indexOf(";", oldIndex);
+				if (index2 >= 0 && index2 < index) {
+					//we have more parameters
+					index = index2;
+				}
 			}
-			lObj.parameters[paramParts[0].toLowerCase()] = paramParts[1];
+
+			lObj.parameters[paramName] = line.substring(oldIndex, index);
 		}
+
+		lObj.value = line.substring(index + 1);
+
 		return lObj;
 	}
 
