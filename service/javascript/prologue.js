@@ -36,6 +36,7 @@ var CalDav = require(libPath + "CalDav.js");
 var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
 if (nodejsMajorVersion >= 4) {
 	var httpClient = require(libPath + "httpClient.js");
+	httpClient.setTimeoutDefault(60000);
 } else {
 	var httpClient = require(libPath + "httpClient_legacy.js");
 }
