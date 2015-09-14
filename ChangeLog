@@ -1,3 +1,7 @@
+0.3.34:
+	o fixed: md5 digest auth did not work anymore (Daylight server affected)
+2015-09-12: Achim Königs <garfonso@mobo.info>
+
 0.3.33:
 	o change: made sync more robust agains missbehaving servers (owncloud 8.1 currently)
 	o fixed: minor cosmetic changes
