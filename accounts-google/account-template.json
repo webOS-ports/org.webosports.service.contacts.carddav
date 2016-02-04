@@ -5,11 +5,13 @@
 		"org.webosports.cdav.service",
 		"com.palm.service.contacts",
 		"com.palm.service.contacts.linker",
+        "org.webosports.app.contacts",
 		"com.palm.app.contacts"
 	],
 	"writePermissions": [
 		"org.webosports.cdav.service",
 		"com.palm.app.accounts",
+        "org.webosports.app.contacts",
 		"com.palm.app.contacts"
 	],
 	"validator": {
