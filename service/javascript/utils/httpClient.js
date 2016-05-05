@@ -261,6 +261,9 @@ var httpClient = (function () {
 			retries[reqNum] = { retry: 0, received: false, abort: false};
 			origin = reqNum;
 			retry = 0;
+			if (typeof options.reqNumCallback === "function") {
+				options.reqNumCallback(reqNum);
+			}
 		} else {
 			retries[origin].retry = retry;
 		}
@@ -345,7 +348,7 @@ var httpClient = (function () {
 				body: options.binary ? body : body.toString("utf8"),
 				uri: options.prefix + options.path,
 				method: options.method
-			}, innerfuture;
+			}, innerfuture, newStream;
 			if (options.path.indexOf(":/") >= 0) {
 				result.uri = options.path; //path already was complete, maybe because of proxy usage.
 			}
@@ -372,7 +375,7 @@ var httpClient = (function () {
 				}
 				if (typeof options.redirectCallback === "function") {
 					//let user create a new stream for piping to, i.e. new filename.
-					var newStream = options.redirectCallback(res.headers.location);
+					newStream = options.redirectCallback(res.headers.location);
 					if (newStream) {
 						options.filestream = newStream;
 					}
@@ -447,6 +450,8 @@ var httpClient = (function () {
 			res.on("close", closeCB);
 			setTimeout(res, timeoutCB);
 
+			retries[reqNum].response = res; //store that here to cancel later
+
 			//in theory we do not need them. Need to test.
 			//res.socket.once("error", errorCB);
 			//res.socket.once("close", closeCB);
@@ -480,6 +485,7 @@ var httpClient = (function () {
 					} else {
 						req = http.request(options, responseCB);
 					}
+					retries[reqNum].request = req; //store this in order to cancle it later, if user requests so.
 					setTimeout(req, timeoutCB);
 					req.on("error", errorCB);
 
@@ -517,6 +523,19 @@ var httpClient = (function () {
 	}
 
 	return {
+		//options object will be altered!
+		//options object will be handed to http(s).request -> see parameters there (headers and method and stuff).
+		// You are advised to use "parseURLIntoOptions" to prepare url in options object. Will handle proxy, too.
+		//options can have a number of additional members:
+		// filestream: if you want to pipe received data in a file directly.
+		// binary: will prevent all mangling of received data and make sure you get a node.js buffer (utf8 string otherwise)
+		// receivedCallback: function that is called with the number of bytes received so far as only parameter
+		// redirectCallback: function that is called if a redirect happes with the new url as only parameter.
+		// sizeCallback: function that is called with size as only parameter, when header is received
+		// reqNumCallback: function that is called with request number as only parameter. Request number can be used to cancel download later.
+		// parse: flag to enable xml-dom parsing of the received data
+		//
+		//data: the data to send to the server on post requests.
 		sendRequest: function (options, data) {
 			//Log.debug("before encode: ", options.path);
 			//options.path = encodeURI(decodeURI(options.path)); //make sure URI is properly encoded.
@@ -531,6 +550,28 @@ var httpClient = (function () {
 		setTimeoutDefault: function (inVal) {
 			if (inVal) {
 				timeoutDefault = inVal;
+			}
+		},
+
+		cancelRequest: function (reqNum) {
+			var r = retries[reqNum];
+			if (r) {
+				if (r.received || r.abort) {
+					Log.log_httpClient("Request ", reqNum, " already received or aborted. Nothing to do.");
+					return;
+				}
+
+				if (r.response && typeof r.response.destroy === "function") {
+					r.response.destroy();
+					Log.log_httpClient("Request ", reqNum, " destroyed response object.");
+				}
+				if (r.request && typeof r.request.abort === "function") {
+					r.request.abort();
+					Log.log_httpClient("Request ", reqNum, " aborted request.");
+				}
+				r.abort = true;
+			} else {
+				Log.log_httpClient("No request ", reqNum, " found.");
 			}
 		}
 	};
