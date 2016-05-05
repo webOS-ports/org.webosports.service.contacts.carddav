@@ -159,7 +159,7 @@ var iCal = (function () {
 			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, true) + ";";
 		}
 		if (rr.wkst || rr.wkst === 0 || rr.wkst === "0") {
-			text += "WKST=" + numToDay(rr.wkst) + ";";
+			text += "WKST=" + numToDay[rr.wkst] + ";";
 		}
 		for (i = 0; rr.rules && i < rr.rules.length; i += 1) {
 			text += rr.rules[i].ruleType + "=";
