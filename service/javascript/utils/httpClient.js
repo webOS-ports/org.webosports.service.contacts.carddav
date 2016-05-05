@@ -59,14 +59,18 @@ var httpClient = (function () {
 				first = false;
 			}
 			if (key === "Authorization") {
-				if (headers[key].indexOf("Basic") === 0) {
-					authStr = "Basic auth";
-				} else if (headers[key].indexOf("Bearer") === 0) {
-					authStr = "Oauth auth";
-				} else if (headers[key].indexOf("Digest") === 0) {
-					authStr = "Digest auth";
+				if (!headers[key]) {
+					authStr = "Auth missing!";
 				} else {
-					authStr = "Unknown?";
+					if (headers[key].indexOf("Basic") === 0) {
+						authStr = "Basic auth";
+					} else if (headers[key].indexOf("Bearer") === 0) {
+						authStr = "Oauth auth";
+					} else if (headers[key].indexOf("Digest") === 0) {
+						authStr = "Digest auth";
+					} else {
+						authStr = "Unknown?";
+					}
 				}
 
 				str += key + ": " + authStr;
