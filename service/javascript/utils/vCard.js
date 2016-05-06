@@ -50,36 +50,21 @@ var vCard = (function () {
 				}
 			};
 
-			//check that a temporary file path exists to save/read vcards to.
-			path.exists(tmpPath, function (exists) {
-				if (!exists) {
-					fs.mkdir(tmpPath, parseInt("777", 8), function (error) {
-						if (error) {
-							Log.log("Could not create tmp-path, error:", error);
-						}
-						tmp = true;
-						finished();
-					});
-				} else {
-					tmp = true;
-					finished();
+			fs.mkdir(tmpPath, parseInt("777", 8), function (error) {
+				if (error) {
+					Log.log("Could not create tmp-path, error:", error);
 				}
+				tmp = true;
+				finished();
 			});
 
 			//create path for photos:
-			path.exists(photoPath, function (exists) {
-				if (!exists) {
-					fs.mkdir(photoPath, parseInt("777", 8), function (error) {
-						if (error) {
-							Log.log("Could not create photo-path, error:", error);
-						}
-						photo = true;
-						finished();
-					});
-				} else {
-					photo = true;
-					finished();
+			fs.mkdir(photoPath, parseInt("777", 8), function (error) {
+				if (error) {
+					Log.log("Could not create photo-path, error:", error);
 				}
+				photo = true;
+				finished();
 			});
 
 			return future;
