@@ -3,16 +3,25 @@
     "loc_name": "C+DAV Connector",
     "readPermissions": [
         "org.webosports.cdav.service",
+        "org.webosports.app.contacts",
+        "org.webosports.app.messaging",
         "com.palm.service.contacts",
         "com.palm.service.contacts.linker",
-        "org.webosports.app.contacts",
-        "com.palm.app.contacts"
+        "com.palm.imlibpurple",		
+        "com.palm.app.contacts",
+        "com.palm.app.messaging",
+        "com.palm.app.calendar",
+        "com.palm.app.email"
     ],
     "writePermissions": [
         "org.webosports.cdav.service",
-        "com.palm.app.accounts",
         "org.webosports.app.contacts",
-        "com.palm.app.contacts"
+        "org.webosports.app.messaging",
+        "com.palm.app.accounts",
+        "com.palm.app.contacts",
+        "com.palm.app.messaging",
+        "com.palm.app.calendar",
+        "com.palm.app.email"
     ],
     "validator": {
         "address": "palm://org.webosports.cdav.service/checkCredentials",
