@@ -43,7 +43,7 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
 							explicit: false //should delete this after one time run?
 						},
 						requirements: {
-							internetConfidence: true
+							internet: true
 						},
 						schedule: {
 							//start in one minute.

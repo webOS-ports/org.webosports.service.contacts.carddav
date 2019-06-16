@@ -1400,7 +1400,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					.setPersist(true)
 					.setReplace(true)
 					.setPower(true) //prevent narcolepsy
-					.setRequirements({ internetConfidence: true })
+					.setRequirements({ internet: true })
 					.setTrigger("fired", "palm://com.palm.db/watch", queryParams)
 					.setCallback("palm://" + this.controller.service.name + "/" + this.controller.config.name,
 								 { accountId: this.client.clientId });
