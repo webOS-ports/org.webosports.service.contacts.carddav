@@ -65,7 +65,7 @@ enyo.kind({
 
 		if (window.PalmSystem && PalmSystem.deviceInfo) {
 			devInfo = JSON.parse(PalmSystem.deviceInfo);
-			if (devInfo.modelName === "Lune OS Device") {
+			if (devInfo.modelName === "LuneOS Device") {
 				//is LuneOS:
 				this.log("Poping up Google page with OAuth request.");
 				navigator.InAppBrowser.open(url);
