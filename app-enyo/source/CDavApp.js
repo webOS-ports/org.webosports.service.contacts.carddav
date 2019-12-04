@@ -17,11 +17,11 @@ enyo.kind({
 	className: "enyo-bg",
 	components: [
 		//trouble shooting actions:
-		{ name: "discovery", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
+		{ name: "discovery", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "discovery", onSuccess: "cdavOK", onFailure: "cdavFailed" },
-		{ name: "sync", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
+		{ name: "sync", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "sync", onSuccess: "cdavOK", onFailure: "cdavFailed" },
-		{ name: "triggerSlowSync", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
+		{ name: "triggerSlowSync", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "triggerSlowSync", onSuccess: "cdavOK", onFailure: "cdavFailed" },
 
 		//get accounts:
@@ -62,7 +62,7 @@ enyo.kind({
 		{
 			name: "checkStatus",
 			kind: "PalmService",
-			service: "palm://org.webosports.cdav.service/",
+			service: "palm://org.webosports.service.cdav/",
 			method: "checkStatus",
 			onSuccess: "statusResult",
 			subscribe: true,

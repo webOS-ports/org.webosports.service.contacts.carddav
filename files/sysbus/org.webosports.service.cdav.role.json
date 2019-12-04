@@ -1,0 +1,12 @@
+{
+    "allowedNames": ["org.webosports.service.cdav"],
+    "type": "regular",
+    "exeName": "js",
+    "permissions": [
+        {
+            "inbound": ["*"],
+            "outbound": ["*"],
+            "service": "org.webosports.service.cdav"
+        }
+    ]
+}

@@ -25,7 +25,7 @@ enyo.kind({
 		{ name: "getUserName", kind: "WebService", url: "https://www.googleapis.com/userinfo/v2/me", method: "GET",
 			onSuccess: "gotName", onFailure: "getAccessTokenFailed" },
 		//used to change credentials:
-		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
+		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "checkCredentials", onSuccess: "credentialsCameBack", onFailure: "credentialsCameBack" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
 		{ kind: "PageHeader", content: "Sign in with Google below, please", pack: "center" },

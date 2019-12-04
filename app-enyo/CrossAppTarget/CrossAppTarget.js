@@ -15,7 +15,7 @@ enyo.kind({
 	kind: "VFlexBox",
 	className: "enyo-bg",
 	components: [
-		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.cdav.service/",
+		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "checkCredentials", onSuccess: "credentialsOK", onFailure: "credentialsWrong" },
 		{ name: "dbAccounts", kind: "DbService", dbKind: "org.webosports.cdav.account.config:1", onFailure: "dbFailed", components: [
 			{ name: "findAccounts", method: "find", onSuccess: "foundAccount" }

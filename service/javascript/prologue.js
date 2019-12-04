@@ -31,7 +31,7 @@ var servicePath = fs.realpathSync(".");
 var libPath = servicePath + "/javascript/utils/";
 console.log("Service Path: " + servicePath);
 var Log = require(libPath + "Log.js");
-Log.setFilename("/media/internal/.org.webosports.cdav.service.log");
+Log.setFilename("/media/internal/.org.webosports.service.cdav.log");
 var CalDav = require(libPath + "CalDav.js");
 var nodejsMajorVersion = Number(process.version.match(/^v\d+\.(\d+)/)[1]);
 if (nodejsMajorVersion >= 4) {

@@ -20,7 +20,7 @@ var options = {
         "Content-Type": "text/xml; charset=utf-8", //necessary
         Connection: "keep-alive",
         Authorization: "blub",
-        "User-Agent": "org.webosports.cdav-connector"
+        "User-Agent": "org.webosports.service.cdav-connector"
     }
 };
 httpClient.parseURLIntoOptions("https://www.google.de/", options);

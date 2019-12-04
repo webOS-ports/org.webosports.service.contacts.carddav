@@ -52,9 +52,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 				if (capObj) {
 					if (capObj.capability === "CONTACTS") {
-						PalmCall.call("palm://org.webosports.cdav.service/", "sync", {accountId: accountId, capability: "CONTACTS"}).then(syncCB.bind(this, "contacts"));
+						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "CONTACTS"}).then(syncCB.bind(this, "contacts"));
 					} else if (capObj.capability === "CALENDAR") {
-						PalmCall.call("palm://org.webosports.cdav.service/", "sync", {accountId: accountId, capability: "CALENDAR"}).then(syncCB.bind(this, "calendar"));
+						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "CALENDAR"}).then(syncCB.bind(this, "calendar"));
 					} else {
 						Log.log("Unknown capability:", capObj);
 						outerfuture.nest(processCapabilities(capabilities, index + 1));
@@ -434,7 +434,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (!home) {
 			SyncStatus.setStatus(this.client.clientId, kindName, "Need discovery");
 			Log.debug("Need to get home folders first, doing discovery.");
-			future.nest(PalmCall.call("palm://org.webosports.cdav.service/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
+			future.nest(PalmCall.call("palm://org.webosports.service.cdav/", "discovery", {accountId: this.client.clientId, id: this.client.transport._id}));
 		} else {
 			future.result = {returnValue: true}; //don't need to do discovery, tell futures to go on.
 		}

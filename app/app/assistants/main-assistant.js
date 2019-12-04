@@ -74,7 +74,7 @@ MainAssistant.prototype.callService = function (method) {
 	if (this.currentAccount !== -1) {
 		var params = this.accounts[this.currentAccount];
 		params.subscribe = method === "sync";
-		PalmCall.call("palm://org.webosports.cdav.service/",
+		PalmCall.call("palm://org.webosports.service.cdav/",
 					  method,
 					  params).then(this, function serviceCB(f) {
 			var result = f.result;

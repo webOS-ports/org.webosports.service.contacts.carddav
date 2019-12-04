@@ -1,5 +1,5 @@
 {
-	"id": "org.webosports.cdav.app",
+	"id": "org.webosports.app.cdav",
 	"version": "0.3.20",
 	"vendor": "WebOS Ports",
 	"type": "web",

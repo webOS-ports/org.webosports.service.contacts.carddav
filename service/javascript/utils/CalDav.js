@@ -332,7 +332,7 @@ var CalDav = (function () {
 					Prefer: "return-minimal", //don't really know why that is.
 					"Content-Type": "text/xml; charset=utf-8", //necessary
 					Connection: "keep-alive",
-					"User-Agent": "org.webosports.cdav-connector"
+					"User-Agent": "org.webosports.service.cdav-connector"
 				},
 				ignoreSSLCertificateErrors: params.ignoreSSLCertificateErrors,
 				authCallback: params.authCallback
