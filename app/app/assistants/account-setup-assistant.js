@@ -138,7 +138,7 @@ AccountSetupAssistant.prototype.checkCredentials = function () {
 		name: this.account.name
 	};
 
-	credFuture = PalmCall.call("palm://org.webosports.cdav.service/", "checkCredentials", params);
+	credFuture = PalmCall.call("palm://org.webosports.service.cdav/", "checkCredentials", params);
 	credFuture.then(this, function (f) {
 		try {
 			var exception = f.exception, result = f.result, template, user;

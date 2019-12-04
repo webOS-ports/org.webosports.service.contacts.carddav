@@ -35,7 +35,7 @@ CheckStatusAssistant.prototype.startSync = function () {
 		this.startSyncModel.disabled = true;
 		this.controller.modelChanged(this.startSyncModel);
 
-		PalmCall.call("palm://org.webosports.cdav.service/",
+		PalmCall.call("palm://org.webosports.service.cdav/",
 					  "sync",
 					  {accountId: this.accountId}).then(this, function serviceCB(f) {
 			var result = f.exception || f.result;
@@ -199,7 +199,7 @@ CheckStatusAssistant.prototype.processStatus = function (status) {
 
 CheckStatusAssistant.prototype.checkStatus = function () {
 	"use strict";
-	var future = PalmCall.call("palm://org.webosports.cdav.service/", "checkStatus", {accountId: this.accountId, subscribe: true}),
+	var future = PalmCall.call("palm://org.webosports.service.cdav/", "checkStatus", {accountId: this.accountId, subscribe: true}),
 		getResult;
 
 	getResult = function () {

@@ -2,7 +2,18 @@
 	{
 		"type": "db.kind",
 		"object": "org.webosports.cdav.calendarevent:1",
-		"caller": "org.webosports.cdav.*",
+		"caller": "org.webosports.app.cdav",
+		"operations": {
+			"read": "allow",
+			"create": "allow",
+			"delete": "allow",
+			"update": "allow"
+		}
+	},
+	{
+		"type": "db.kind",
+		"object": "org.webosports.cdav.calendarevent:1",
+		"caller": "org.webosports.service.cdav",
 		"operations": {
 			"read": "allow",
 			"create": "allow",

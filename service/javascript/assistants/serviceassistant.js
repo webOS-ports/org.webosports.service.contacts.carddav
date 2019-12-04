@@ -4,7 +4,7 @@
 * handle various tasks like key storage or customizations
 *
 * To run manually:
-* run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.cdav.service/
+* run-js-service -d /media/cryptofs/apps/usr/palm/services/org.webosports.service.cdav/
 */
 /*jslint node: true */
 /*global Log, Class, searchAccountConfig, Transport, Sync, Future, Kinds, KindsCalendar, KindsContacts, KindsTasks, checkResult, lockCreateAssistant, libPath, httpClient, PackageVersion, fs, iCal */
@@ -176,7 +176,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 						}
 
 						if (result.credentials) { //need to store changed credentials.
-							//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result));
+							//fs.writeFile("/media/internal/.org.webosports.service.cdav.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result));
 							KeyStore.putKey(this.accountId, this.userAuth).then(this, function putOAuthCB(putKey) {
 								var result = checkResult(putKey);
 								Log.debug("------------->Saved OAuth Key", result.returnValue);
@@ -230,7 +230,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 							return;
 						}
 
-						//fs.writeFile("/media/internal/.org.webosports.cdav.service.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result) + "\nusername: " + username + "\npassword: " + password + "\noauth: " + oauth);
+						//fs.writeFile("/media/internal/.org.webosports.service.cdav.keystore-debug", "Time: " + (new Date()) + "\nService Version: " + PackageVersion + "\nMethod: " + launchConfig.name + "\nNewKeyValue: " + JSON.stringify(this.userAuth) + "\nParams: " + JSON.stringify(launchArgs) + "\nOldKey: " + JSON.stringify(result) + "\nusername: " + username + "\npassword: " + password + "\noauth: " + oauth);
 						KeyStore.putKey(this.accountId, this.userAuth).then(this, function (putKey) {
 							var result = checkResult(putKey);
 							Log.debug("------------->Saved Key ", result.returnValue);
