@@ -1,7 +1,7 @@
 {
 	"id": "org.webosports.cdav.calendar:1",
 	"sync": false,
-	"owner": "org.webosports.cdav.service",
+	"owner": "org.webosports.service.cdav",
 	"extends": [
 		"com.palm.calendar:1"
 	],
