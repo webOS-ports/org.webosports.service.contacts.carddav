@@ -1,5 +1,8 @@
 {
     "org.webosports.service.cdav": [
-        "services"
+        "services",
+        "activities.manage",
+        "applications.internal",
+        "database.internal"
     ]
 }
