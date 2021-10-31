@@ -7,5 +7,5 @@
 	"title": "C+DAV Sync App",
 	"icon": "images/caldav-1024.png",
 	"uiRevision": 2,
-	"requiredPermissions": ["services", "applications", "applications.internal", "activities.manage", "database.internal"]
+	"requiredPermissions": ["services", "applications", "applications.internal", "activities.manage", "database.internal", "settings"]
 }
