@@ -3,6 +3,7 @@
         "services",
         "activities.manage",
         "applications.internal",
-        "database.internal"
+        "database.internal",
+        "time.query"
     ]
 }
