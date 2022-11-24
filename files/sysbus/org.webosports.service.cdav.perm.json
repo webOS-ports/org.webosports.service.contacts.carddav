@@ -1,9 +1,8 @@
 {
     "org.webosports.service.cdav": [
-        "services",
-        "activities.manage",
-        "applications.internal",
-        "database.internal",
+        "cdav-service.operation",
+        "activity.operation",
+        "database.operation",
         "time.query"
     ]
 }

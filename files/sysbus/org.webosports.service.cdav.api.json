@@ -1,5 +1,5 @@
 {
-    "services": [
+    "cdav-service.operation": [
         "org.webosports.service.cdav/checkCredentials",
         "org.webosports.service.cdav/onCredentialsChanged",
         "org.webosports.service.cdav/onContactsCreate",

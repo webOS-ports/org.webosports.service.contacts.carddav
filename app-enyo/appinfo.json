@@ -4,8 +4,9 @@
 	"vendor": "WebOS Ports",
 	"type": "web",
 	"main": "index.html",
+	"trustLevel": "trusted",
 	"title": "C+DAV Sync App",
 	"icon": "images/caldav-1024.png",
 	"uiRevision": 2,
-	"requiredPermissions": ["services", "applications", "applications.internal", "activities.manage", "database.internal", "settings"]
+	"requiredPermissions": ["cdav-service.operation", "activity.operation", "database.operation"]
 }
