@@ -12,3 +12,4 @@ tests-open/
 node_modules
 sync-framework-patches
 *.ipk
+_scratch/
