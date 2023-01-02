@@ -7,7 +7,7 @@ distribute.cmd
 
 tests/
 tests-open/
-
+_scratch/
 
 node_modules
 sync-framework-patches
