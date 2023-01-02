@@ -2,6 +2,7 @@
 /*global Calendar, Log, Future, checkResult */
 
 //Only for time and timezone handling. Ahrg.
+var timezoneMapper = require(libPath + "timezoneMapper.js");
 
 var Time = (function () {
 	"use strict";
@@ -16,9 +17,9 @@ var Time = (function () {
 		TZManager = Calendar.TimezoneManager(),
 		TZManagerInitialized = false,
 		shiftAllDay = true;
-
 	/**
-	 * Converts iCal time string of format YYYYMMDDTHHMM(Z) into javascript timestamp (from local timezone or UTC of Z is present).
+	 * Converts iCal time string of format YYYYMMDDTHHMM(Z) into javascript timestamp (from local timezone or UTC if Z is present).
+	 * Exchange looks like: DTSTART;TZID="Pacific Standard Time":YYYYMMDDTHHMMSS
 	 */
 	function iCalTimeToWebOsTime(time) {
 		var t = 0, result, date, utc = time.charAt(time.length - 1) === "Z",
@@ -148,7 +149,9 @@ var Time = (function () {
 				until;
 
 			timezones.push(event.tzId || TZManager.timezone);
-
+			//Also push the mapped timezone, in case its needed
+			timezones.push(timezoneMapper.mapWindowsToIANA(event.tzId));
+			
 			tsFields.forEach(function (field) {
 				if (event[field]) {
 					if (typeof event[field] === "object") {
@@ -251,13 +254,43 @@ var Time = (function () {
 	 * Normalize events to local timezone or
 	 * event in local timezone into the timezone specified by tzId.
 	 */
+
+	/* Add support for Windows timezones */
+	function getOffsetWithMapping(year, tzString, timestampNoMillis) {
+		var offSet = TZManager.getOffset(year, tzString, timestampNoMillis);
+		if (offSet == 0) {
+			Log.log_icalDebug("** Offset of ", tzString, " is 0, trying mapper with ", timezoneMapper.tzMap.length, " possible matches");
+			var mappedTZ = timezoneMapper.mapWindowsToIANA(tzString);
+			if (mappedTZ) {
+				return TZManager.getOffset(year, mappedTZ, timestampNoMillis);
+			}
+		}
+		return offSet;
+	}
+	function convertTime (timestamp, srcTz, destTz) { 
+        var defaultTz = TZManager.timezone;
+        var source = srcTz || defaultTz; 
+        var dest = destTz || defaultTz; 
+        if (source == dest) 
+            return timestamp; 
+
+        var year = (new Date(timestamp)).getFullYear(); 
+        var timestampNoMillis = timestamp / 1E3; 
+		var destOffset = getOffsetWithMapping(year, dest, timestampNoMillis);
+        var sourceOffset = getOffsetWithMapping(year, source, timestampNoMillis); 
+		Log.log_icalDebug("** getOffsetWithMapping thinks offset of ", source, " is ", sourceOffset);
+		Log.log_icalDebug("** getOffsetWithMapping thinks offset of ", dest, " is ", destOffset);
+        var convertedTime = (timestampNoMillis + destOffset - sourceOffset) * 1E3; 
+        return convertedTime 
+    }
+	/* End support for Windows timezones */
+
 	function normalizeToTimezone(events, direction) {
 		var future = fetchTimezones(events),
 			tsFields = ["dtstamp", "created", "lastModified"];
 
 		future.then(function (future) {
 			future.getResult();
-
 			Log.log_icalDebug("Processing ", events.length, " events.", events);
 			events.forEach(function (event) {
 				Log.log_icalDebug("normalizeTo", direction, "Timezone(): ");
@@ -270,8 +303,9 @@ var Time = (function () {
 				if (event.dtstart) {
 					Log.log_icalDebug("----CONVERTING TZ from ", source, " to ", target);
 					oldVal = event.dtstart;
-					event.dtstart = TZManager.convertTime(event.dtstart, source, target);
-					Log.log_icalDebug("    ", oldVal, " -> ", event.dtstart);
+					event.dtstart = convertTime(event.dtstart, source, target);
+					//Log.log_icalDebug("    ", oldVal, " -> ", event.dtstart);
+					Log.log_icalDebug("    ", (new Date(oldVal).toDateString() + " " + new Date(oldVal).toLocaleTimeString()), " -> ", (new Date(event.dtstart).toDateString() + " " + new Date(event.dtstart).toLocaleTimeString()));
 				}
 
 				if (event.dtend) {
@@ -289,7 +323,7 @@ var Time = (function () {
 					dt.setHours(23);
 					dt.setMinutes(59);
 					dt.setSeconds(59);
-					newDtend = TZManager.convertTime(dt.getTime(), source, target);
+					newDtend = convertTime(dt.getTime(), source, target);
 					Log.log_icalDebug("----DTEND DID NOT EXIST ", dt.getTime(), " -> ", newDtend);
 					event.dtend = newDtend;
 				}
