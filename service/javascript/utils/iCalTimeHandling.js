@@ -149,7 +149,9 @@ var Time = (function () {
 				until;
 
 			timezones.push(event.tzId || TZManager.timezone);
-
+			//Also push the mapped timezone, in case its needed
+			timezones.push(timezoneMapper.mapWindowsToIANA(event.tzId));
+			
 			tsFields.forEach(function (field) {
 				if (event[field]) {
 					if (typeof event[field] === "object") {
