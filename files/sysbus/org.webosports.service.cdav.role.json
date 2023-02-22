@@ -1,6 +1,7 @@
 {
     "appId": "org.webosports.service.cdav",
     "allowedNames": ["org.webosports.service.cdav"],
+    "trustLevel" : "oem",
     "type": "regular",
     "permissions": [
         {
