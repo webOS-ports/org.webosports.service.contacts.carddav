@@ -212,9 +212,12 @@ var Time = (function () {
 				oldDate,
 				newDate;
 			if (lastChar !== "Z" && lastChar !== "z") {
+				if (DATE.test(value)) {
+					return value; // DATE-only values are timezone-independent, never shift them
+				}
 				Log.log_icalDebug("Need to process, because of lastChar: ", lastChar);
 				oldDate = iCalTimeToWebOsTime(value); // new Date( event[field][i] );
-				newDate = TZManager.convertTime(oldDate, source, target);
+				newDate = convertTime(oldDate, source, target);
 				value = webOsTimeToICal(newDate, false, false);
 				Log.log_icalDebug("    ", oldDate, " (", new Date(oldDate).toDateString(), ") -> ", newDate, " (", new Date(newDate).toDateString(),  ") value = ", value);
 			}
@@ -302,13 +305,18 @@ var Time = (function () {
 				if (event.dtstart) {
 					Log.log_icalDebug("----CONVERTING TZ from ", source, " to ", target);
 					oldVal = event.dtstart;
-					event.dtstart = convertTime(event.dtstart, source, target);
-					//Log.log_icalDebug("    ", oldVal, " -> ", event.dtstart);
+					if (!event.allDay) {
+						event.dtstart = convertTime(event.dtstart, source, target);
+					}
 					Log.log_icalDebug("    ", (new Date(oldVal).toDateString() + " " + new Date(oldVal).toLocaleTimeString()), " -> ", (new Date(event.dtstart).toDateString() + " " + new Date(event.dtstart).toLocaleTimeString()));
 				}
 
 				if (event.dtend) {
-					newDtend = TZManager.convertTime(event.dtend, source, target);
+					if (!event.allDay) {
+						newDtend = convertTime(event.dtend, source, target);
+					} else {
+						newDtend = event.dtend;
+					}
 					Log.log_icalDebug("----DTEND EXISTED ", event.dtend, "->", newDtend);
 					event.dtend = newDtend;
 				} else if (event.duration) {
@@ -318,11 +326,18 @@ var Time = (function () {
 				} else if (event.dtstart && !event.recurrenceId) {
 					// dtend does not exist; if this is not an exception to another
 					// event, synthesize one at the end of the day
-					dt = new Date(event.dtstart);
-					dt.setHours(23);
-					dt.setMinutes(59);
-					dt.setSeconds(59);
-					newDtend = convertTime(dt.getTime(), source, target);
+					if (event.allDay) {
+						// for all-day events advance to noon next day (applyHacks will adjust to 12:00:01 same day)
+						dt = new Date(event.dtstart);
+						dt.setDate(dt.getDate() + 1);
+						newDtend = dt.getTime();
+					} else {
+						dt = new Date(event.dtstart);
+						dt.setHours(23);
+						dt.setMinutes(59);
+						dt.setSeconds(59);
+						newDtend = convertTime(dt.getTime(), source, target);
+					}
 					Log.log_icalDebug("----DTEND DID NOT EXIST ", dt.getTime(), " -> ", newDtend);
 					event.dtend = newDtend;
 				}
@@ -336,13 +351,13 @@ var Time = (function () {
 				tsFields.forEach(function (field) {
 					var val = event[field];
 					if (val) {
-						event[field] = TZManager.convertTime(val, source, target);
+						event[field] = convertTime(val, source, target);
 						Log.log_icalDebug("----", field.toUpperCase(), " converted ", val, " to ", event[field]);
 					}
 				});
 
-				if (event.rrule && event.rrule.until) {
-					event.rrule.until = TZManager.convertTime(
+				if (event.rrule && event.rrule.until && !event.allDay) {
+					event.rrule.until = convertTime(
 						event.rrule.until,
 						source,
 						target

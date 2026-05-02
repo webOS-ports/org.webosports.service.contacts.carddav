@@ -1128,7 +1128,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			SyncStatus.uploadedOne(this.client.clientId, kindName);
 			//process next object
 			if (index + 1 < batch.length) {
-				future.nest(this._processOne(index + 1, batch, kindName));
+				future.nest(this._processOne(index + 1, remoteIds, batch, kindName));
 			} else { //finished, return results.
 				future.result = {
 					returnValue: !error,

@@ -146,7 +146,7 @@ var iCal = (function () {
 		return rule;
 	}
 
-	function buildRRULE(rr) {
+	function buildRRULE(rr, allDay) {
 		var text = "RRULE:", i, j, day;
 		text += "FREQ=" + rr.freq + ";";
 		if (rr.count) {
@@ -156,7 +156,8 @@ var iCal = (function () {
 			text += "INTERVAL=" + rr.interval + ";";
 		}
 		if (rr.until) {
-			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, true) + ";";
+			// RFC 5545: UNTIL must be DATE when DTSTART is DATE (all-day), DATETIME otherwise
+			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, allDay || false, !allDay) + ";";
 		}
 		if (rr.wkst || rr.wkst === 0 || rr.wkst === "0") {
 			text += "WKST=" + numToDay[rr.wkst] + ";";
@@ -990,7 +991,7 @@ var iCal = (function () {
 					}
 					text.push(transTime[field] +
 						(allDay ? ";VALUE=DATE" : "") +
-						(event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
+						(!allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
 						":" +
 						Time.webOsTimeToICal(value, allDay, event.tzId === "UTC"));
 				} else if (field.indexOf("x-") === 0 && typeof event[field] === "string") {
@@ -1002,16 +1003,16 @@ var iCal = (function () {
 						break;
 					case "exdates":
 						if (event.exdates.length > 0) {
-							text.push("EXDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
+							text.push("EXDATE" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
 						}
 						break;
 					case "rdates":
 						if (event.rdates.length > 0) {
-							text.push("RDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
+							text.push("RDATE" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
 						}
 						break;
 					case "recurrenceId":
-						text.push("RECURRENCE-ID" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
+						text.push("RECURRENCE-ID" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
 						break;
 					case "alarm":
 						text = buildALARM(event.alarm, text);
@@ -1023,7 +1024,7 @@ var iCal = (function () {
 						break;
 					case "rrule":
 						if (event.rrule) {
-							text.push(buildRRULE(event.rrule));
+							text.push(buildRRULE(event.rrule, event.allDay));
 						}
 						break;
 					default:
@@ -1129,8 +1130,9 @@ var iCal = (function () {
 			for (i = events.length - 1; i >= 0; i -= 1) {
 				if (!events[i].valid) {
 					events.splice(i, 1);
+				} else {
+					delete events[i].valid;
 				}
-				delete events[i].valid;
 			}
 
 			Log.log_icalDebug("Parsing finished, event:", events);

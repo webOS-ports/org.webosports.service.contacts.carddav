@@ -277,7 +277,7 @@ var CalendarEventHandler = (function () {
 						});
 					});
 
-					future.nest(CalendarEventHandler.fillParentIds(remoteId, result, result.exceptions));
+					future.nest(CalendarEventHandler.fillParentIds(remoteId, result.result, result.exceptions));
 				} else {
 					future.result = {returnValue: true};
 				}
