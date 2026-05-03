@@ -101,7 +101,16 @@ var vCard = (function () {
 				version = "2.1";
 			}
 
-			reader.processString(input.vCard, version);
+			// Large base64 photos (common in iOS/Android exports) get unfolded into one
+			// massive string by processString, then decoded into a Buffer — this crashes
+			// webOS's old Node.js. A plain contact VCF is 1-3 KB; anything over 25 KB
+			// almost certainly contains a large embedded photo, so strip it first.
+			// Photos don't display reliably in webOS anyway (see comment below).
+			var vCardData = input.vCard;
+			if (vCardData.length > 25360) {
+				vCardData = vCardData.replace(/^PHOTO[^\r\n]*(\r?\n[\t ][^\r\n]*)*/mg, "");
+			}
+			reader.processString(vCardData, version);
 			photo = reader.extractPhoto();
 			uid = reader.extractUID();
 			categories = reader.extractCategories();
