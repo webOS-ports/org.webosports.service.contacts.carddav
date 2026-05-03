@@ -1109,7 +1109,7 @@ var iCal = (function () {
 		 * @return future that will contain the webOS object in result.result
 		 */
 		parseICal: function (ical) {
-			var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, events = [];
+			var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, tzDataMap = {}, events = [];
 
 			lines = preProcessIcal(ical);
 
@@ -1126,6 +1126,10 @@ var iCal = (function () {
 					tzContinue = parseTimezone(lObj, tz);
 					if (!tzContinue) {
 						delete event.tzMode;
+						if (tz.tzId) {
+							tzDataMap[tz.tzId] = {standard: tz.standard, daylight: tz.daylight};
+						}
+						tz = {};
 					}
 				} else if (event.ignoreMode) {
 					if (lObj.key === "END" && event.ignoreMode === lObj.value) { //make sure you ignore from the correct begin to the correct end.
@@ -1152,6 +1156,7 @@ var iCal = (function () {
 
 			Log.log_icalDebug("Parsing finished, event:", events);
 
+			Time.setInlineTimezones(tzDataMap);
 			Time.normalizeToLocalTimezone(events).then(function (future) {
 				var result = checkResult(future), exceptions = [], revent;
 				if (result.returnValue) {

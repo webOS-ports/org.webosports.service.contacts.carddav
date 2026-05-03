@@ -16,7 +16,8 @@ var Time = (function () {
 		//used to try timeZone correction...
 		TZManager = Calendar.TimezoneManager(),
 		TZManagerInitialized = false,
-		shiftAllDay = true;
+		shiftAllDay = true,
+		inlineTimezoneData = {};
 	/**
 	 * Converts iCal time string of format YYYYMMDDTHHMM(Z) into javascript timestamp (from local timezone or UTC if Z is present).
 	 * Exchange looks like: DTSTART;TZID="Pacific Standard Time":YYYYMMDDTHHMMSS
@@ -264,6 +265,19 @@ var Time = (function () {
 			if (mappedTZ) {
 				return TZManager.getOffset(year, mappedTZ, timestampNoMillis);
 			}
+			// Fall back to inline VTIMEZONE data from the parsed iCal file
+			var inlineTz = inlineTimezoneData[tzString];
+			if (inlineTz) {
+				Log.log_icalDebug("** Using inline VTIMEZONE data for ", tzString);
+				var month = new Date(timestampNoMillis * 1000).getMonth();
+				var useDaylight = (month >= 3 && month <= 9); // April-October DST heuristic
+				if (useDaylight && inlineTz.daylight && inlineTz.daylight.offset !== undefined) {
+					return inlineTz.daylight.offset * 3600;
+				}
+				if (inlineTz.standard && inlineTz.standard.offset !== undefined) {
+					return inlineTz.standard.offset * 3600;
+				}
+			}
 		}
 		return offSet;
 	}
@@ -382,6 +396,15 @@ var Time = (function () {
 		 * Meant as pre processing before ical generation.
 		 */
 		normalizeToEventTimezone: normalizeToEventTimezone,
+
+		/**
+		 * Supply inline VTIMEZONE offset data parsed from an iCal file.
+		 * Used as a fallback when TZManager and the Windows mapper both return 0.
+		 * @param tzMap object keyed by tzId, values { standard: {offset}, daylight: {offset} }
+		 */
+		setInlineTimezones: function (tzMap) {
+			inlineTimezoneData = tzMap || {};
+		},
 
 		convertDurationIntoMicroseconds: convertDurationIntoMicroseconds,
 		iCalTimeToWebOsTime: iCalTimeToWebOsTime,
