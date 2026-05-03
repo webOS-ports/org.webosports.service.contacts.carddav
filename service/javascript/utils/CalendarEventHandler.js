@@ -85,7 +85,7 @@ var CalendarEventHandler = (function () {
 				var result = checkResult(future), r = result.results;
 				if (result.returnValue === true && r.length > 0 && r[0] && r[0]._id) {
 					Log.debug("Entry with id ", r[0]._id, " found for ", remoteId);
-					future.result = {returnValue: true, ids: [r[0]._id]};
+					future.result = {returnValue: true, ids: [r[0]._id], revs: [r[0]._rev]};
 				} else {
 					Log.debug("No entry found for ", remoteId, ": ", result);
 					future.nest(DB.reserveIds(1));
@@ -99,6 +99,9 @@ var CalendarEventHandler = (function () {
 						event.parentId = result.ids[0];
 					});
 					event._id = result.ids[0]; //remember reserved id
+					if (result.revs && result.revs[0]) {
+						event._rev = result.revs[0];
+					}
 					future.result = {returnValue: true};
 				} else {
 					Log.log("Could not get parent id. Why?", result);
