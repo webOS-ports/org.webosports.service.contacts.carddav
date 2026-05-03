@@ -243,15 +243,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					Log.log("ERROR: Incomming undefined!!", from, " = ", to);
 				}
 
+				if (obj && !obj._kind) {
+					obj._kind = Kinds.objects[kindName].id;
+				}
+
 				//populate to object with data from event:
 				for (key in obj) {
 					if (obj.hasOwnProperty(key) && obj[key] !== undefined) { // && obj[key] !== null) {
 						to[key] = obj[key];
 					}
-				}
-
-				if (!to._kind) {
-					to._kind = Kinds.objects[kindName].id;
 				}
 
 				if (from.collectionId) {
@@ -272,7 +272,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.preventSync = false;
 				}
 
-				return true;
+				return from.obj;
 			};
 		}
 
