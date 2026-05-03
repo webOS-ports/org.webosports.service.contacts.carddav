@@ -290,6 +290,9 @@ var iCal = (function () {
 			case "WKST":
 				rrule.wkst = dayToNum[kv[1]];
 				break;
+			case "BYSETPOS":
+				rrule.bySetPos = kv[1];
+				break;
 			case "BYDAY":
 			case "BYMONTHDAY":
 			case "BYYEARDAY":
@@ -306,6 +309,20 @@ var iCal = (function () {
 				}
 				break;
 			}
+		}
+		// BYSETPOS=N;BYDAY=XX is equivalent to BYDAY=NXX (e.g. the 2nd Tuesday).
+		// Apply BYSETPOS as the ord on BYDAY rules that have no ordinal of their own.
+		if (rrule.bySetPos && rrule.rules) {
+			rrule.rules.forEach(function (rule) {
+				if (rule.ruleType === "BYDAY") {
+					rule.ruleValue.forEach(function (rv) {
+						if (!rv.ord) {
+							rv.ord = rrule.bySetPos;
+						}
+					});
+				}
+			});
+			delete rrule.bySetPos;
 		}
 		if (!rrule.freq) {
 			return parseRRULEvCalendar(rs);
