@@ -136,9 +136,7 @@ SyncKey.prototype.prepare = function (kindName, state) {
 			});
 		}
 
-		//clear possibly stored entries from previous syncs:
 		this.forEachFolder(kindName, function (folder) {
-			delete folder.entries;
 			delete folder.downloadsFailed;
 		});
 
