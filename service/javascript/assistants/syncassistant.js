@@ -250,8 +250,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					}
 				}
 
-				if (obj && obj._id && !obj._kind) {
-					obj._kind = Kinds.objects[kindName].id;
+				if (!to._kind) {
+					to._kind = Kinds.objects[kindName].id;
 				}
 
 				if (from.collectionId) {
@@ -272,7 +272,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.preventSync = false;
 				}
 
-				return from.obj;
+				return true;
 			};
 		}
 
