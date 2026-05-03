@@ -126,6 +126,16 @@ SyncKey.prototype.prepare = function (kindName, state) {
 		//reset index:
 		this.client.transport.syncKey[kindName || this.kindName].folderIndex = 0;
 
+		// Shuffle folder processing order so no single calendar always times out last.
+		var folders = this.client.transport.syncKey[kindName || this.kindName].folders,
+			i, j, temp;
+		for (i = folders.length - 1; i > 0; i -= 1) {
+			j = Math.floor(Math.random() * (i + 1));
+			temp = folders[i];
+			folders[i] = folders[j];
+			folders[j] = temp;
+		}
+
 		// if error on previous sync reset ctag.
 		if (this.client.transport.syncKey[kindName || this.kindName].error ||
 				this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error) {
