@@ -136,14 +136,14 @@ SyncKey.prototype.prepare = function (kindName, state) {
 			folders[j] = temp;
 		}
 
-		// if error on previous sync reset ctag.
+		// if error on previous sync, log it but keep existing ctags as incremental checkpoints.
+		// Resetting ctag=0 forces a full etag scan of all existing DB records which OOMs on
+		// large calendars (CESMII has hundreds of recurring-event exceptions). The per-batch
+		// saveErrorState at getMoreRemoteChanges already checkpoints ctags, so resuming from
+		// the last ctag is safe — the server will resend any events that changed after it.
 		if (this.client.transport.syncKey[kindName || this.kindName].error ||
 				this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error) {
-			Log.log("Error state in db was true. Last sync must have failed. Resetting ctag to do full sync.");
-
-			this.forEachFolder(kindName, function (folder) {
-				folder.ctag = 0;
-			});
+			Log.log("Error state in db was true. Last sync must have failed. Resuming from last ctag checkpoint.");
 		}
 
 		this.forEachFolder(kindName, function (folder) {
