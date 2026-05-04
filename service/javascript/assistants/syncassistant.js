@@ -243,15 +243,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					Log.log("ERROR: Incomming undefined!!", from, " = ", to);
 				}
 
+				if (obj && !obj._kind) {
+					obj._kind = Kinds.objects[kindName].id;
+				}
+
 				//populate to object with data from event:
 				for (key in obj) {
 					if (obj.hasOwnProperty(key) && obj[key] !== undefined) { // && obj[key] !== null) {
 						to[key] = obj[key];
 					}
-				}
-
-				if (obj && obj._id && !obj._kind) {
-					obj._kind = Kinds.objects[kindName].id;
 				}
 
 				if (from.collectionId) {
@@ -931,6 +931,46 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						if (kindName === Kinds.objects.calendarevent.name) {
 							//transform recevied iCal to webos calendar object:
 							Log.debug("Starting iCal conversion");
+
+							// Strip attendees beyond the first 10 (not useful on webOS, causes OOM on large meetings)
+							if (result.data) {
+								var attendeeCount = 0;
+								result.data = result.data.replace(/^ATTENDEE[^\r\n]*(\r\n[ \t][^\r\n]*)*/mg, function (match) {
+									attendeeCount += 1;
+									return attendeeCount <= 10 ? match : "";
+								});
+								if (attendeeCount > 10) {
+									Log.log("Truncated attendee list from ", attendeeCount, " to 10 to avoid memory crash.");
+								}
+							}
+
+							// Truncate DESCRIPTION to 500 chars — Teams/recurring meeting descriptions bloat memory
+							if (result.data) {
+								result.data = result.data.replace(/^(DESCRIPTION[^\r\n]*(\r\n[ \t][^\r\n]*)*)/mg, function (match) {
+									var plain = match.replace(/\r\n[ \t]/g, "");
+									if (plain.length > 520) {
+										Log.log("Truncating long description (", plain.length, " bytes).");
+										return "DESCRIPTION:" + plain.slice(12, 512) + "...(truncated)";
+									}
+									return match;
+								});
+							}
+
+							// Cap VEVENT exceptions — recurring meetings with 60+ overrides cause OOM
+							// Keep master event (no RECURRENCE-ID) + first 20 exceptions
+							if (result.data) {
+								var veventBlocks = result.data.split("BEGIN:VEVENT");
+								if (veventBlocks.length > 22) { // preamble + master + 20 exceptions
+									Log.log("Capping VEVENT exceptions from ", veventBlocks.length - 1, " to 20.");
+									result.data = veventBlocks.slice(0, 22).join("BEGIN:VEVENT");
+									// Ensure file ends properly
+									var lastEnd = result.data.lastIndexOf("END:VEVENT");
+									if (lastEnd !== -1) {
+										result.data = result.data.slice(0, lastEnd + 10) + "\r\nEND:VCALENDAR";
+									}
+								}
+							}
+
 							future.nest(CalendarEventHandler.parseICal(result.data));
 						} else if (kindName === Kinds.objects.contact.name) {
 							Log.debug("Starting vCard conversion");
@@ -1128,7 +1168,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			SyncStatus.uploadedOne(this.client.clientId, kindName);
 			//process next object
 			if (index + 1 < batch.length) {
-				future.nest(this._processOne(index + 1, batch, kindName));
+				future.nest(this._processOne(index + 1, remoteIds, batch, kindName));
 			} else { //finished, return results.
 				future.result = {
 					returnValue: !error,

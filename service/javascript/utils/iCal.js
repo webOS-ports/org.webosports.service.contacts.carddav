@@ -146,7 +146,7 @@ var iCal = (function () {
 		return rule;
 	}
 
-	function buildRRULE(rr) {
+	function buildRRULE(rr, allDay) {
 		var text = "RRULE:", i, j, day;
 		text += "FREQ=" + rr.freq + ";";
 		if (rr.count) {
@@ -156,7 +156,8 @@ var iCal = (function () {
 			text += "INTERVAL=" + rr.interval + ";";
 		}
 		if (rr.until) {
-			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, true) + ";";
+			// RFC 5545: UNTIL must be DATE when DTSTART is DATE (all-day), DATETIME otherwise
+			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, allDay || false, !allDay) + ";";
 		}
 		if (rr.wkst || rr.wkst === 0 || rr.wkst === "0") {
 			text += "WKST=" + numToDay[rr.wkst] + ";";
@@ -290,6 +291,9 @@ var iCal = (function () {
 			case "WKST":
 				rrule.wkst = dayToNum[kv[1]];
 				break;
+			case "BYSETPOS":
+				rrule.bySetPos = kv[1];
+				break;
 			case "BYDAY":
 			case "BYMONTHDAY":
 			case "BYYEARDAY":
@@ -306,6 +310,20 @@ var iCal = (function () {
 				}
 				break;
 			}
+		}
+		// BYSETPOS=N;BYDAY=XX is equivalent to BYDAY=NXX (e.g. the 2nd Tuesday).
+		// Apply BYSETPOS as the ord on BYDAY rules that have no ordinal of their own.
+		if (rrule.bySetPos && rrule.rules) {
+			rrule.rules.forEach(function (rule) {
+				if (rule.ruleType === "BYDAY") {
+					rule.ruleValue.forEach(function (rv) {
+						if (!rv.ord) {
+							rv.ord = rrule.bySetPos;
+						}
+					});
+				}
+			});
+			delete rrule.bySetPos;
 		}
 		if (!rrule.freq) {
 			return parseRRULEvCalendar(rs);
@@ -990,7 +1008,7 @@ var iCal = (function () {
 					}
 					text.push(transTime[field] +
 						(allDay ? ";VALUE=DATE" : "") +
-						(event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
+						(!allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
 						":" +
 						Time.webOsTimeToICal(value, allDay, event.tzId === "UTC"));
 				} else if (field.indexOf("x-") === 0 && typeof event[field] === "string") {
@@ -1002,16 +1020,16 @@ var iCal = (function () {
 						break;
 					case "exdates":
 						if (event.exdates.length > 0) {
-							text.push("EXDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
+							text.push("EXDATE" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
 						}
 						break;
 					case "rdates":
 						if (event.rdates.length > 0) {
-							text.push("RDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
+							text.push("RDATE" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
 						}
 						break;
 					case "recurrenceId":
-						text.push("RECURRENCE-ID" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
+						text.push("RECURRENCE-ID" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
 						break;
 					case "alarm":
 						text = buildALARM(event.alarm, text);
@@ -1023,7 +1041,7 @@ var iCal = (function () {
 						break;
 					case "rrule":
 						if (event.rrule) {
-							text.push(buildRRULE(event.rrule));
+							text.push(buildRRULE(event.rrule, event.allDay));
 						}
 						break;
 					default:
@@ -1092,7 +1110,7 @@ var iCal = (function () {
 		 * @return future that will contain the webOS object in result.result
 		 */
 		parseICal: function (ical) {
-			var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, events = [];
+			var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, tzDataMap = {}, events = [];
 
 			lines = preProcessIcal(ical);
 
@@ -1109,6 +1127,10 @@ var iCal = (function () {
 					tzContinue = parseTimezone(lObj, tz);
 					if (!tzContinue) {
 						delete event.tzMode;
+						if (tz.tzId) {
+							tzDataMap[tz.tzId] = {standard: tz.standard, daylight: tz.daylight};
+						}
+						tz = {};
 					}
 				} else if (event.ignoreMode) {
 					if (lObj.key === "END" && event.ignoreMode === lObj.value) { //make sure you ignore from the correct begin to the correct end.
@@ -1129,12 +1151,14 @@ var iCal = (function () {
 			for (i = events.length - 1; i >= 0; i -= 1) {
 				if (!events[i].valid) {
 					events.splice(i, 1);
+				} else {
+					delete events[i].valid;
 				}
-				delete events[i].valid;
 			}
 
 			Log.log_icalDebug("Parsing finished, event:", events);
 
+			Time.setInlineTimezones(tzDataMap);
 			Time.normalizeToLocalTimezone(events).then(function (future) {
 				var result = checkResult(future), exceptions = [], revent;
 				if (result.returnValue) {

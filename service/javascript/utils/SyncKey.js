@@ -126,19 +126,27 @@ SyncKey.prototype.prepare = function (kindName, state) {
 		//reset index:
 		this.client.transport.syncKey[kindName || this.kindName].folderIndex = 0;
 
-		// if error on previous sync reset ctag.
-		if (this.client.transport.syncKey[kindName || this.kindName].error ||
-				this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error) {
-			Log.log("Error state in db was true. Last sync must have failed. Resetting ctag to do full sync.");
-
-			this.forEachFolder(kindName, function (folder) {
-				folder.ctag = 0;
-			});
+		// Shuffle folder processing order so no single calendar always times out last.
+		var folders = this.client.transport.syncKey[kindName || this.kindName].folders,
+			i, j, temp;
+		for (i = folders.length - 1; i > 0; i -= 1) {
+			j = Math.floor(Math.random() * (i + 1));
+			temp = folders[i];
+			folders[i] = folders[j];
+			folders[j] = temp;
 		}
 
-		//clear possibly stored entries from previous syncs:
+		// if error on previous sync, log it but keep existing ctags as incremental checkpoints.
+		// Resetting ctag=0 forces a full etag scan of all existing DB records which OOMs on
+		// large calendars (CESMII has hundreds of recurring-event exceptions). The per-batch
+		// saveErrorState at getMoreRemoteChanges already checkpoints ctags, so resuming from
+		// the last ctag is safe — the server will resend any events that changed after it.
+		if (this.client.transport.syncKey[kindName || this.kindName].error ||
+				this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error) {
+			Log.log("Error state in db was true. Last sync must have failed. Resuming from last ctag checkpoint.");
+		}
+
 		this.forEachFolder(kindName, function (folder) {
-			delete folder.entries;
 			delete folder.downloadsFailed;
 		});
 
@@ -146,6 +154,13 @@ SyncKey.prototype.prepare = function (kindName, state) {
 
 		//reset error. If folders had error, transfer error state to content.
 		this.client.transport.syncKey[kindName || this.kindName].error = this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error;
+
+		// Persist the cleared error state immediately. Without this, if the service restarts
+		// mid-sync it would re-read error=true from DB and force another full re-download,
+		// crashing on large calendars due to memory pressure from the prior sync.
+		if (!this.client.transport.syncKey[kindName || this.kindName].error) {
+			this._saveTransportObject();
+		}
 	}
 };
 

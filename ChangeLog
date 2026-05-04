@@ -1,3 +1,11 @@
+0.3.36:
+	o fixed: many more timezone issues, ownCloud calendar discovery
+2026-05-02: codepoet80
+
+0.3.35:
+	o fixed: Windows timezone support
+2023-01-01: codepoet80
+
 0.3.34:
 	o fixed: md5 digest auth did not work anymore (Daylight server affected)
 2015-09-12: Achim Königs <garfonso@mobo.info>
