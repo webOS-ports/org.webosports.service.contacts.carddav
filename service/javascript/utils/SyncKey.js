@@ -154,6 +154,13 @@ SyncKey.prototype.prepare = function (kindName, state) {
 
 		//reset error. If folders had error, transfer error state to content.
 		this.client.transport.syncKey[kindName || this.kindName].error = this.client.transport.syncKey[Kinds.objects[kindName || this.kindName].connected_kind].error;
+
+		// Persist the cleared error state immediately. Without this, if the service restarts
+		// mid-sync it would re-read error=true from DB and force another full re-download,
+		// crashing on large calendars due to memory pressure from the prior sync.
+		if (!this.client.transport.syncKey[kindName || this.kindName].error) {
+			this._saveTransportObject();
+		}
 	}
 };
 
