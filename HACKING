@@ -32,3 +32,73 @@ o Make small pull requests.
 o Target on one problem at a time.
 o Take some time to explain what you did and especially for what reason in your
   pull request.
+
+OOM / Memory Crash Mitigations (for future hackers):
+-----------------------------------------------------
+webOS TouchPad runs Node.js under a kernel that will silently SIGKILL the cdav
+service process when its RSS exceeds the device's memory budget (~25-30 MB in
+practice). There is no warning, no catchable signal -- the process simply
+vanishes. The activity manager detects the crash, sets an error flag in db8,
+and resets the ctag (forcing a full re-scan from the server on the next run).
+The ctag reset is intentional: without it, the service would silently skip
+events it never finished downloading.
+
+The OOM kill is most likely to occur when syncing large calendars with many
+recurring events, each of which can have dozens of exception blocks (VEVENTs),
+long description bodies (Teams meeting bodies can exceed 2000 bytes), and large
+attendee lists.
+
+Current mitigations in the codebase (as of v0.3.37):
+
+  Per-run batch limit (syncassistant.js):
+    After 10 batches the service exits cleanly via activityTimeout. The sync
+    key preserves position so the next run picks up where it left off. This
+    keeps peak RSS low by preventing unbounded accumulation of in-flight data.
+
+  VEVENT exception cap (syncassistant.js):
+    Recurring events with more than 20 exception blocks are truncated to the
+    master event plus the first 20 exceptions. Files with 50+ VEVENTs were the
+    most common OOM trigger before this cap was added.
+
+  Description truncation (syncassistant.js):
+    Event descriptions longer than 500 characters are truncated. Teams/Outlook
+    meeting descriptions routinely exceed 2000 bytes and contribute
+    meaningfully to per-event heap cost.
+
+  Attendee cap (syncassistant.js):
+    Events with more than 10 attendees are truncated to the first 10. Large
+    all-hands meetings with 50+ attendees are otherwise disproportionately
+    expensive.
+
+  Fisher-Yates shuffle (SyncKey.js):
+    Calendar folders are processed in random order each run. This prevents the
+    same large calendar from always hitting early in a run (before GC has had a
+    chance to run) and ensures that if a pathological ICS file triggers an OOM,
+    the ctag reset and re-run will approach it from a different angle.
+
+Idea worth exploring -- PID lock file:
+  The activity manager sometimes fires two concurrent cdav sync processes.
+  Their combined RSS can exceed the OOM budget even when a single process
+  would stay within limits. A lock file at /tmp/cdav-sync.lock could prevent
+  this: the first process writes its PID, the second checks for the file and
+  exits cleanly (not with an error) if the lock is held.
+
+  This idea was prototyped but not shipped because of a fundamental problem:
+  the OOM killer delivers SIGKILL, which bypasses Node's process.on("exit")
+  cleanup handler. Every OOM kill therefore leaves a stale lock file. On the
+  next run, the service would check the PID in the lock file, find that PID no
+  longer exists, and could either clean up and proceed (safe) or -- if the PID
+  was reused by an unrelated process -- believe the lock is still held and
+  refuse to run. A sequence of OOM kills followed by unlucky PID reuse could
+  theoretically stop sync entirely until a user manually deleted the lock file.
+
+  A more robust implementation would need to:
+    1. Check whether the PID in the lock file is actually a cdav process
+       (e.g., read /proc/<pid>/cmdline and verify it contains cdav).
+    2. Treat any lock whose PID is either missing or belongs to a non-cdav
+       process as stale and remove it unconditionally.
+    3. Use an atomic write (O_EXCL) when creating the lock to avoid a race
+       between the check and the create.
+  With those three things in place the lock file approach should be safe and
+  would address the double-invocation OOM scenario that batch limits and
+  truncation alone cannot prevent.
