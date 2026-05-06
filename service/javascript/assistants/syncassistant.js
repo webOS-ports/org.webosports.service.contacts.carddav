@@ -944,7 +944,19 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 								}
 							}
 
-							// Truncate DESCRIPTION to 500 chars — Teams/recurring meeting descriptions bloat memory
+							// Strip X- extension properties — Teams/Google inject large metadata lines webOS never uses
+							if (result.data) {
+								var xPropCount = 0;
+								result.data = result.data.replace(/^X-[^\r\n]*(\r\n[ \t][^\r\n]*)*/mg, function () {
+									xPropCount += 1;
+									return "";
+								});
+								if (xPropCount > 0) {
+									Log.log("Stripped ", xPropCount, " X- extension properties.");
+								}
+							}
+
+							// Truncate DESCRIPTION to 512 chars — Teams/recurring meeting descriptions bloat memory
 							if (result.data) {
 								result.data = result.data.replace(/^(DESCRIPTION[^\r\n]*(\r\n[ \t][^\r\n]*)*)/mg, function (match) {
 									var plain = match.replace(/\r\n[ \t]/g, "");
@@ -956,14 +968,40 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 								});
 							}
 
-							// Cap VEVENT exceptions — recurring meetings with 60+ overrides cause OOM
-							// Keep master event (no RECURRENCE-ID) + first 20 exceptions
+							// Cap VEVENT exceptions — recurring meetings with 60+ overrides cause OOM/DB-full
+							// Keep master event (no RECURRENCE-ID) + 20 exceptions closest to today,
+							// preferring future exceptions so this week's cancellations are not dropped.
 							if (result.data) {
 								var veventBlocks = result.data.split("BEGIN:VEVENT");
 								if (veventBlocks.length > 22) { // preamble + master + 20 exceptions
 									Log.log("Capping VEVENT exceptions from ", veventBlocks.length - 1, " to 20.");
-									result.data = veventBlocks.slice(0, 22).join("BEGIN:VEVENT");
-									// Ensure file ends properly
+									var preamble = veventBlocks[0];
+									var allEvents = veventBlocks.slice(1);
+									var masterBlocks = [], exceptionBlocks = [];
+									allEvents.forEach(function (block) {
+										if (block.indexOf("RECURRENCE-ID") === -1) {
+											masterBlocks.push(block);
+										} else {
+											exceptionBlocks.push(block);
+										}
+									});
+									var todayMs = (new Date()).setHours(0, 0, 0, 0);
+									exceptionBlocks.sort(function (a, b) {
+										var extractMs = function (block) {
+											var m = block.match(/RECURRENCE-ID[^:\n]*:(\d{8})/);
+											if (!m) { return 0; }
+											var s = m[1];
+											return new Date(s.slice(0, 4) + "-" + s.slice(4, 6) + "-" + s.slice(6, 8)).getTime();
+										};
+										var da = extractMs(a) - todayMs;
+										var db = extractMs(b) - todayMs;
+										// Future exceptions first (ascending), then past exceptions most-recent first
+										if (da >= 0 && db >= 0) { return da - db; }
+										if (da < 0 && db < 0) { return db - da; }
+										return da < 0 ? 1 : -1;
+									});
+									var keptBlocks = masterBlocks.concat(exceptionBlocks.slice(0, 20));
+									result.data = preamble + "BEGIN:VEVENT" + keptBlocks.join("BEGIN:VEVENT");
 									var lastEnd = result.data.lastIndexOf("END:VEVENT");
 									if (lastEnd !== -1) {
 										result.data = result.data.slice(0, lastEnd + 10) + "\r\nEND:VCALENDAR";
