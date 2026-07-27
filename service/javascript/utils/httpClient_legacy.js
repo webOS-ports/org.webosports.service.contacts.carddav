@@ -477,6 +477,13 @@ var httpClient = (function () {
 
 		parseURLIntoOptions: function (inUrl, options) {
 			return parseURLIntoOptionsImpl(inUrl, options);
+		},
+
+		setProxyFromConfig: function (host, port) {
+			proxyHost = host;
+			proxyPort = port;
+			haveProxy = true;
+			Log.log("Proxy configured from webOS system: ", host, ":", port);
 		}
 	};
 }());

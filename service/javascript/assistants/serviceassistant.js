@@ -84,6 +84,34 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				this.kinds = Kinds;
 			}
 
+			// Read webOS system proxy config from shared memory file before any network calls.
+			try {
+				var proxyBuf = fs.readFileSync("/tmp/pmnetconfig/proxy.map");
+				var proxyStr = proxyBuf.toString("binary");
+				var ipMatch = proxyStr.match(/(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/);
+				if (ipMatch) {
+					var ipIdx = proxyStr.indexOf(ipMatch[0]);
+					// The binary stores a LE32 "self-relative offset to IP string" field
+					// immediately before the LE32 port field. Find that anchor.
+					var j, val, port;
+					for (j = Math.max(0, ipIdx - 256); j < ipIdx - 8; j += 1) {
+						if (proxyBuf[j + 2] === 0 && proxyBuf[j + 3] === 0) {
+							val = proxyBuf[j] | (proxyBuf[j + 1] << 8);
+							if (val === ipIdx - j && val > 8) {
+								port = proxyBuf[j + 4] | (proxyBuf[j + 5] << 8);
+								if (port > 1024 && port <= 65535 &&
+										proxyBuf[j + 6] === 0 && proxyBuf[j + 7] === 0) {
+									httpClient.setProxyFromConfig(ipMatch[1], port);
+									break;
+								}
+							}
+						}
+					}
+				}
+			} catch (e) {
+				Log.log("Could not read system proxy config: ", e);
+			}
+
 			var future = new Future();
 
 			//get config object from db:

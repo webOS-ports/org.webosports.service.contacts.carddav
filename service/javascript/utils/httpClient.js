@@ -3,7 +3,10 @@
 
 var http = require("http");
 var https = require("https");
+var net = require("net");
 var url = require("url"); //required to parse urls
+var childProcess = require("child_process");
+var fs = require("fs");
 
 if (!console.trace) {
 	console.trace = function () { "use strict"; };
@@ -11,6 +14,14 @@ if (!console.trace) {
 
 var httpClient = (function () {
 	"use strict";
+	// Node v0.4's TLS stack only speaks TLS 1.0; modern servers require 1.2.
+	// On those platforms we route HTTPS through curl (which handles TLS via the
+	// system proxy) instead of using https.request.  Newer Node builds (LuneOS
+	// and any future port) support TLS 1.2 natively and don't need this detour.
+	var nodeParts = process.version.split("."),
+		needsCurlForTls = parseInt(nodeParts[0].replace("v", ""), 10) === 0 &&
+		                  parseInt(nodeParts[1], 10) <= 4;
+
 	var proxy = {port: 0, host: "", valid: false},
 		httpsProxy = {port: 0, host: "", valid: false},
 		globalReqNum = 0,
@@ -186,55 +197,62 @@ var httpClient = (function () {
 			}
 
 			Log.debug("Proxy: ", p, ", options: ", options, " path: ", (options.host + ":" + options.port));
-			connectReq = http.request({
-				host: p.host,
-				port: p.port,
-				method: "CONNECT",
-				path: options.host + ":" + options.port,
-				headers: {
-					Host: options.host + ":" + options.port
-				},
-				agent: false
+			// Use raw TCP socket for CONNECT — http.request 'connect' event not in Node v0.4
+			var rawSocket = net.createConnection(p.port, p.host);
+
+			rawSocket.on("connect", function() {
+				rawSocket.write(
+					"CONNECT " + options.host + ":" + options.port + " HTTP/1.1\r\n" +
+					"Host: " + options.host + ":" + options.port + "\r\n" +
+					"Proxy-Connection: Keep-Alive\r\n\r\n"
+				);
+				var buf = "";
+				rawSocket.on("data", function onConnectData(chunk) {
+					buf += chunk.toString("ascii");
+					if (buf.indexOf("\r\n\r\n") !== -1) {
+						rawSocket.removeListener("data", onConnectData);
+						rawSocket.resume(); // ensure socket is flowing before TLS takes over
+						returned = true;
+						if (buf.indexOf(" 200 ") !== -1) {
+							Log.log("Connected to proxy successful.");
+							options.socket = rawSocket;
+							options.agent = false;
+							// Trust proxy cert for SSL inspection; proxy handles chain validation.
+							if (options.protocol === "https:") {
+								options.rejectUnauthorized = false;
+								options.requestCert = true;
+							}
+							rawSocket.on("error", errorSocketCB);
+							rawSocket.on("close", closeSocketCB);
+							rawSocket.setTimeout(timeoutDefault, timeoutSocketCB);
+							future.result = {returnValue: true, socket: rawSocket};
+						} else {
+							Log.debug("Proxy CONNECT failed: " + buf.split("\r\n")[0]);
+							rawSocket.destroy();
+							future.result = {returnValue: false};
+						}
+					}
+				});
 			});
-			connectReq.on("error", connReqError);
-			connectReq.on("close", connReqError);
-	/*            connectReq.once("response", function (res) {
-				Log.debug("Got response: ", res);
-				res.upgrade = true; //hack
-			});
-			connectReq.once("upgrade", function (res, socket) {
-				Log.debug("Got upgrade.");
-				if (res.statusCode <= 300) {
-					Log.log("Connected to proxy successful.");
-					options.socket = socket;
-					options.agent = false;
-					future.result = {returnValue: true, socket: socket};
+
+			rawSocket.on("error", function(e) {
+				Log.debug("Error/Close on proxy request: ", e);
+				if (!returned) {
+					returned = true;
+					future.result = {returnValue: false};
 				} else {
+					errorSocketCB(e);
+				}
+			});
+
+			rawSocket.setTimeout(timeoutDefault, function() {
+				Log.debug("Timeout waiting for proxy CONNECT response.");
+				rawSocket.destroy();
+				if (!returned) {
+					returned = true;
 					future.result = {returnValue: false};
 				}
-			});*/
-			setTimeout(connectReq, connReqError);
-
-			connectReq.on("connect", function proxyConnectCB(res, socket) {
-				returned = true;
-				if (res.statusCode <= 300) {
-					Log.log("Connected to proxy successful.");
-					options.socket = socket;
-					options.agent = false;
-
-					socket.on("error", errorSocketCB);
-					socket.on("close", closeSocketCB);
-
-					setTimeout(socket, timeoutSocketCB);
-
-					future.result = {returnValue: true, socket: socket};
-				} else {
-					Log.debug("Connection to proxy failed: ", res.statusCode);
-					future.result = {returnValue: false};
-				}
 			});
-
-			connectReq.end();
 		} else {
 			future.result = {returnValue: true};
 		}
@@ -458,7 +476,113 @@ var httpClient = (function () {
 			//res.socket.once("timeout", timeoutCB);
 		}
 
+		// curl fallback for HTTPS on Node v0.4 (old webOS).  The Squid proxy
+		// (squid-sslbump-for-webos) bridges TLS 1.0↔1.2; curl honours it and
+		// handles the full handshake correctly where Node v0.4 cannot.
+		function sendViaCurl() {
+			var suffix = process.pid + "_" + origin + "_" + retry;
+			var headerFile = "/tmp/cdav_h_" + suffix + ".tmp";
+			var bodyFile   = "/tmp/cdav_b_" + suffix + ".tmp";
+			var reqFile    = null;
+			var targetUrl  = options.prefix + options.path;
+
+			var args = [
+				"-s",                                                  // silent
+				"-k",                                                  // accept proxy re-signed cert
+				"--proxytunnel",                                       // CONNECT tunnel
+				"-x", httpsProxy.host + ":" + httpsProxy.port,        // proxy address
+				"-X", options.method || "GET",
+				"-D", headerFile,                                      // response headers → file
+				"-o", bodyFile,                                        // response body → file
+				"-m", "60"                                             // hard timeout
+			];
+
+			Object.keys(options.headers).forEach(function (key) {
+				args.push("-H");
+				args.push(key + ": " + options.headers[key]);
+			});
+
+			if (data) {
+				reqFile = "/tmp/cdav_r_" + suffix + ".tmp";
+				try {
+					if (data instanceof Buffer) {
+						fs.writeFileSync(reqFile, data.toString("binary"), "binary");
+					} else {
+						fs.writeFileSync(reqFile, data, "utf8");
+					}
+					args.push("--data-binary");
+					args.push("@" + reqFile);
+				} catch (writeErr) {
+					Log.log("curl: failed to write request body: ", writeErr.message);
+					checkRetry("curl write error");
+					return;
+				}
+			}
+
+			args.push(targetUrl);
+			Log.debug("Sending request ", reqName(origin, retry), " via curl to " + targetUrl);
+
+			childProcess.execFile("/usr/bin/curl", args, {timeout: 65000}, function (err, stdout, stderr) {
+				if (reqFile) { try { fs.unlinkSync(reqFile); } catch (e2) {} }
+
+				if (err) {
+					Log.log("curl error for ", reqName(origin, retry), ": ", err.message);
+					try { fs.unlinkSync(headerFile); } catch (e2) {}
+					try { fs.unlinkSync(bodyFile);   } catch (e2) {}
+					checkRetry("curl: " + err.message);
+					return;
+				}
+
+				// Parse response headers
+				var statusCode = 0, resHeaders = {};
+				try {
+					var headerText = fs.readFileSync(headerFile, "ascii");
+					fs.unlinkSync(headerFile);
+					var lines = headerText.split("\r\n");
+					var m = (lines[0] || "").match(/HTTP\/[\d.]+\s+(\d+)/);
+					if (m) { statusCode = parseInt(m[1], 10); }
+					var i, ci;
+					for (i = 1; i < lines.length; i += 1) {
+						ci = lines[i].indexOf(":");
+						if (ci > 0) {
+							resHeaders[lines[i].substring(0, ci).toLowerCase().trim()] =
+								lines[i].substring(ci + 1).trim();
+						}
+					}
+				} catch (parseErr) {
+					Log.log("curl header parse error: ", parseErr.message);
+					try { fs.unlinkSync(bodyFile); } catch (e2) {}
+					checkRetry("curl header parse error");
+					return;
+				}
+
+				// Read response body
+				try {
+					body = fs.readFileSync(bodyFile);
+					fs.unlinkSync(bodyFile);
+				} catch (readErr) {
+					body = new Buffer(0);
+				}
+
+				// Hand body to filestream if requested (curl already downloaded it)
+				if (options.filestream && statusCode >= 200 && statusCode < 300) {
+					try { options.filestream.end(body); } catch (e2) {}
+					delete options.filestream;
+				}
+
+				res = {statusCode: statusCode, headers: resHeaders};
+				Log.log_httpClient("STATUS: ", statusCode, " for ", reqName(origin, retry));
+				Log.log_httpClient("HEADERS: ", resHeaders, " for ", reqName(origin, retry));
+				endCB();
+			});
+		}
+
 		function doSendRequest() {
+			if (options.protocol === "https:" && httpsProxy.valid && needsCurlForTls) {
+				sendViaCurl();
+				return;
+			}
+
 			future.nest(prepareProxy(options, errorCB, closeCB, timeoutCB));
 
 			future.then(function () {
@@ -573,6 +697,16 @@ var httpClient = (function () {
 			} else {
 				Log.log_httpClient("No request ", reqNum, " found.");
 			}
+		},
+
+		setProxyFromConfig: function (host, port) {
+			proxy.host = host;
+			proxy.port = port;
+			proxy.valid = true;
+			httpsProxy.host = host;
+			httpsProxy.port = port;
+			httpsProxy.valid = true;
+			Log.log("Proxy configured from webOS system: ", host, ":", port);
 		}
 	};
 }());
