@@ -15,8 +15,9 @@ function AccountSetupGoogleAssistant(params) {
 }
 
 var BASE_URL = "https://accounts.google.com/o/oauth2/";
-var CLIENT_ID = "272134554501-k5k377p7i1psit075to941cpbgahqn69.apps.googleusercontent.com";
-var CLIENT_SECRET = "TiN4hzrMTxXP0szqQTDxRAfy";
+/* No client id or secret in the repository; see app-enyo/GoogleOauth/CrossAppTarget.js. */
+var CLIENT_ID = "PLACEHOLDER_GOOGLE_CDAV_CLIENT_ID";
+var CLIENT_SECRET = "PLACEHOLDER_GOOGLE_CDAV_CLIENT_SECRET";
 
 AccountSetupGoogleAssistant.prototype.setup = function () {
 	/* this function is for setup tasks that have to happen when the scene is first created */

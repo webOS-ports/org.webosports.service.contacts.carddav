@@ -10,8 +10,22 @@ function debug(msg) {
 }
 
 var BASE_URL = "https://accounts.google.com/o/oauth2/";
-var CLIENT_ID = "272134554501-k5k377p7i1psit075to941cpbgahqn69.apps.googleusercontent.com";
-var CLIENT_SECRET = "TiN4hzrMTxXP0szqQTDxRAfy";
+/*
+ * The Google OAuth client is the builder's own: no client id or secret is in
+ * this repository (the ones it once had are public and are to be revoked). The
+ * LuneOS build puts them in place of these placeholders from
+ * GOOGLE_CDAV_CLIENT_ID and GOOGLE_CDAV_CLIENT_SECRET (meta-luneos'
+ * org.webosports.cdav.bb). Unfilled, sign-in says so instead of starting.
+ */
+var CLIENT_ID = "PLACEHOLDER_GOOGLE_CDAV_CLIENT_ID";
+var CLIENT_SECRET = "PLACEHOLDER_GOOGLE_CDAV_CLIENT_SECRET";
+
+/* matched by prefix, so filling the placeholders in at build time cannot change this test */
+function googleClientConfigured(inId, inSecret) {
+	return [inId, inSecret].every(function (v) {
+		return typeof v === "string" && v !== "" && v.indexOf("PLACEHOLDER_") !== 0;
+	});
+}
 
 enyo.kind({
 	name: "Main.CrossAppLaunch",
@@ -51,6 +65,12 @@ enyo.kind({
 		if (enyo.windowParams) {
 			console.error("Params from enyo: " + JSON.stringify(enyo.windowParams));
 			this.params = enyo.windowParams;
+		}
+
+		if (!googleClientConfigured(CLIENT_ID, CLIENT_SECRET)) {
+			log("Google OAuth client id/secret were not set at build time.");
+			this.showLoginError($L("Google sign-in is not available in this build."));
+			return;
 		}
 
 		url = BASE_URL + "auth?client_id=" +
