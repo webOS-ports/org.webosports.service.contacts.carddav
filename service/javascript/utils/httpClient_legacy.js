@@ -31,27 +31,36 @@ var httpClient = (function () {
 		}
 	}
 
+	//Header names whose values are credentials, compared lower-case (node
+	//lower-cases response headers).
+	var SECRET_HEADERS = ["cookie", "set-cookie"];
+
 	function printHeaders(headers) {
 		var str = "{ ", first = true;
+		if (!headers || typeof headers !== "object") {
+			return "{ }";
+		}
 		Object.keys(headers).forEach(function (key) {
-			var authStr;
+			var authStr, value = String(headers[key] || ""), lower = String(key).toLowerCase();
 			if (!first) {
 				str += ", ";
 			} else {
 				first = false;
 			}
-			if (key === "Authorization") {
-				if (headers[key].indexOf("Basic") === 0) {
+			if (lower === "authorization" || lower === "proxy-authorization") {
+				if (value.indexOf("Basic") === 0) {
 					authStr = "Basic auth";
-				} else if (headers[key].indexOf("Bearer") === 0) {
+				} else if (value.indexOf("Bearer") === 0) {
 					authStr = "Oauth auth";
-				} else if (headers[key].indexOf("Digest") === 0) {
+				} else if (value.indexOf("Digest") === 0) {
 					authStr = "Digest auth";
 				} else {
 					authStr = "Unknown?";
 				}
 
 				str += key + ": " + authStr;
+			} else if (SECRET_HEADERS.indexOf(lower) !== -1) {
+				str += key + ": <redacted>";
 			} else {
 				str += key + ": " + headers[key];
 			}
@@ -347,7 +356,7 @@ var httpClient = (function () {
 		function responseCB(inRes) {
 			res = inRes;
 			Log.log_httpClient("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
-			Log.log_httpClient("HEADERS: ", res.headers, " for ", reqName(origin, retry));
+			Log.log_httpClient("HEADERS: ", printHeaders(res.headers), " for ", reqName(origin, retry));
 			addListenerOnlyOnce(res, "data", dataCB);
 			addListenerOnlyOnce(res, "end", function (e) { //sometimes this does not happen. One reason are empty responses..?
 				Log.log_httpClient("res-end successful: ", e);

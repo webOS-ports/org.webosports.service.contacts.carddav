@@ -49,24 +49,33 @@ var httpClient = (function () {
 		}
 	}
 
+	//Header names whose values are credentials. Compared lower-case: request
+	//headers are set as "Authorization", node hands response headers back
+	//lower-cased, and either may reach the log.
+	var SECRET_HEADERS = ["cookie", "set-cookie"];
+
 	function printHeaders(headers) {
 		var str = "{ ", first = true;
+		if (!headers || typeof headers !== "object") {
+			return "{ }";
+		}
 		Object.keys(headers).forEach(function (key) {
-			var authStr;
+			var authStr, value = headers[key], lower = String(key).toLowerCase();
 			if (!first) {
 				str += ", ";
 			} else {
 				first = false;
 			}
-			if (key === "Authorization") {
-				if (!headers[key]) {
+			if (lower === "authorization" || lower === "proxy-authorization") {
+				value = String(value || "");
+				if (!value) {
 					authStr = "Auth missing!";
 				} else {
-					if (headers[key].indexOf("Basic") === 0) {
+					if (value.indexOf("Basic") === 0) {
 						authStr = "Basic auth";
-					} else if (headers[key].indexOf("Bearer") === 0) {
+					} else if (value.indexOf("Bearer") === 0) {
 						authStr = "Oauth auth";
-					} else if (headers[key].indexOf("Digest") === 0) {
+					} else if (value.indexOf("Digest") === 0) {
 						authStr = "Digest auth";
 					} else {
 						authStr = "Unknown?";
@@ -74,6 +83,8 @@ var httpClient = (function () {
 				}
 
 				str += key + ": " + authStr;
+			} else if (SECRET_HEADERS.indexOf(lower) !== -1) {
+				str += key + ": <redacted>";
 			} else {
 				str += key + ": " + headers[key];
 			}
@@ -185,7 +196,9 @@ var httpClient = (function () {
 				Log.debug("Using https proxy");
 			}
 
-			Log.debug("Proxy: ", p, ", options: ", options, " path: ", (options.host + ":" + options.port));
+			//Never the raw options object: it carries headers.Authorization (Basic
+			//credentials or a Bearer token), and Log.debug always writes.
+			Log.debug("Proxy: ", p.host + ":" + p.port, ", options: ", printOptions(options), " path: ", (options.host + ":" + options.port));
 			connectReq = http.request({
 				host: p.host,
 				port: p.port,
@@ -426,7 +439,7 @@ var httpClient = (function () {
 		function responseCB(inRes) {
 			res = inRes;
 			Log.log_httpClient("STATUS: ", res.statusCode, " for ", reqName(origin, retry));
-			Log.log_httpClient("HEADERS: ", res.headers, " for ", reqName(origin, retry));
+			Log.log_httpClient("HEADERS: ", printHeaders(res.headers), " for ", reqName(origin, retry));
 			if (res.headers["content-length"] && typeof options.sizeCallback === "function") {
 				options.sizeCallback(res.headers["content-length"]);
 			}
