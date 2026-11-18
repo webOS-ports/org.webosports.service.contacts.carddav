@@ -23,7 +23,6 @@ global.Log = {log: quiet, debug: quiet, log_icalDebug: quiet};
 
 var written;
 global.httpClient = {
-	isLocalHost: function (host) { return host === "nas"; },
 	parseURLIntoOptions: function (url, options) { options.host = require("url").parse(url).hostname; },
 	sendRequest: function (options) {
 		fetched.push(options);
@@ -158,8 +157,7 @@ bdd.describe("contact photos", function () {
 	});
 
 	[["a web page", {returnValue: true, headers: {"content-type": "text/html"}, body: Buffer.from("x")}],
-		["a failure", {returnValue: false, returnCode: 404, headers: {}}],
-		["a huge file", {returnValue: true, headers: {"content-type": "image/png"}, body: Buffer.alloc(2097153)}]].forEach(function (c) {
+		["a failure", {returnValue: false, returnCode: 404, headers: {}}]].forEach(function (c) {
 		bdd.it("ignores " + c[0] + " instead of a photo", function () {
 			photoAnswer = c[1];
 			return parsed(linked("https://example.org/p"), NO_NAME).then(function (result) {
@@ -169,11 +167,12 @@ bdd.describe("contact photos", function () {
 		});
 	});
 
-	bdd.it("does not fetch photos from the local network", function () {
+	bdd.it("limits where a photo may come from and how large it is", function () {
 		fetched = [];
-		return parsed(linked("http://nas/p"), NO_NAME).then(function (result) {
-			assert.deepStrictEqual(fetched, []);
-			assert.deepStrictEqual(result.photos, []);
+		photoAnswer = {returnValue: false, headers: {}};
+		return parsed(linked("https://example.org/p"), NO_NAME).then(function () {
+			assert.strictEqual(fetched[0].publicOnly, true);
+			assert.strictEqual(fetched[0].maxBytes, 2097152);
 		});
 	});
 

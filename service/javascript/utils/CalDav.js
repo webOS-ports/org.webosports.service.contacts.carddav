@@ -3,6 +3,7 @@
 
 var AuthManager = require(libPath + "AuthManager.js");
 var urlParser = require("url");
+var dns = require("dns");
 
 var CalDav = (function () {
 	"use strict";
@@ -226,6 +227,34 @@ var CalDav = (function () {
 		});
 		Log.log_calDavDebug("Etag directory: ", etags.length);
 		return {complete: complete, etags: etags, responses: responses.length};
+	}
+
+	function escapeXml(text) {
+		return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	}
+
+	//The objects in a multiget answer, by path. XML has normalized their line ends.
+	function getObjectData(body) {
+		var objects = {};
+		parseResponseBody(body).forEach(function (response) {
+			response.propstats.forEach(function (propstat) {
+				var prop = propstat.prop, key, entry = objects[comparablePath(response.href || "")] || {};
+				if (!isSuccessStatus(propstat.status) || !response.href) {
+					return;
+				}
+				for (key in prop) {
+					if (prop.hasOwnProperty(key)) {
+						if (key.toLowerCase().indexOf("getetag") >= 0) {
+							entry.etag = getValue(prop[key], "$t");
+						} else if ((/(calendar|address)-data$/i).test(key)) {
+							entry.data = (getValue(prop[key], "$t") || "").replace(/\r?\n/g, "\r\n");
+						}
+					}
+				}
+				objects[comparablePath(response.href)] = entry;
+			});
+		});
+		return objects;
 	}
 
 	/**
@@ -579,6 +608,166 @@ var CalDav = (function () {
 			});
 
 			return future;
+		},
+
+		/**
+		 * Downloads several objects with one request (RFC 4791 section 7.9, RFC 6352 section 8.7).
+		 * @param params usual param object with path of the collection, credentials, ...
+		 * @param objs objects with uri fields
+		 * @return future, result.objects has {data, etag} for each uri the server delivered.
+		 */
+		downloadObjects: function (params, objs) {
+			var future = new Future(), options = preProcessOptions(params, "REPORT"), data, hrefs;
+			options.headers.Depth = 1;
+			options.parse = true;
+
+			hrefs = objs.map(function (obj) {
+				return "<d:href>" + escapeXml(urlParser.parse(obj.uri).path) + "</d:href>";
+			}).join("");
+			if (params.cardDav) {
+				data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:addressbook-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\">" +
+					"<d:prop><d:getetag /><c:address-data content-type=\"text/vcard\" version=\"3.0\" /></d:prop>" + hrefs + "</c:addressbook-multiget>";
+			} else {
+				data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:calendar-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">" +
+					"<d:prop><d:getetag /><c:calendar-data /></d:prop>" + hrefs + "</c:calendar-multiget>";
+			}
+
+			future.nest(httpClient.sendRequest(options, data));
+			future.then(function () {
+				var result = checkResult(future), objects = {};
+				if (result.returnValue && isMultistatus(result.parsedBody)) {
+					objects = getObjectData(result.parsedBody);
+					future.result = {
+						returnValue: true,
+						objects: objs.reduce(function (found, obj) {
+							var entry = objects[comparablePath(obj.uri)];
+							if (entry && entry.data) {
+								found[obj.uri] = entry;
+							}
+							return found;
+						}, {})
+					};
+				} else {
+					future.result = {returnValue: false, returnCode: result.returnCode};
+				}
+			});
+			return future;
+		},
+
+		/**
+		 * Asks what changed in a collection since a sync token (RFC 6578).
+		 * @param params usual param object with path of the collection and syncToken
+		 * @return future with changed: [{uri, etag}], removed: [uri], syncToken and truncated.
+		 *         returnValue is false if the token is not valid anymore, or on any other failure.
+		 */
+		syncCollection: function (params) {
+			var future = new Future(), options = preProcessOptions(params, "REPORT"), data;
+			options.headers.Depth = 0;
+			options.parse = true;
+			data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><d:sync-collection xmlns:d=\"DAV:\"><d:sync-token>" + escapeXml(params.syncToken) +
+				"</d:sync-token><d:sync-level>1</d:sync-level><d:prop><d:getetag /></d:prop></d:sync-collection>";
+
+			future.nest(httpClient.sendRequest(options, data));
+			future.then(function () {
+				var result = checkResult(future), changes, multistatus, self = comparablePath(options.path);
+				multistatus = result.returnValue ? getValue(result.parsedBody, "multistatus") : undefined;
+				if (multistatus === undefined || !getValue(getValue(multistatus, "sync-token"), "$t")) {
+					Log.log("No changes from the sync token, status ", result.returnCode);
+					future.result = {returnValue: false, returnCode: result.returnCode};
+					return;
+				}
+				changes = {returnValue: true, changed: [], removed: [], truncated: false,
+					syncToken: getValue(getValue(multistatus, "sync-token"), "$t")};
+				parseResponseBody(result.parsedBody).forEach(function (response) {
+					var etag;
+					if (!response.href) {
+						return;
+					}
+					if (comparablePath(response.href) === self) {
+						changes.truncated = changes.truncated || (/\b507\b/).test(response.status || "");
+					} else if (!isSuccessStatus(response.status)) {
+						changes.removed.push(response.href);
+					} else {
+						response.propstats.forEach(function (propstat) {
+							if (isSuccessStatus(propstat.status) && propstat.prop) {
+								etag = getValue(getValue(propstat.prop, "getetag"), "$t") || etag;
+							}
+						});
+						if (etag) {
+							changes.changed.push({uri: response.href, etag: etag});
+						}
+					}
+				});
+				future.result = changes;
+			});
+			return future;
+		},
+
+		/**
+		 * Finds the server for a mail domain as RFC 6764 section 6 describes it: an SRV record
+		 * for the service over TLS, a TXT record for its path, then the well-known address.
+		 * @param domain the part of the mail address after the @
+		 * @return future, result.url is the address to start discovery from
+		 */
+		findServer: function (domain) {
+			var future = new Future(), services = ["caldavs", "carddavs"];
+
+			function wellKnown() {
+				future.result = {returnValue: true, url: "https://" + domain + "/.well-known/caldav"};
+			}
+
+			//lowest priority first, among equals by weight (RFC 2782).
+			function pick(records) {
+				var lowest = Math.min.apply(null, records.map(function (r) { return r.priority; })),
+					candidates = records.filter(function (r) { return r.priority === lowest; }),
+					total = candidates.reduce(function (sum, r) { return sum + r.weight; }, 0),
+					point = Math.random() * total, i;
+				for (i = 0; i < candidates.length; i += 1) {
+					point -= candidates[i].weight;
+					if (point < 0) {
+						return candidates[i];
+					}
+				}
+				return candidates[0];
+			}
+
+			function next() {
+				var service = services.shift(), name;
+				if (!service) {
+					wellKnown();
+					return;
+				}
+				name = "_" + service + "._tcp." + domain;
+				CalDav.dns.resolveSrv(name, function (error, records) {
+					var record = !error && records && records.length ? pick(records) : undefined;
+					if (!record || !record.name || record.name === ".") { //"." says: no such service here.
+						next();
+						return;
+					}
+					CalDav.dns.resolveTxt(name, function (txtError, texts) {
+						var path = "/.well-known/" + service.replace(/s$/, "");
+						(txtError ? [] : texts || []).forEach(function (text) {
+							var parts = (/^path=(\/.*)$/).exec([].concat(text).join(""));
+							if (parts) {
+								path = parts[1];
+							}
+						});
+						future.result = {returnValue: true, url: "https://" + record.name.replace(/\.$/, "") + ":" + record.port + path};
+					});
+				});
+			}
+
+			next();
+			return future;
+		},
+
+		dns: dns,
+
+		/**
+		 * Tells if two hrefs name the same resource.
+		 */
+		samePath: function (a, b) {
+			return comparablePath(a) === comparablePath(b);
 		},
 
 		/**

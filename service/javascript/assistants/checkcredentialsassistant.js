@@ -1,5 +1,5 @@
 /*jslint nomen: true, node: true */
-/*global DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, libPath */
+/*global CalDav, DB, searchAccountConfig, Future, Log, UrlSchemes, Transport, checkResult, libPath */
 /*exported checkCredentialsAssistant*/
 var KeyStore = require(libPath + "KeyStore.js");
 var Base64 = require(libPath + "Base64.js");
@@ -63,6 +63,21 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			}
 		};
 	}
+
+	//RFC 6764: a mail address is enough to find the server.
+	future.then(this, function findServerCB() {
+		var result = checkResult(future), mail = /^[^@\s]+@([^@\s]+)$/.exec(args.username || ""), lookup;
+		if (result.returnValue === true && mail && !args.accountId && !urlScheme && !args.oauth && (!url || /^https?:\/*$/.test(url))) {
+			lookup = CalDav.findServer(mail[1]);
+			lookup.then(function serverFoundCB() {
+				url = checkResult(lookup).url;
+				result.config.url = url;
+				future.result = result;
+			});
+		} else {
+			future.result = result;
+		}
+	});
 
 	future.then(this, function gotConfigObject() {
 		var result = checkResult(future), path, newPath, scheme;

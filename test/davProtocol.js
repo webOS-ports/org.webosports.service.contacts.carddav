@@ -237,6 +237,171 @@ bdd.describe("talking to a DAV server", function () {
 		});
 	});
 
+	bdd.describe("batch downloads and changes", function () {
+		var CAL = "<c:calendar-data>BEGIN:VCALENDAR\nSUMMARY:A &amp; B\nEND:VCALENDAR\n</c:calendar-data>";
+
+		bdd.it("fetches several objects with one request", function () {
+			fresh({"/c/": {code: 207, body: multistatus(
+				response("/c/a%20b.ics", found(etag("e1") + CAL)) +
+					response("/c/gone.ics", missing("<c:calendar-data>old</c:calendar-data>")) +
+					response("/c/empty.ics", found(etag("e2")))
+			)}});
+			return done(CalDav.downloadObjects(params("/c/"), [{uri: "/c/a%20b.ics"}, {uri: "/c/gone.ics"}, {uri: "/c/empty.ics"}, {uri: "/c/x&y.ics"}])).then(function (result) {
+				assert.deepStrictEqual(Object.keys(result.objects), ["/c/a%20b.ics"]);
+				assert.strictEqual(result.objects["/c/a%20b.ics"].data, "BEGIN:VCALENDAR\r\nSUMMARY:A & B\r\nEND:VCALENDAR\r\n");
+				assert.strictEqual(result.objects["/c/a%20b.ics"].etag, "\"e1\"");
+				assert.strictEqual(seen.length, 1);
+				assert.strictEqual(seen[0].method, "REPORT");
+				assert.ok(seen[0].body.indexOf("calendar-multiget") > 0);
+				assert.ok(seen[0].body.indexOf("<d:href>/c/x&amp;y.ics</d:href>") > 0, seen[0].body);
+			});
+		});
+
+		bdd.it("asks for vCard 3 in a batch", function () {
+			fresh({"/c/": {code: 207, body: multistatus("")}});
+			return done(CalDav.downloadObjects(params("/c/", {cardDav: true}), [{uri: "/c/1"}])).then(function () {
+				assert.ok(/addressbook-multiget/.test(seen[0].body) && /version="3.0"/.test(seen[0].body));
+			});
+		});
+
+		bdd.it("fails on a batch answer that is no listing", function () {
+			fresh({"/c/": {code: 200, body: "<html></html>"}});
+			return done(CalDav.downloadObjects(params("/c/"), [{uri: "/c/1"}])).then(function (result) {
+				assert.strictEqual(result.returnValue, false);
+			});
+		});
+
+		function changes(extra) {
+			return multistatus(response("/c/new", found(etag("n"))) +
+				"<d:response><d:href>/c/old</d:href><d:status>HTTP/1.1 404 Not Found</d:status></d:response>" + (extra || "") +
+				"<d:sync-token>t2</d:sync-token>");
+		}
+
+		bdd.it("reads what changed since a token", function () {
+			fresh({"/c/": {code: 207, body: changes()}});
+			return done(CalDav.syncCollection(params("/c/", {syncToken: "t<1"}))).then(function (result) {
+				assert.deepStrictEqual(result.changed, [{uri: "/c/new", etag: "\"n\""}]);
+				assert.deepStrictEqual(result.removed, ["/c/old"]);
+				assert.strictEqual(result.syncToken, "t2");
+				assert.strictEqual(result.truncated, false);
+				assert.strictEqual(seen[0].headers.depth, "0");
+				assert.ok(seen[0].body.indexOf("t&lt;1") > 0);
+			});
+		});
+
+		bdd.it("notices a cut off list of changes", function () {
+			fresh({"/c/": {code: 207, body: changes("<d:response><d:href>/c/</d:href><d:status>HTTP/1.1 507 Insufficient Storage</d:status></d:response>")}});
+			return done(CalDav.syncCollection(params("/c/", {syncToken: "t1"}))).then(function (result) {
+				assert.strictEqual(result.truncated, true);
+				assert.deepStrictEqual(result.removed, ["/c/old"]);
+			});
+		});
+
+		[[403, "<error/>"], [207, multistatus("")]].forEach(function (c) {
+			bdd.it("fails on a rejected token or no new token (" + c[0] + ")", function () {
+				fresh({"/c/": {code: c[0], body: c[1]}});
+				return done(CalDav.syncCollection(params("/c/", {syncToken: "t1"}))).then(function (result) {
+					assert.strictEqual(result.returnValue, false);
+				});
+			});
+		});
+
+		bdd.it("builds the listing from local objects and the changes", function () {
+			var local = [
+				{uri: "/c/same", etag: "s", calendarId: "C"},
+				{uri: "/c/old", etag: "o", calendarId: "C"},
+				{uri: "/c/edited", etag: "e", calendarId: "C"},
+				{uri: "/d/other", etag: "x", calendarId: "D"}
+			];
+			assert.deepStrictEqual(ETag.applyChanges(local, {changed: [{uri: "/c/edited", etag: "e2"}, {uri: "/c/new", etag: "n"}], removed: ["/c/old"]}, "C", CalDav.samePath),
+				[{uri: "/c/same", etag: "s"}, {uri: "/c/edited", etag: "e2"}, {uri: "/c/new", etag: "n"}]);
+		});
+	});
+
+	bdd.describe("finding a server from a mail address", function () {
+		var real = CalDav.dns;
+
+		function withDns(srv, txt) {
+			CalDav.dns = {
+				resolveSrv: function (name, cb) {
+					setImmediate(cb, srv[name] ? null : new Error("none"), srv[name]);
+				},
+				resolveTxt: function (name, cb) {
+					setImmediate(cb, txt[name] ? null : new Error("none"), txt[name]);
+				}
+			};
+		}
+
+		bdd.it("uses the SRV and TXT records", function () {
+			withDns({"_caldavs._tcp.example.org": [{name: "backup.example.org.", port: 1, priority: 20, weight: 1},
+				{name: "dav.example.org.", port: 8443, priority: 10, weight: 1}]},
+				{"_caldavs._tcp.example.org": [["path=/dav/"]]});
+			return done(CalDav.findServer("example.org")).then(function (result) {
+				CalDav.dns = real;
+				assert.strictEqual(result.url, "https://dav.example.org:8443/dav/");
+			});
+		});
+
+		bdd.it("falls back on contacts, then the well-known address", function () {
+			withDns({"_carddavs._tcp.example.org": [{name: "c.example.org", port: 443, priority: 0, weight: 0}]}, {});
+			return done(CalDav.findServer("example.org")).then(function (result) {
+				assert.strictEqual(result.url, "https://c.example.org:443/.well-known/carddav");
+				withDns({"_caldavs._tcp.example.org": [{name: ".", port: 0, priority: 0, weight: 0}]}, {});
+				return done(CalDav.findServer("example.org"));
+			}).then(function (result) {
+				CalDav.dns = real;
+				assert.strictEqual(result.url, "https://example.org/.well-known/caldav");
+			});
+		});
+	});
+
+	bdd.describe("requests to addresses from other people", function () {
+		function get(p, extra) {
+			var options = Object.assign({method: "GET", headers: {}}, extra);
+			global.httpClient.parseURLIntoOptions(url(p), options);
+			return done(global.httpClient.sendRequest(options, ""));
+		}
+
+		bdd.it("does not connect to a local address", function () {
+			fresh({"/p": {code: 200, body: "x"}});
+			return get("/p", {publicOnly: true}).then(function (result) {
+				assert.strictEqual(result.returnValue, false);
+				assert.deepStrictEqual(seen, []);
+			});
+		});
+
+		[{}, {all: true}].forEach(function (lookupOptions) {
+			bdd.it("refuses a name that points inwards " + JSON.stringify(lookupOptions), function () {
+				return new Promise(function (resolve) {
+					global.httpClient.publicLookup("localhost", lookupOptions, function (error) {
+						assert.strictEqual(error && error.code, "EPRIVATEADDRESS");
+						resolve();
+					});
+				});
+			});
+		});
+
+		bdd.it("knows private addresses", function () {
+			["127.0.0.1", "10.1.2.3", "172.16.0.1", "172.31.255.1", "192.168.1.5", "169.254.1.1", "100.64.0.1", "0.0.0.0", "::1", "::", "fd00::1", "fe80::1", "::ffff:10.0.0.1"].forEach(function (ip) {
+				assert.strictEqual(global.httpClient.isPrivateAddress(ip), true, ip);
+			});
+			["8.8.8.8", "172.32.0.1", "100.128.0.1", "2001:4860::1", "::ffff:8.8.8.8"].forEach(function (ip) {
+				assert.strictEqual(global.httpClient.isPrivateAddress(ip), false, ip);
+			});
+		});
+
+		bdd.it("stops reading an answer that is too large", function () {
+			fresh({"/p": {code: 200, body: "0123456789"}});
+			return get("/p", {maxBytes: 9}).then(function (result) {
+				assert.strictEqual(result.returnValue, false);
+				return get("/p", {maxBytes: 10});
+			}).then(function (result) {
+				assert.strictEqual(result.returnValue, true);
+				assert.strictEqual(result.body, "0123456789");
+			});
+		});
+	});
+
 	bdd.describe("redirects", function () {
 		var OK = {code: 207, body: multistatus("")};
 

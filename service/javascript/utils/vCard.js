@@ -14,22 +14,23 @@ var vCard = (function () {
 		vCardIndex = 0,
 		MAX_PHOTO_BYTES = 2097152;
 
-	//A vCard can point to its photo. Fetched without credentials, and never from the local
-	//network: the address comes from whoever edited the contact.
+	//A vCard can point to its photo. The address comes from whoever edited the contact, so it is
+	//fetched without credentials and only from public addresses, also after redirects.
 	function downloadPhoto(photo) {
-		var future = new Future(), options = {method: "GET", headers: {"User-Agent": "org.webosports.service.cdav-connector"}, binary: true};
+		var future = new Future(), options = {
+			method: "GET",
+			headers: {"User-Agent": "org.webosports.service.cdav-connector"},
+			binary: true,
+			publicOnly: true,
+			maxBytes: MAX_PHOTO_BYTES
+		};
 
 		httpClient.parseURLIntoOptions(photo.photoUrl, options);
-		if (httpClient.isLocalHost(options.host)) {
-			Log.log("Not fetching a contact photo from the local network.");
-			future.result = {returnValue: false};
-			return future;
-		}
 		future.nest(httpClient.sendRequest(options, ""));
 		future.then(function () {
 			var result = checkResult(future), type = ((result.headers || {})["content-type"] || "").toLowerCase(),
 				image = (/^image\/([a-z0-9.+\-]+)/).exec(type);
-			if (result.returnValue && image && result.body && result.body.length <= MAX_PHOTO_BYTES) {
+			if (result.returnValue && image && result.body) {
 				photo.buffer = result.body;
 				photo.photoType = "." + image[1].replace("jpg", "jpeg");
 				future.result = {returnValue: true};

@@ -4,6 +4,7 @@
 var http = require("http");
 var https = require("https");
 var url = require("url"); //required to parse urls
+var dns = require("dns");
 var timers = require("timers"); //this file has its own setTimeout below
 
 if (!console.trace) {
@@ -32,6 +33,25 @@ var httpClient = (function () {
 			(/\.(local|lan|home\.arpa)$/).test(name) ||
 			(/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.)/).test(name) ||
 			(/^f[cd][0-9a-f]{2}:/).test(name);
+	}
+
+	//Addresses that are not on the public internet.
+	function isPrivateAddress(address) {
+		var ip = String(address || "").toLowerCase().replace(/^::ffff:/, "");
+		return ip === "::" || ip === "::1" || (/^f[cd][0-9a-f]{2}:/).test(ip) || (/^fe[89ab][0-9a-f]:/).test(ip) ||
+			(/^(0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.)/).test(ip);
+	}
+
+	//Name lookup for requests to addresses somebody else chose: a public name can point inwards.
+	function publicLookup(host, lookupOptions, callback) {
+		dns.lookup(host, lookupOptions, function (error, address, family) {
+			var addresses = Array.isArray(address) ? address : [{address: address}];
+			if (!error && addresses.some(function (entry) { return isPrivateAddress(entry.address); })) {
+				error = new Error("Name points to a private address.");
+				error.code = "EPRIVATEADDRESS";
+			}
+			callback(error, address, family);
+		});
 	}
 
 	//The part of a host name a provider controls: icloud.com for p01-caldav.icloud.com. Names
@@ -382,6 +402,19 @@ var httpClient = (function () {
 
 		function dataCB(chunk) {
 			Log.log_httpClient("res", reqName(origin, retry), "-chunk:", chunk.length);
+			if (finished) {
+				return;
+			}
+			if (options.maxBytes && body.length + chunk.length > options.maxBytes) {
+				Log.log("Answer is larger than the ", options.maxBytes, " bytes allowed, stopping.");
+				finished = true;
+				retries[origin].received = true;
+				if (retries[origin].request) {
+					retries[origin].request.destroy();
+				}
+				future.result = {returnValue: false, returnCode: -1, msg: "Answer too large."};
+				return;
+			}
 			if (!options.filestream) {
 				var buffer = new Buffer(chunk.length + body.length);
 				body.copy(buffer, 0, 0);
@@ -563,6 +596,16 @@ var httpClient = (function () {
 		}
 
 		function doSendRequest() {
+			//checked here so that it holds for every redirect, too.
+			if (options.publicOnly) {
+				if (isLocalHost(options.host) || isPrivateAddress(options.host)) {
+					Log.log("Not connecting to a local address for this request.");
+					future.result = {returnValue: false, returnCode: -1, msg: "Local address refused."};
+					return;
+				}
+				options.lookup = publicLookup;
+			}
+
 			//RFC 4791 section 11: no Basic authentication without TLS. A server on the local
 			//network stays allowed, the password does not cross the internet there.
 			if (options.protocol !== "https:" && !isLocalHost(options.host) &&
@@ -658,6 +701,8 @@ var httpClient = (function () {
 		},
 
 		isLocalHost: isLocalHost,
+		isPrivateAddress: isPrivateAddress,
+		publicLookup: publicLookup,
 
 		parseURLIntoOptions: function (inUrl, options) {
 			return parseURLIntoOptionsImpl(inUrl, options);

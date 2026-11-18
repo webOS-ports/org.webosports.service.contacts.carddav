@@ -156,6 +156,31 @@ var ETag = (function () {
 		},
 
 		/**
+		 * Builds the listing of a collection from what is stored and what changed since.
+		 * @param localEtags local etag directory of the account
+		 * @param changes result of CalDav.syncCollection
+		 * @param collectionId the collection
+		 * @param samePath function that compares two hrefs
+		 * @return remote etag directory for parseEtags
+		 */
+		applyChanges: function (localEtags, changes, collectionId, samePath) {
+			function mentioned(list, uri, key) {
+				return list.some(function (entry) {
+					return samePath(key ? entry[key] : entry, uri);
+				});
+			}
+
+			return localEtags.filter(function (local) {
+				return local.uri && local.calendarId === collectionId && !mentioned(changes.removed, local.uri) &&
+					!mentioned(changes.changed, local.uri, "uri");
+			}).map(function (local) {
+				return {uri: local.uri, etag: local.etag};
+			}).concat(changes.changed.map(function (entry) {
+				return {uri: entry.uri, etag: entry.etag};
+			}));
+		},
+
+		/**
 		 * Gets etags and uris from the db. etags and uris are currently saved together with the
 		 * database objects (i.e. with the contact or calendarevent).
 		 * @param kindName

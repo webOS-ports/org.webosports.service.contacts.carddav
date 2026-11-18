@@ -191,7 +191,10 @@ enyo.kind({
 			return;
 		}
 
-		if (!this.account.url && !this.account.urlScheme) {
+		//with a mail address the service looks the server up, RFC 6764.
+		if (/^https?:\/*$/.test(this.account.url || "") && (this.account.credentials.user || "").indexOf("@") > 0) {
+			this.account.url = "";
+		} else if (!this.account.url && !this.account.urlScheme) {
 			log("Need account.url to add account");
 			this.showLoginError("URL", "Please specify a valid account url.");
 			return;

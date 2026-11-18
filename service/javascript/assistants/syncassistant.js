@@ -633,11 +633,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				folder.ctag = ctag;
 			}
 
+			if (result.syncToken) {
+				if (result.needsUpdate) {
+					//taken before the listing, changes made meanwhile come again next time.
+					folder.pendingSyncToken = folder.pendingSyncToken || result.syncToken;
+				} else if (!folder.syncToken) {
+					folder.syncToken = result.syncToken;
+				}
+			}
+
 			if (result.needsUpdate) {
 				//download etags and possibly data
 				future.nest(this._doUpdate(kindName, folder));
 				future.then(this, function updateCB() {
-					var result = checkResult(future);
+					var result = checkResult(future), folderDone = !result.more;
 
 					//general cleanup:
 					//this is required here to let next getRemoteChanges not run into error-case.
@@ -659,8 +668,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						//all went well, save ctag to fastly determine if sync is necessary at all
 						Log.debug("Not storing ctag ", ctag, " because: result.error = ", result.error, " and folder.downloadsFailed = ", folder.downloadsFailed);
 						folder.ctag = 0;
+						delete folder.syncToken;
+						delete folder.pendingSyncToken;
 					} else {
 						Log.debug("All went well, save ctag ", folder.ctag, " in folder.");
+						if (folderDone && folder.pendingSyncToken) {
+							folder.syncToken = folder.pendingSyncToken;
+							delete folder.pendingSyncToken;
+						}
 					}
 
 					if (result.error) {
@@ -810,6 +825,94 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
 	 * Handles download and parsing of etag data and then download of object data.
 	 */
+	/*
+	 * Lists the objects of a collection, from the changes since the last sync (RFC 6578) if the
+	 * server has them. The result looks the same either way.
+	 */
+	_listRemoteObjects: function (kindName, folder) {
+		"use strict";
+		var outer = new Future(), future, changes;
+
+		function listEverything(params) {
+			var listing = CalDav.downloadEtags(params);
+			listing.then(function listingCB() {
+				outer.result = checkResult(listing);
+			});
+		}
+
+		if (!folder.syncToken) {
+			return CalDav.downloadEtags(this.params);
+		}
+
+		this.params.syncToken = folder.syncToken;
+		future = CalDav.syncCollection(this.params);
+		future.then(this, function changesCB() {
+			changes = checkResult(future);
+			delete this.params.syncToken;
+			if (changes.returnValue !== true) {
+				//RFC 6578 section 3.2: an expired token means starting over with a full listing.
+				Log.log("Sync token not usable, listing everything.");
+				delete folder.syncToken;
+				listEverything(this.params);
+				return;
+			}
+			folder.pendingSyncToken = changes.syncToken;
+			if (changes.truncated) {
+				folder.ctag = 0; //more to come, the next sync goes on from the new token.
+			}
+			future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
+		});
+		future.then(this, function localCB() {
+			var result = checkResult(future);
+			if (result.returnValue === true) {
+				outer.result = {
+					returnValue: true,
+					etags: ETag.applyChanges(result.results, changes, this.currentCollectionId, CalDav.samePath)
+				};
+			} else {
+				outer.result = {returnValue: false, exception: result.exception};
+			}
+		});
+		return outer;
+	},
+
+	//Fetches the next objects with one request. Whatever this does not bring is fetched alone.
+	_prefetchObjects: function (entries) {
+		"use strict";
+		var future = new Future(), wanted = entries.slice(0, 10).filter(function (entry) {
+			return !entry.doDelete && !entry.alreadyDownloaded;
+		});
+
+		this.prefetched = {};
+		if (wanted.length < 2 || this.multigetFailed) {
+			future.result = {returnValue: true};
+			return future;
+		}
+		future.nest(CalDav.downloadObjects(this.params, wanted));
+		future.then(this, function objectsCB() {
+			var result = checkResult(future);
+			if (result.returnValue === true) {
+				this.prefetched = result.objects;
+			} else {
+				Log.log("Server cannot deliver several objects at once, status ", result.returnCode);
+				this.multigetFailed = true;
+			}
+			future.result = {returnValue: true};
+		});
+		return future;
+	},
+
+	_downloadObject: function (entry) {
+		"use strict";
+		var object = this.prefetched && this.prefetched[entry.uri];
+		if (object) {
+			delete this.prefetched[entry.uri];
+			entry.etag = object.etag || entry.etag;
+			return new Future({returnValue: true, returnCode: 207, data: object.data});
+		}
+		return CalDav.downloadObject(this.params, entry);
+	},
+
 	_doUpdate: function (kindName, folder) {
 		"use strict";
 		var future = new Future(), remoteEtags, entries;
@@ -828,7 +931,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else {
 				//download etags and trigger next callback
 				entries = [];
-				future.nest(CalDav.downloadEtags(this.params));
+				future.nest(this._listRemoteObjects(kindName, folder));
 			}
 		}
 
@@ -920,6 +1023,16 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		"use strict";
 		var future = new Future(), resultEntries, needEtags;
 
+		if (entriesIndex === 0 && !this.prefetchStarted && entries.length) {
+			this.prefetchStarted = true;
+			future.nest(this._prefetchObjects(entries));
+			future.then(this, function prefetchedCB() {
+				checkResult(future);
+				future.nest(this._downloadData(kindName, entries, 0));
+			});
+			return future;
+		}
+
 		if (entriesIndex < entries.length && entriesIndex < 10) {
 			if (entries[entriesIndex].doDelete && kindName === Kinds.objects.calendarevent.name && !entries[entriesIndex].childrenDeleted) {
 				//the occurrences of a deleted event go with it.
@@ -934,7 +1047,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 			} else {
 				//this is currently just a get, should work fine for vCard and iCal alike.
-				future.nest(CalDav.downloadObject(this.params, entries[entriesIndex]));
+				future.nest(this._downloadObject(entries[entriesIndex]));
 
 				future.then(this, function downloadCB() {
 					var result = checkResult(future);
@@ -1100,6 +1213,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} //end update
 		} else { //entriesIndex >= entries.length -> finished.
 			Log.log(entriesIndex, " items received and converted.");
+			this.prefetchStarted = false;
 			resultEntries = entries.splice(0, entriesIndex);
 
 			if (entries.length > 0) {
