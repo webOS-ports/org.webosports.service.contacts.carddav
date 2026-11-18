@@ -1230,6 +1230,12 @@ var iCal = (function () {
 		parseICal: function (ical) {
 			var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, tzDataMap = {}, events = [];
 
+			//one collection can hold events and tasks.
+			if ((/BEGIN:VCALENDAR/i).test(ical) && !(/BEGIN:VEVENT/i).test(ical)) {
+				outerFuture.result = {returnValue: true, cancelled: true};
+				return outerFuture;
+			}
+
 			lines = preProcessIcal(ical);
 
 			for (i = 0; i < lines.length; i += 1) {

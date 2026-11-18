@@ -45,8 +45,10 @@ var KindsModule = require(servicePath + "/javascript/kinds.js");
 var Kinds = KindsModule.Kinds;
 var KindsCalendar = KindsModule.KindsCalendar;
 var KindsContacts = KindsModule.KindsContacts;
+var KindsTasks = KindsModule.KindsTasks;
 
 var iCal = require(libPath + "iCal.js");
+var iCalTask = require(libPath + "iCalTask.js");
 
 //load assistants:
 var SyncAssistant = require(servicePath + "/javascript/assistants/syncassistant.js");

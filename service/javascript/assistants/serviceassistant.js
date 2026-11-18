@@ -67,6 +67,8 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					launchArgs.capability = "CONTACTS";
 				} else if (launchArgs.$activity.name.indexOf("calendarevent") > 0) {
 					launchArgs.capability = "CALENDAR";
+				} else if (launchArgs.$activity.name.indexOf(":task") > 0) {
+					launchArgs.capability = "TASKS";
 				}
 			}
 

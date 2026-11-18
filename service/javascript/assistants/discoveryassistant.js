@@ -161,6 +161,11 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 					homeFolder: result.calendarHome,
 					homeFolders: result.calendarHomes
 				};
+				//tasks live in the same place as calendars.
+				config[Kinds.objects.task.name] = {
+					homeFolder: result.calendarHome,
+					homeFolders: result.calendarHomes
+				};
 				config[Kinds.objects.contact.name] = {
 					homeFolder: result.contactHome,
 					homeFolders: result.contactHomes
@@ -170,6 +175,9 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 
 				Log.log("Setting home folders to original URL and hoping for the best.");
 				config[Kinds.objects.calendarevent.name] = {
+					homeFolder: config.url
+				};
+				config[Kinds.objects.task.name] = {
 					homeFolder: config.url
 				};
 				config[Kinds.objects.contact.name] = {

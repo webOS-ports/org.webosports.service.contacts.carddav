@@ -53,6 +53,7 @@ global.Calendar = {TimezoneManager: function () { return manager; }};
 	delete require.cache[file];
 });
 var iCal = require(utils + "iCal.js");
+var Task = require(utils + "iCalTask.js");
 [utils + "iCal.js", utils + "iCalTimeHandling.js"].forEach(function (file) {
 	delete require.cache[file];
 });
@@ -414,6 +415,96 @@ bdd.describe("iCal parser", function () {
 			var body = "DTSTART;VALUE=DATE:20260715\r\nDTEND;VALUE=DATE:20260716\r\nRRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;COUNT=2\r\n";
 			return parse(calendar(vevent(body))).then(function (parsed) {
 				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["31/7 12:00"]);
+			});
+		});
+	});
+
+	bdd.describe("tasks", function () {
+		function task(body) {
+			return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:t1\r\nSUMMARY:Buy\\, milk\r\n" + body + "END:VTODO\r\nEND:VCALENDAR\r\n";
+		}
+		function readTask(text) {
+			return new Promise(function (resolve) {
+				var future = Task.parseTask(text);
+				future.then(function () {
+					resolve(global.checkResult(future));
+				});
+			});
+		}
+
+		bdd.it("reads a task with a due time in its zone", function () {
+			return readTask(task("DESCRIPTION:Two\\nlines\r\nDUE;TZID=America/New_York:20260715T090000\r\nPRIORITY:1\r\n")).then(function (read) {
+				assert.strictEqual(read.result.subject, "Buy, milk");
+				assert.strictEqual(read.result.notes, "Two\nlines");
+				assert.strictEqual(read.result.dueDate, Date.UTC(2026, 6, 15, 13));
+				assert.strictEqual(read.result.priority, 1);
+				assert.strictEqual(read.result.completed, false);
+				assert.strictEqual(read.result.uid, "t1");
+			});
+		});
+
+		bdd.it("has no due date when none is given", function () {
+			return readTask(task("")).then(function (read) {
+				assert.strictEqual(read.result.dueDate, null);
+				assert.strictEqual(read.result.priority, 2);
+			});
+		});
+
+		[["STATUS:COMPLETED\r\n", null], ["PERCENT-COMPLETE:100\r\n", null], ["COMPLETED:20260701T100000Z\r\n", Date.UTC(2026, 6, 1, 10)]].forEach(function (c) {
+			bdd.it("sees it is done from " + c[0].trim(), function () {
+				return readTask(task(c[0])).then(function (read) {
+					assert.strictEqual(read.result.completed, true);
+					assert.strictEqual(read.result.completedDate, c[1]);
+				});
+			});
+		});
+
+		[[4, 1], [5, 2], [6, 3], [9, 3], [0, 2]].forEach(function (c) {
+			bdd.it("maps priority " + c[0], function () {
+				return readTask(task("PRIORITY:" + c[0] + "\r\n")).then(function (read) {
+					assert.strictEqual(read.result.priority, c[1]);
+				});
+			});
+		});
+
+		bdd.it("skips a cancelled task and objects without one", function () {
+			return readTask(task("STATUS:CANCELLED\r\n")).then(function (read) {
+				assert.strictEqual(read.cancelled, true);
+				return readTask(calendar(vevent(LOCAL)));
+			}).then(function (read) {
+				assert.strictEqual(read.cancelled, true);
+			});
+		});
+
+		bdd.it("does not take a web page for an empty object", function () {
+			return readTask("<html></html>").then(function (read) {
+				assert.strictEqual(read.returnValue, false);
+				assert.strictEqual(read.cancelled, undefined);
+			});
+		});
+
+		bdd.it("uses the main task, not a changed occurrence or an alarm", function () {
+			var text = "BEGIN:VCALENDAR\r\nBEGIN:VTODO\r\nUID:t\r\nRECURRENCE-ID:20260101T000000Z\r\nSUMMARY:Changed\r\nEND:VTODO\r\n" +
+				"BEGIN:VTODO\r\nUID:t\r\nSUMMARY:Main\r\nBEGIN:VALARM\r\nSUMMARY:Alarm\r\nEND:VALARM\r\nEND:VTODO\r\nEND:VCALENDAR\r\n";
+			return readTask(text).then(function (read) {
+				assert.strictEqual(read.result.subject, "Main");
+			});
+		});
+
+		bdd.it("an event parser ignores an object with only a task", function () {
+			return parse(task("")).then(function (parsed) {
+				assert.strictEqual(parsed.cancelled, true);
+			});
+		});
+
+		bdd.it("survives being written and read again", function () {
+			var due = Date.UTC(2026, 6, 15, 13), done = Date.UTC(2026, 6, 1, 10),
+				text = Task.generateTask({subject: "A, b; c", notes: "x\ny", dueDate: due, priority: 1, completed: true, completedDate: done, uid: "u"}, done);
+			assert.ok(/\r\nDTSTAMP:20260701T100000Z\r\n/.test(text), text);
+			assert.ok(/\r\nSUMMARY:A\\, b\\; c\r\n/.test(text), text);
+			assert.ok(/\r\nSTATUS:COMPLETED\r\nPERCENT-COMPLETE:100\r\n/.test(text), text);
+			return readTask(text).then(function (read) {
+				assert.deepStrictEqual(read.result, {subject: "A, b; c", notes: "x\ny", completed: true, completedDate: done, priority: 1, dueDate: due, uid: "u"});
 			});
 		});
 	});

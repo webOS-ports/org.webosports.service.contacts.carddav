@@ -11,6 +11,7 @@
 		"com.palm.app.contacts",
 		"com.palm.app.messaging",
 		"com.palm.app.calendar",
+		"com.palm.app.tasks",
 		"com.palm.app.email"
 	],
 	"writePermissions": [
@@ -21,6 +22,7 @@
 		"com.palm.app.contacts",
 		"com.palm.app.messaging",
 		"com.palm.app.calendar",
+		"com.palm.app.tasks",
 		"com.palm.app.email"
 	],
 	"validator": "palm://org.webosports.service.cdav/checkCredentials",
@@ -62,6 +64,19 @@
 			"dbkinds": {
 				"calendar": "org.webosports.cdav.calendar:1",
 				"calendarevent": "org.webosports.cdav.calendarevent:1"
+			}
+		},
+		{
+			"capability": "TASKS",
+			"id": "org.webosports.cdav.task",
+			"onCreate": "palm://org.webosports.service.cdav/onTasksCreate",
+			"onDelete": "palm://org.webosports.service.cdav/onTasksDelete",
+			"onEnabled": "palm://org.webosports.service.cdav/onTasksEnabled",
+			"sync": "palm://org.webosports.service.cdav/sync",
+			"loc_name": "CalDav Tasks",
+			"dbkinds": {
+				"tasklist": "org.webosports.cdav.tasklist:1",
+				"task": "org.webosports.cdav.task:1"
 			}
 		}
 	]

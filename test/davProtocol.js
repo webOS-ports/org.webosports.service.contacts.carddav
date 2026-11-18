@@ -237,6 +237,34 @@ bdd.describe("talking to a DAV server", function () {
 		});
 	});
 
+	bdd.describe("task lists", function () {
+		function calendar(href, comps) {
+			return response(href, found("<d:displayname>" + href + "</d:displayname><d:resourcetype><d:collection/><c:calendar/></d:resourcetype>" +
+				"<c:supported-calendar-component-set>" + comps.map(function (comp) {
+					return "<c:comp name=\"" + comp + "\"/>";
+				}).join("") + "</c:supported-calendar-component-set>"));
+		}
+
+		bdd.it("finds collections that can hold tasks", function () {
+			fresh({"/h/": {code: 207, body: multistatus(calendar("/h/ev/", ["VEVENT"]) + calendar("/h/both/", ["VEVENT", "VTODO"]) + calendar("/h/todo/", ["VTODO"]))}});
+			return done(CalDav.getFolders(params("/h/"), "task")).then(function (result) {
+				assert.deepStrictEqual(result.folders.map(function (f) { return f.uri.replace(/^.*\/h/, "/h"); }), ["/h/both/", "/h/todo/"]);
+				return done(CalDav.getFolders(params("/h/"), "calendar"));
+			}).then(function (result) {
+				assert.deepStrictEqual(result.folders.map(function (f) { return f.uri.replace(/^.*\/h/, "/h"); }), ["/h/ev/", "/h/both/"]);
+			});
+		});
+
+		bdd.it("asks for all tasks of a list", function () {
+			fresh({"/c/": {code: 207, body: multistatus(response("/c/1", found(etag("a"))))}});
+			return done(CalDav.downloadEtags(params("/c/", {tasks: true}))).then(function (result) {
+				assert.strictEqual(result.etags.length, 1);
+				assert.ok(seen[0].body.indexOf("name=\"VTODO\"") > 0);
+				assert.ok(seen[0].body.indexOf("VEVENT") < 0 && seen[0].body.indexOf("time-range") < 0);
+			});
+		});
+	});
+
 	bdd.describe("batch downloads and changes", function () {
 		var CAL = "<c:calendar-data>BEGIN:VCALENDAR\nSUMMARY:A &amp; B\nEND:VCALENDAR\n</c:calendar-data>";
 

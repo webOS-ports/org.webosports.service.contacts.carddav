@@ -379,7 +379,9 @@ var CalDav = (function () {
 				}
 			}
 
-			if (!filter || folder.resource === filter) {
+			//a calendar can hold tasks as well, then it is both.
+			if (!filter || folder.resource === filter || (filter === "task" && folder.resource === "calendar" &&
+					folder.supportedComponents.indexOf("VTODO") >= 0)) {
 				if (!(/^https?:/i).test(folder.uri)) {
 					folder.uri = (prefix || "") + folder.uri;
 				}
@@ -552,6 +554,10 @@ var CalDav = (function () {
 			startVal = String(date.getUTCFullYear() - 1) + (date.getUTCMonth() < 9 ? "0" : "") + String(date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + String(date.getUTCDate()) + "T000000Z";
 
 			data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"><c:time-range start=\"" + startVal + "\" /></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
+			if (params.tasks) {
+				//all of them: unlike events, tasks do not end up in the past.
+				data = data.replace(/<c:comp-filter name="VEVENT">.*?<\/c:comp-filter>/, "<c:comp-filter name=\"VTODO\" />");
+			}
 			if (disableFilters || params.cardDav) {
 				//no filtering required for contacts, i.e. do propfind request.
 				options.method = "PROPFIND";

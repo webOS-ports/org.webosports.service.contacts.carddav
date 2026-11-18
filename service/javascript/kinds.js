@@ -32,10 +32,18 @@ var Kinds = {
 			connected_kind: "contactset",
 			allowUpsync: false
 		},
+		tasklist: {
+			name: "tasklist",
+			identifier: "org.webosports.cdav.tasklist",
+			id: "org.webosports.cdav.tasklist:1",
+			connected_kind: "task",
+			allowUpsync: false
+		},
 		task: {
 			name: "task",
 			identifier: "org.webosports.cdav.task",
 			id: "org.webosports.cdav.task:1",
+			connected_kind: "tasklist",
 			allowUpsync: false
 		}
 	},
@@ -99,6 +107,33 @@ exports.KindsCalendar = {
 	syncOrder: [
 		Kinds.objects.calendar.name,
 		Kinds.objects.calendarevent.name
+	]
+};
+
+exports.KindsTasks = {
+	objects: {
+		tasklist: {
+			name: "tasklist",
+			identifier: "org.webosports.cdav.tasklist",
+			id: "org.webosports.cdav.tasklist:1",
+			connected_kind: "task",
+			allowUpsync: false
+		},
+		task: {
+			name: "task",
+			identifier: "org.webosports.cdav.task",
+			id: "org.webosports.cdav.task:1",
+			connected_kind: "tasklist",
+			allowUpsync: false
+		}
+	},
+	account: {
+		id: "com.palm.account:1",
+		metadata_id: "org.webosports.cdav.account.tasks:1"
+	},
+	syncOrder: [
+		Kinds.objects.tasklist.name,
+		Kinds.objects.task.name
 	]
 };
 

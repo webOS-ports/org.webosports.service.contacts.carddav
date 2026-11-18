@@ -55,6 +55,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "CONTACTS"}).then(syncCB.bind(this, "contacts"));
 					} else if (capObj.capability === "CALENDAR") {
 						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "CALENDAR"}).then(syncCB.bind(this, "calendar"));
+					} else if (capObj.capability === "TASKS") {
+						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "TASKS"}).then(syncCB.bind(this, "tasks"));
 					} else {
 						Log.log("Unknown capability:", capObj);
 						outerfuture.nest(processCapabilities(capabilities, index + 1));
@@ -162,7 +164,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		Log.log("\n\n**************************SyncAssistant: getNewRemoteObject *****************************");
 		var postfix, remoteId, result;
 
-		if (kindName === Kinds.objects.calendarevent.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.task.name) {
 			postfix = ".ics";
 		} else if (kindName === Kinds.objects.contact.name) {
 			postfix = ".vcf";
@@ -199,11 +201,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getTransformer: function (name, kindName) {
 		"use strict";
 		Log.log("\n\n**************************SyncAssistant: getTransformer*****************************");
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name || kindName === Kinds.objects.task.name) {
 			return this._getObjectTransformer(name, kindName);
 		}
 
-		if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
+		if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name || kindName === Kinds.objects.tasklist.name) {
 			if (name === "remote2local") {
 				return function (to, from) {
 					to.accountId = this.client.clientId;
@@ -213,6 +215,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					to.syncSource = "cdav";
 					to.remoteId = from.remoteId || from.uri;
 					to.uri = from.uri;
+					if (kindName === Kinds.objects.tasklist.name) {
+						to.visible = true;
+						to.order = to.order || "position";
+						to.show = to.show || "all";
+						to.position = to.position || Date.now();
+					}
 
 					return true; //notify of changes.
 				}.bind(this);
@@ -259,6 +267,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					//calendarId is used by webOS. There is no such thing for contacts, yet.
 					//so we call it calendarId for them, too, right now, to prevent code duplication.
 					to.calendarId = from.collectionId;
+					if (kindName === Kinds.objects.task.name) {
+						to.taskListId = from.collectionId;
+					}
 				}
 
 				to.etag = from.etag;
@@ -338,7 +349,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (obj.remoteId) {
 			return obj.remoteId; //use uri, it is unique and constant.
 		}
-		if (obj.uri && (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name)) {
+		if (obj.uri && (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name || kindName === Kinds.objects.task.name)) {
 			obj.remoteId = ID.uriToRemoteId(obj.uri, this.client.config);
 			return obj.remoteId;
 		}
@@ -410,9 +421,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		this.SyncKey.prepare(kindName, state);
 
 		Log.log("State: ", state, " for kind ", kindName);
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name || kindName === Kinds.objects.task.name) {
 			future.nest(this._getRemoteChanges(state, kindName));
-		} else if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
+		} else if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name || kindName === Kinds.objects.tasklist.name) {
 			future.nest(this._getRemoteCollectionChanges(state, kindName));
 		} else {
 			throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
@@ -432,7 +443,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			subKind = Kinds.objects[kindName].connected_kind,
 			home = this.client.config[subKind] ? this.client.config[subKind].homeFolder : undefined,
 			homes,
-			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
+			filter = {calendar: "calendar", tasklist: "task"}[kindName] || "contact",
 			localFolders;
 
 		SyncStatus.setRunning(this.client.clientId, kindName);
@@ -589,6 +600,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		} else {
 			this.params.cardDav = false;
 		}
+		this.params.tasks = kindName === Kinds.objects.task.name;
 		folder.downloadsFailed = false; //reset that flag here.
 
 		SyncStatus.setRunning(this.client.clientId, kindName);
@@ -1136,6 +1148,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							}
 
 							future.nest(CalendarEventHandler.parseICal(result.data));
+						} else if (kindName === Kinds.objects.task.name) {
+							future.nest(iCalTask.parseTask(result.data));
 						} else if (kindName === Kinds.objects.contact.name) {
 							Log.debug("Starting vCard conversion");
 							future.nest(vCard.parseVCard({account: { name: this.client.config.name,
@@ -1156,7 +1170,11 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 									future.result = {returnValue: true};
 								} else {
 									entries[entriesIndex].doDelete = true;
-									future.nest(CalendarEventHandler.deleteChildren(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config)));
+									if (kindName === Kinds.objects.calendarevent.name) {
+										future.nest(CalendarEventHandler.deleteChildren(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config)));
+									} else {
+										future.result = {returnValue: true};
+									}
 								}
 							} else if (result.returnValue === true) {
 								Log.log("Object ", entriesIndex, " converted ok. Doing next one.");
