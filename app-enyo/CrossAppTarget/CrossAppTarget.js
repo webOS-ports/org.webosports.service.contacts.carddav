@@ -1,6 +1,8 @@
 /*jslint sloppy: true, nomen: true */
 /*global enyo, $L, console, setTimeout, PalmSystem, UrlSchemes */
 
+/* Nothing logged here may carry a token, secret or password: the console ends
+   up in the system log. */
 function log(msg) {
 	console.error(msg);
 }
@@ -70,15 +72,12 @@ enyo.kind({
 	create: function () {
 		this.inherited(arguments);
 		console.error(">>>>>>>>>>>>>>>>>>>> create");
-		console.error("Parameters: " + JSON.stringify(arguments));
 
 		if (PalmSystem.launchParams) {
-			console.error("Params from PalmSystem: " + PalmSystem.launchParams);
 			this.params = JSON.parse(PalmSystem.launchParams);
 		}
 
 		if (enyo.windowParams) {
-			console.error("Params from enyo: " + JSON.stringify(enyo.windowParams));
 			this.params = enyo.windowParams;
 		}
 
@@ -223,7 +222,7 @@ enyo.kind({
 		});
 	},
 	credentialsOK: function (inSender, inResponse) {
-		debug("Service Response: " + JSON.stringify(inResponse));
+		debug("Service Response: success = " + (inResponse && inResponse.success));
 		if (inResponse.success) {
 			debug("Check credentials came back successful");
 
@@ -286,13 +285,12 @@ enyo.kind({
 	credentialsWrong: function (inSender, inResponse) {
 		enyo.scrim.hide();
 		log("CheckCredentials came back, but failed.");
-		debug("Response: " + JSON.stringify(inResponse));
+		debug("Reason: " + (inResponse && inResponse.reason));
 		this.showLoginError("Credentials", "Credentials were wrong or could not be checked." + (inResponse.reason ? " Message: " + inResponse.reason : ""));
 	},
 	// called when app is opened or reopened
 	windowParamsChangeHandler: function (inSender, event) {
 		console.error(">>>>>>>>>>>>>>>>>>>> windowParamsChangeHandler");
-		console.log("Params: ", JSON.stringify(event.params));
 		// capture any parameters associated with this app instance
 		if (!event || !event.params) {
 			console.error("No params received...");
@@ -302,7 +300,7 @@ enyo.kind({
 		} else {
 			if (event.params.template) {
 				this.params = event.params;
-				console.error("Params: " + JSON.stringify(this.params));
+				console.error("Got params with template.");
 			} else {
 				console.error("Skipping params, because they don't contain template information.");
 			}

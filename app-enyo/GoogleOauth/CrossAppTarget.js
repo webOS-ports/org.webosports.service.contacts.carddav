@@ -1,6 +1,8 @@
 /*jslint sloppy: true, browser: true, nomen: true */
 /*global enyo, $L, console, setTimeout, PalmSystem */
 
+/* Nothing logged here may carry a token, code, secret or password: the console
+   ends up in the system log. */
 function log(msg) {
 	console.error(msg);
 }
@@ -55,15 +57,12 @@ enyo.kind({
 		var url, devInfo;
 		this.inherited(arguments);
 		console.error(">>>>>>>>>>>>>>>>>>>> create");
-		console.error("Parameters: " + JSON.stringify(arguments));
 
 		if (PalmSystem.launchParams) {
-			console.error("Params from PalmSystem: " + PalmSystem.launchParams);
 			this.params = JSON.parse(PalmSystem.launchParams);
 		}
 
 		if (enyo.windowParams) {
-			console.error("Params from enyo: " + JSON.stringify(enyo.windowParams));
 			this.params = enyo.windowParams;
 		}
 
@@ -109,12 +108,11 @@ enyo.kind({
 			return;
 		}
 
-		debug("Got response: " + JSON.stringify(inResponse));
 		var start = inResponse.indexOf("code=") + 5,
 			code;
 		if (start >= 5) {
 			code = inResponse.substring(start);
-			debug("Got code: " + code);
+			debug("Got authorization code.");
 
 			this.doing = true;
 			this.$.getAccessToken.call({
@@ -133,7 +131,7 @@ enyo.kind({
 		}
 	},
 	gotAccessToken: function (inSender, inResponse) {
-		debug("Got access token: " + JSON.stringify(inResponse));
+		debug("Got access token.");
 
 		this.token_response = inResponse;
 
@@ -141,7 +139,7 @@ enyo.kind({
 		this.$.pageHeader.setContent("Getting username to show in webOS...");
 	},
 	gotName: function (inSender, inResponse) {
-		debug("Got name: " + JSON.stringify(inResponse));
+		debug("Got user name.");
 
 		if (!this.params) {
 			this.showLoginError("Please do run this from account app, not stand alone.");
@@ -231,12 +229,12 @@ enyo.kind({
 		} else {
 			//Pop back to Account Creation Dialog
 			// Set val as a parameter to be passed back to our source application
-			debug("Returning: " + JSON.stringify(this.accountSettings));
+			debug("Returning account settings.");
 			this.$.crossAppResult.sendResult(this.accountSettings);
 		}
 	},
 	getAccessTokenFailed: function (inSender, inResponse) {
-		log("Failed to get access token: " + JSON.stringify(inResponse));
+		log("Failed to get access token: " + (inResponse && inResponse.error));
 		this.showLoginError("Failed to get access token. Please try again later.");
 	},
 	showLoginError: function (msg) {
@@ -255,7 +253,7 @@ enyo.kind({
 		} else {
 			if (event.params.template) {
 				this.params = event.params;
-				console.error("Params: " + JSON.stringify(this.params));
+				console.error("Got params with template.");
 			} else {
 				console.error("Skipping params, because they don't contain template information.");
 			}
@@ -268,7 +266,7 @@ enyo.kind({
 		this.$.crossAppResult.sendResult({returnValue: false});
 	},
 	credentialsCameBack: function (inSender, inResponse) {
-		log("Credentials store came back: " + JSON.stringify(inResponse));
+		log("Credentials store came back: " + (inResponse && inResponse.returnValue));
 		this.$.crossAppResult.sendResult(this.accountSettings);
 	}
 });
