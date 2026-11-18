@@ -662,6 +662,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function handleDoNeedSyncResponse() {
 			var result = checkResult(future), ctag = result.ctag;
 			Log.debug("------------- Got need update response: ", result.needsUpdate);
+			if (result.success && folder.pendingDeletes && folder.pendingDeletes.length) {
+				result.needsUpdate = true; //deletes still have to reach the server.
+			}
 			if (ctag) {
 				//store this here. Error will still be true, so ctag will be ignored on failures anyway
 				//But if not done here, ctag won't be stored on download of more than 10 objects.
@@ -876,7 +879,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			});
 		}
 
-		if (!folder.syncToken) {
+		//Changes since a token cover everything in the collection, and a calendar can hold events
+		//and tasks. Tasks are few, so their filtered listing saves fetching every changed event.
+		if (!folder.syncToken || kindName === Kinds.objects.task.name ||
+				(folder.pendingDeletes && folder.pendingDeletes.length)) {
 			return CalDav.downloadEtags(this.params);
 		}
 
@@ -973,13 +979,17 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		future.then(this, function handleRemoteEtags() {
 			Log.log("---------------------->handleRemoteEtags()");
-			var result = checkResult(future), i;
+			var result = checkResult(future), i, retried;
 			if (result.returnValue === true) {
 				remoteEtags = result.etags;
 				for (i = 0; i < remoteEtags.length; i += 1) {
 					remoteEtags[i].remoteId = ID.uriToRemoteId(remoteEtags[i].uri, this.client.config);
 				}
-				future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
+				retried = this._retryDeletes(kindName, folder, remoteEtags);
+				retried.then(this, function deletesRetriedCB() {
+					remoteEtags = checkResult(retried).etags;
+					future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
+				});
 			} else {
 				Log.log("Could not download etags. Reason: ", result);
 				future.result = { returnValue: false, exception: result.exception };
@@ -1206,6 +1216,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 								obj.uri = entries[entriesIndex].uri;
 								obj.etag = entries[entriesIndex].etag;
 								obj.uploadFailed = 0; //reset upload retry flag here, because local changes are overwritten now anyway.
+								obj.notOnServer = false;
 
 								entries[entriesIndex].collectionId = this.SyncKey.currentFolder(kindName).collectionId;
 								entries[entriesIndex].obj = obj;
@@ -1362,6 +1373,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (batch[index].local.uploadFailed) {
 					batch[index].local.uploadFailed = 0;
 				}
+				if (batch[index].local.notOnServer) {
+					batch[index].local.notOnServer = false;
+				}
 
 				//save those ONLY for successful uploads.
 				//save uri and etag in local object.
@@ -1372,6 +1386,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (result.noReUpload) {
 					Log.log("Upload of ", rid, " failed so hard that reupload won't work. Do not retry.");
 					batch[index].local.uploadFailed = 0;
+					batch[index].local.notOnServer = false;
 					batch[index].local.etag = "0"; //reset etag to trigger redownload.
 					this._requestFullListing(kindName, batch[index].local.calendarId);
 					error = true; //make sure full update is done, ctags on server probably won't change.
@@ -1381,6 +1396,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					//the retry starts from a listing, which an unchanged collection would not get.
 					this._requestFullListing(kindName, batch[index].local.calendarId);
 					batch[index].local.uploadFailed = batch[index].local.uploadFailed ? batch[index].local.uploadFailed + 1 : 1;
+					if (batch[index].isNew) {
+						batch[index].local.notOnServer = true; //it gets a placeholder etag, but stays new.
+					}
+					if (result.retryDelete) {
+						this._rememberDelete(kindName, batch[index].local.calendarId, {uri: result.uri, etag: batch[index].local.etag});
+					}
 				}
 			}
 
@@ -1414,6 +1435,89 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				delete folder.pendingSyncToken;
 			}
 		});
+	},
+
+	/*
+	 * True if the same request can work later: no connection, login or trouble at the server.
+	 * Any other answer is the server's decision.
+	 */
+	_isTemporaryFailure: function (returnCode) {
+		"use strict";
+		return !returnCode || returnCode < 0 || returnCode === 401 || returnCode === 408 || returnCode === 423 ||
+			returnCode === 429 || returnCode >= 500;
+	},
+
+	/*
+	 * A deleted object is gone from the database, so nothing else remembers that the server
+	 * still has to hear about it. Without this the next listing brings it back.
+	 */
+	_rememberDelete: function (kindName, collectionId, item) {
+		"use strict";
+		this.SyncKey.forEachFolder(kindName, function (folder) {
+			if (folder.collectionId === collectionId) {
+				folder.pendingDeletes = (folder.pendingDeletes || []).filter(function (known) {
+					return known.uri !== item.uri;
+				}).concat([item]);
+			}
+		});
+	},
+
+	/*
+	 * Sends the deletes that failed earlier, now that the server answers.
+	 * Result etags: the listing without what must not be downloaded again.
+	 */
+	_retryDeletes: function (kindName, folder, remoteEtags) {
+		"use strict";
+		var outer = new Future(), self = this, pending = folder.pendingDeletes || [], kept = [], etags = remoteEtags, index = 0;
+
+		function isOther(uri) {
+			return function (entry) {
+				return !CalDav.samePath(entry.uri, uri);
+			};
+		}
+
+		function next() {
+			var item = pending[index], listed, sent;
+			index += 1;
+			if (!item) {
+				if (kept.length) {
+					folder.pendingDeletes = kept;
+				} else {
+					delete folder.pendingDeletes;
+				}
+				outer.result = {returnValue: true, etags: etags};
+				return;
+			}
+
+			listed = etags.filter(function (entry) {
+				return !isOther(item.uri)(entry);
+			})[0];
+			if (listed && listed.etag !== item.etag) {
+				Log.log("Object changed on the server, not deleting it.");
+				next();
+				return;
+			}
+
+			sent = CalDav.deleteObject(self.params, item);
+			sent.then(function deleteRetriedCB() {
+				var result = checkResult(sent);
+				if (result.returnValue === true || result.returnCode === 404) {
+					etags = etags.filter(isOther(item.uri));
+				} else if (self._isTemporaryFailure(result.returnCode)) {
+					kept.push(item);
+					etags = etags.filter(isOther(item.uri));
+				} else {
+					Log.log("Server refused delete, keeping its version. Status ", result.returnCode);
+				}
+				next();
+			});
+		}
+
+		if (pending.length && !ObjectMerge.uploadAllowed(this.client.config, kindName)) {
+			pending = [];
+		}
+		next();
+		return outer;
 	},
 
 	/*
@@ -1473,6 +1577,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		Log.log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
 		var future = new Future(), self = this;
 
+		//a failed first upload leaves a placeholder etag, the object is still new.
+		obj.isNew = obj.operation === "save" && !!(obj.remote.add || !obj.local.etag || obj.local.notOnServer);
+
 		//check if URI is present. If not, get URI.
 		if (!obj.remote.uri) { //this always happens for new objects and deleted objects.
 			if (!obj.remote.add && obj.operation === "save") {
@@ -1492,6 +1599,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		}
 		if (!obj.local.remoteId && obj.remote.remoteId) {
 			obj.local.remoteId = obj.remote.remoteId;
+		}
+
+		if (obj.operation === "delete" && obj.local.notOnServer) {
+			Log.log("Deleted before it ever reached the server, nothing to send.");
+			future.result = {uri: obj.remote.uri, returnValue: true};
+			return future;
 		}
 
 		if (obj.local.preventSync) {
@@ -1536,7 +1649,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
 				}
 
-				if (obj.remote.add || !obj.local.etag) {
+				if (obj.isNew) {
+					delete obj.remote.etag; //must not exist on the server yet.
 					future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
 				} else {
 					merged = self._mergeWithServer(kindName, obj.remote);
@@ -1590,8 +1704,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							result.returnValue = true;
 						} else {
 							Log.log("Could not delete object: ", obj, " -> ", result);
+							result.retryDelete = this._isTemporaryFailure(result.returnCode);
 						}
 					}
+					result.uri = result.uri || obj.remote.uri;
 					future.result = result;
 				});
 			} else {
