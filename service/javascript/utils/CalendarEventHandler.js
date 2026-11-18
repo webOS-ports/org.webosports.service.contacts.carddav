@@ -82,10 +82,13 @@ var CalendarEventHandler = (function () {
 			future = findEventByRemoteId(remoteId);
 
 			future.then(this, function getObjCB() {
-				var result = checkResult(future), r = result.results;
-				if (result.returnValue === true && r.length > 0 && r[0] && r[0]._id) {
-					Log.debug("Entry with id ", r[0]._id, " found for ", remoteId);
-					future.result = {returnValue: true, ids: [r[0]._id], revs: [r[0]._rev]};
+				//exceptions share the remoteId of their series, only the series itself counts.
+				var result = checkResult(future), parent = (result.results || []).filter(function (entry) {
+					return entry && entry._id && !entry.parentId;
+				})[0];
+				if (result.returnValue === true && parent) {
+					Log.debug("Entry with id ", parent._id, " found for ", remoteId);
+					future.result = {returnValue: true, ids: [parent._id], revs: [parent._rev]};
 				} else {
 					Log.debug("No entry found for ", remoteId, ": ", result);
 					future.nest(DB.reserveIds(1));
@@ -280,7 +283,7 @@ var CalendarEventHandler = (function () {
 						});
 					});
 
-					future.nest(CalendarEventHandler.fillParentIds(remoteId, result, result.exceptions));
+					future.nest(CalendarEventHandler.fillParentIds(remoteId, result.result, result.exceptions));
 				} else {
 					future.result = {returnValue: true};
 				}
