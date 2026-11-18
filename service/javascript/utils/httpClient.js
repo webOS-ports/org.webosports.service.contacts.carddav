@@ -4,6 +4,7 @@
 var http = require("http");
 var https = require("https");
 var url = require("url"); //required to parse urls
+var timers = require("timers"); //this file has its own setTimeout below
 
 if (!console.trace) {
 	console.trace = function () { "use strict"; };
@@ -15,7 +16,54 @@ var httpClient = (function () {
 		httpsProxy = {port: 0, host: "", valid: false},
 		globalReqNum = 0,
 		retries = {},
-		timeoutDefault = 60000;
+		timeoutDefault = 60000,
+		MAX_REDIRECTS = 10,
+		MAX_RETRY_AFTER_WAITS = 2,
+		MAX_RETRY_AFTER = 60000;
+
+	function defaultPort(protocol) {
+		return protocol === "https:" ? 443 : 80;
+	}
+
+	//Addresses that do not leave the local network.
+	function isLocalHost(host) {
+		var name = String(host || "").toLowerCase();
+		return name === "localhost" || name === "::1" || name.indexOf(".") < 0 ||
+			(/\.(local|lan|home\.arpa)$/).test(name) ||
+			(/^(127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2[0-9]|3[01])\.)/).test(name) ||
+			(/^f[cd][0-9a-f]{2}:/).test(name);
+	}
+
+	//The part of a host name a provider controls: icloud.com for p01-caldav.icloud.com. Names
+	//like example.co.uk keep three labels. An address is only ever equal to itself.
+	function siteOf(host) {
+		var labels = String(host || "").toLowerCase().split(".");
+		if ((/^[0-9.]+$/).test(host) || String(host).indexOf(":") >= 0 || labels.length < 3) {
+			return String(host).toLowerCase();
+		}
+		return labels.slice(labels[labels.length - 2].length <= 3 ? -3 : -2).join(".");
+	}
+
+	//May a redirect from one place to the other keep the credentials?
+	function sameProvider(from, to) {
+		if (from.host === to.hostname) {
+			return from.port === to.portNumber || (to.protocol === "https:" && to.portNumber === 443 && from.port === 80);
+		}
+		return to.protocol === "https:" && siteOf(from.host) === siteOf(to.hostname);
+	}
+
+	//Delay asked for in a Retry-After header, undefined if it is missing or too long to wait for.
+	function retryAfterDelay(value) {
+		var delay;
+		if (!value) {
+			return undefined;
+		}
+		delay = (/^\d+$/).test(value) ? parseInt(value, 10) * 1000 : Date.parse(value) - Date.now();
+		if (isNaN(delay) || delay > MAX_RETRY_AFTER) {
+			return undefined;
+		}
+		return Math.max(delay, 0);
+	}
 
 	function setProxy(proxyString, inProxy) {
 		var proxyParts = process.env.http_proxy.match(/^(https?:\/\/)?([A-Za-z0-9\.\-_]+)(:([0-9]+))?/i);
@@ -128,15 +176,20 @@ var httpClient = (function () {
 			options.headers = {};
 		}
 		options.host = parsedUrl.hostname;
-		options.headers.host = parsedUrl.hostname;
 		options.port = parsedUrl.port;
 		options.protocol = parsedUrl.protocol;
 
 		if (!parsedUrl.port) {
-			options.port = parsedUrl.protocol === "https:" ? 443 : 80;
+			options.port = defaultPort(parsedUrl.protocol);
 		}
 
-		options.prefix = options.protocol + "//" + options.headers.host + ":" + options.port;
+		//HTTP wants the port here unless it is the default one.
+		options.headers.host = parsedUrl.hostname;
+		if (parseInt(options.port, 10) !== defaultPort(options.protocol)) {
+			options.headers.host += ":" + options.port;
+		}
+
+		options.prefix = options.protocol + "//" + parsedUrl.hostname + ":" + options.port;
 		options.originalUrl = inUrl;
 
 		if (options.ignoreSSLCertificateErrors && options.protocol === "https:") {
@@ -267,6 +320,7 @@ var httpClient = (function () {
 			future = new Future(),
 			res,
 			receivedLength = 0,
+			finished = false,
 			reqNum = globalReqNum;
 
 		if (!retry && !origin) { //exclude redirects here!
@@ -282,6 +336,9 @@ var httpClient = (function () {
 		}
 
 		function checkRetry(error, override) {
+			if (finished) {
+				return; //this attempt was answered, later events of its connection mean nothing.
+			}
 			if (!retries[origin].received && retries[origin].retry === retry && !retries[origin].abort) {
 				Log.log("Message ", reqName(origin, retry), " had error: ", error);
 				if (retries[origin].retry < 5 && !override) {
@@ -337,7 +394,59 @@ var httpClient = (function () {
 			}
 		}
 
+		//Follows a redirect. Returns false if it must not be followed.
+		function followRedirect() {
+			var target, from = {protocol: options.protocol, host: options.host, port: parseInt(options.port, 10)}, to, newStream;
+
+			retries[origin].redirects = (retries[origin].redirects || 0) + 1;
+			if (!res.headers.location || retries[origin].redirects > MAX_REDIRECTS) {
+				Log.log("Not following redirect ", retries[origin].redirects, " of ", reqName(origin, retry));
+				return false;
+			}
+
+			target = url.resolve(options.prefix + options.path, res.headers.location);
+			to = url.parse(target);
+			to.portNumber = parseInt(to.port, 10) || defaultPort(to.protocol);
+			if (to.protocol !== "https:" && to.protocol !== "http:") {
+				return false;
+			}
+			if (from.protocol === "https:" && to.protocol !== "https:") {
+				Log.log("Not following a redirect from https to http.");
+				return false;
+			}
+			if (to.protocol === from.protocol && to.hostname === from.host && to.portNumber === from.port &&
+					to.path === options.path) {
+				Log.log("Preventing endless redirect loop, redirected to the same location.");
+				return false;
+			}
+
+			//Credentials stay with the provider they were entered for.
+			if (!sameProvider(from, to)) {
+				Log.log("Redirect leaves ", from.host, ", not sending credentials to ", to.hostname);
+				delete options.headers.Authorization;
+				delete options.authCallback;
+			}
+
+			Log.log_httpClient("Location: ", target);
+			if (typeof options.redirectCallback === "function") {
+				//let user create a new stream for piping to, i.e. new filename.
+				newStream = options.redirectCallback(target);
+				if (newStream) {
+					options.filestream = newStream;
+				}
+			}
+			delete options.socket; //a proxy tunnel leads to the old host.
+			parseURLIntoOptionsImpl(target, options);
+			retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
+			future.nest(sendRequestImpl(options, data, 0, origin, authretry));
+			return true;
+		}
+
 		function endCB() {
+			if (finished) {
+				return; //"close" follows "end", one answer must only count once.
+			}
+			finished = true;
 			Log.debug("Answer for ", reqName(origin, retry), " received."); //does this also happen on timeout??
 			if (retries[origin].received) {
 				Log.log_httpClient("Request ", reqName(origin, retry), " to ", options.path, " was already received... exiting without callbacks.");
@@ -362,44 +471,25 @@ var httpClient = (function () {
 				body: options.binary ? body : body.toString("utf8"),
 				uri: options.prefix + options.path,
 				method: options.method
-			}, innerfuture, newStream;
+			}, innerfuture, retryDelay;
 			if (options.path.indexOf(":/") >= 0) {
 				result.uri = options.path; //path already was complete, maybe because of proxy usage.
 			}
 
+			retryDelay = retryAfterDelay(res.headers["retry-after"]);
 			if (res.statusCode === 302 || res.statusCode === 301 || res.statusCode === 307 || res.statusCode === 308) {
-				Log.log_httpClient("Location: ", res.headers.location);
-				if (res.headers.location.indexOf("http") < 0) {
-					res.headers.location = options.prefix + res.headers.location;
-				}
-
-				//check if redirected to identical location
-				if (res.headers.location === options.prefix + options.path || //if strings really are identical
-					//or we have default port and string without port is identical:
-						((
-							(options.port === 80 && options.protocol === "http:") ||
-							(options.port === 443 && options.protocol === "https:")
-						) && res.headers.location === options.protocol + "//" + options.headers.host + options.path
-						)) {
-					//don't run into redirection endless loop:
-					Log.log("Preventing enless redirect loop, because of redirection to identical location: " + res.headers.location + " === " + options.prefix + options.path);
+				if (!followRedirect()) {
 					result.returnValue = false;
 					future.result = result;
-					return future;
 				}
-				if (typeof options.redirectCallback === "function") {
-					//let user create a new stream for piping to, i.e. new filename.
-					newStream = options.redirectCallback(res.headers.location);
-					if (newStream) {
-						options.filestream = newStream;
-					}
-				}
-				parseURLIntoOptionsImpl(res.headers.location, options);
-				Log.log_httpClient("Redirected to ", res.headers.location);
-				retries[origin].received = false; //we did not recieve this request yet, but only the redirection!
-				sendRequestImpl(options, data, 0, origin, authretry).then(function (f) {
-					future.result = f.result; //transfer future result.
-				});
+			} else if ((res.statusCode === 429 || res.statusCode === 503) && retryDelay !== undefined &&
+					(retries[origin].waits || 0) < MAX_RETRY_AFTER_WAITS) {
+				retries[origin].waits = (retries[origin].waits || 0) + 1;
+				retries[origin].received = false;
+				Log.log("Server asked to wait ", retryDelay, "ms before trying again.");
+				timers.setTimeout(function () {
+					future.nest(sendRequestImpl(options, data, 0, origin, authretry));
+				}, retryDelay);
 			} else if (res.statusCode < 300 && options.parse) { //only parse if status code was ok.
 				result.parsedBody = xml.xmlstr2json(body.toString("utf8"));
 				//Log.log_httpClient("Parsed Body: ", result.parsedBody);
@@ -433,7 +523,7 @@ var httpClient = (function () {
 				checkRetry("Connection closed " + (e ? " with error." : " without error."));
 			} else {
 				Log.log("Connection ", reqName(origin, retry), " closed, but no answer, yet? Wait a little longer.");
-				setTimeout(timeoutCB, 60000);
+				timers.setTimeout(timeoutCB, timeoutDefault);
 			}
 		}
 
@@ -464,7 +554,7 @@ var httpClient = (function () {
 			res.on("close", closeCB);
 			setTimeout(res, timeoutCB);
 
-			retries[reqNum].response = res; //store that here to cancel later
+			retries[origin].response = res; //store that here to cancel later
 
 			//in theory we do not need them. Need to test.
 			//res.socket.once("error", errorCB);
@@ -473,6 +563,15 @@ var httpClient = (function () {
 		}
 
 		function doSendRequest() {
+			//RFC 4791 section 11: no Basic authentication without TLS. A server on the local
+			//network stays allowed, the password does not cross the internet there.
+			if (options.protocol !== "https:" && !isLocalHost(options.host) &&
+					(/^Basic /i).test(options.headers.Authorization || "")) {
+				Log.log("Refusing to send a password to ", options.host, " without TLS.");
+				future.result = {returnValue: false, returnCode: -1, msg: "Password not sent over an unencrypted connection."};
+				return;
+			}
+
 			future.nest(prepareProxy(options, errorCB, closeCB, timeoutCB));
 
 			future.then(function () {
@@ -500,7 +599,7 @@ var httpClient = (function () {
 					} else {
 						req = http.request(options, responseCB);
 					}
-					retries[reqNum].request = req; //store this in order to cancle it later, if user requests so.
+					retries[origin].request = req; //store this in order to cancle it later, if user requests so.
 					setTimeout(req, timeoutCB);
 					req.on("error", errorCB);
 
@@ -557,6 +656,8 @@ var httpClient = (function () {
 			//Log.debug("After encode: ", options.path);
 			return sendRequestImpl(options, data);
 		},
+
+		isLocalHost: isLocalHost,
 
 		parseURLIntoOptions: function (inUrl, options) {
 			return parseURLIntoOptionsImpl(inUrl, options);

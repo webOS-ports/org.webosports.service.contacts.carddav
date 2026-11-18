@@ -431,6 +431,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
 			home = this.client.config[subKind] ? this.client.config[subKind].homeFolder : undefined,
+			homes,
 			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
 			localFolders;
 
@@ -472,14 +473,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				localFolders = result.results;
 
 				//now get remote folders
-				this.params.path = home;
-				Log.debug("Getting remote collections for ", kindName, " from ", home, ", filtering for ", filter);
+				homes = (this.client.config[subKind] && this.client.config[subKind].homeFolders) || [home];
+				Log.debug("Getting remote collections for ", kindName, " from ", homes, ", filtering for ", filter);
 				if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
 					this.params.cardDav = true;
 				} else {
 					this.params.cardDav = false;
 				}
-				future.nest(CalDav.getFolders(this.params, filter));
+				future.nest(CalDav.getFoldersOfHomes(this.params, homes, filter));
 			} else {
 				Log.log("Could not get local folders.");
 				SyncStatus.setDone(this.client.clientId, kindName);
@@ -1064,7 +1065,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						//413 - Entity too large, allows retry
 						//Most of the 500 errors are server issues that might resolve in the future.
 						//401 can happen if oauth token runs out.. hm. :-/
-						if (result.returnCode >= 400 && result.returnCode !== 413 && result.returnCode < 500 && result.returnCode !== 401) {
+						//403, 408, 425 and 429 are how servers say "not now", Google limits with 403 and 429.
+						if (result.returnCode >= 400 && result.returnCode < 500 && [401, 403, 408, 413, 425, 429].indexOf(result.returnCode) < 0) {
 							Log.log("Failed with unrecoverable status code ", result.returnCode, " will never retry download.");
 						} else {
 							Log.debug("Failed with probably recoverable status code ", result.returnCode, " will retry download next sync.");
