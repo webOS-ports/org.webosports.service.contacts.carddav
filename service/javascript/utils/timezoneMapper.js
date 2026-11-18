@@ -1312,12 +1312,6 @@ var tzMap = [
         "tz_iana": "Europe/Bucharest"
     },
     {
-        "tz_iana": "Asia/Beirut"
-    },
-    {
-        "tz_iana": "Asia/Beirut"
-    },
-    {
         "tz_windows": "Egypt Standard Time",
         "tz_iana": "Africa/Cairo"
     },

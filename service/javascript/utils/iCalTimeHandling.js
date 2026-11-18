@@ -205,7 +205,11 @@ var Time = (function () {
 
 		Log.log_icalDebug("fetchTimezones(): years: ", years, " for ", timezones);
 
-		return TZManager.loadTimezones(timezones, years);
+		//Most zones have no Windows mapping. One entry that is not a name makes the
+		//system service refuse the whole request, and no zone gets loaded at all.
+		return TZManager.loadTimezones(timezones.filter(function (timezone) {
+			return typeof timezone === "string";
+		}), years);
 	}
 
 	function normalizeICalTimeString(value, source, target) {
