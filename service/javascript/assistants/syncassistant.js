@@ -3,7 +3,7 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint nomen: true, node: true */
-/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, libPath */
+/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, libPath, ObjectMerge, iCalTask, searchAccountConfig */
 /*exported SyncAssistant */
 
 var vCard = require(libPath + "vCard.js");
@@ -16,7 +16,7 @@ var SyncStatus = require(libPath + "SyncStatus.js");
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	run: function run(outerfuture, subscription) {
 		"use strict";
-		var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
+		var args = this.controller.args || {}, future = new Future(), configFuture, accountId = args.accountId, errorOut, processCapabilities;
 
 		this.recreateActivitiesOnComplete = true;
 
@@ -112,8 +112,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 			//we have a capability, run usual sync
 			this.SyncKey = new SyncKey(this.client, this.handler);
+			configFuture = new Future();
 
-			this.$super(run)(future);
+			//separate future: the sync adds its own steps to "future", and those must run before syncCameBackCB.
+			configFuture.nest(searchAccountConfig({accountId: this.client.clientId}, true));
+			configFuture.then(this, function storedConfigCB() {
+				ObjectMerge.refreshUploadChoice(this.client.config, checkResult(configFuture));
+				this.$super(run)(future);
+			});
 			future.then(this, function syncCameBackCB() {
 				var result = checkResult(future);
 				Log.debug("Sync came back: ", result);

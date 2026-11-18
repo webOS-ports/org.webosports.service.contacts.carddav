@@ -51,6 +51,17 @@ bdd.describe("sending changes", function () {
 		});
 	});
 
+	bdd.describe("the stored choice", function () {
+		[[{returnValue: true, config: {twoWay: true}}, true], [{returnValue: true, config: {twoWay: false}}, false],
+			[{returnValue: true, config: {}}, false], [{returnValue: false, config: {twoWay: true}}, false], [undefined, false]].forEach(function (c) {
+			bdd.it("gives " + c[1] + " for " + JSON.stringify(c[0]), function () {
+				var config = {twoWay: !c[1]};
+				Merge.refreshUploadChoice(config, c[0]);
+				assert.strictEqual(config.twoWay, c[1]);
+			});
+		});
+	});
+
 	bdd.describe("events", function () {
 		var GENERATED = cal("BEGIN:VEVENT\r\nUID:u\r\nSUMMARY:New\r\nDTSTART:20260701T100000Z\r\nDTEND:20260701T110000Z\r\nEND:VEVENT\r\n");
 

@@ -148,6 +148,14 @@ var ObjectMerge = (function () {
 		},
 
 		/**
+		 * Takes over the user's choice from the stored config: the service can keep running
+		 * while it changes. If it cannot be read, nothing is sent.
+		 */
+		refreshUploadChoice: function (config, stored) {
+			config.twoWay = !!(stored && stored.returnValue === true && stored.config && stored.config.twoWay === true);
+		},
+
+		/**
 		 * Makes generated calendar text what RFC 4791 section 4.1 asks of a stored object.
 		 */
 		prepareCalendar: function (text, type, uid, now) {

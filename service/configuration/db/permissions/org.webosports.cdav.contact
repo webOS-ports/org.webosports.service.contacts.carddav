@@ -20,5 +20,13 @@
 			"delete": "allow",
 			"update": "allow"
 		}
+	},
+	{
+		"type": "db.kind",
+		"object": "org.webosports.cdav.contact:1",
+		"caller": "org.webosports.service.cdav_com.webos.service.activitymanager_proxy",
+		"operations": {
+			"read": "allow"
+		}
 	}
 ]
