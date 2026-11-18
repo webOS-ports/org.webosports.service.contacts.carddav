@@ -3,19 +3,21 @@ KeyStore - used to handle storage of authentication data
 within key manager.
 **************************************************/
 /*jslint nomen: true, node: true */
-/*global PalmCall, Log, checkResult, libPath */
+/*global PalmCall, Log, checkResult, libPath, Future */
 //this is taken from MojoSyncFramework example in PalmSDK
 var Base64 = require(libPath + "Base64.js");
 
 var KeyStore = (function () {
 	"use strict";
 	var KEYMGR_URI = "palm://com.palm.keymanager/",
+		putQueues = {},
+		_replaceCredentials,
 		_putCredentials,
 		_getCredentials,
 		_deleteCredentials,
 		_hasCredentials;
 
-	_putCredentials = function (accountId, value) {
+	_replaceCredentials = function (accountId, value) {
 		var keydata, future;
 
 		//console.log("------>made API call _putCredentials using accountId:" + accountId);
@@ -49,6 +51,45 @@ var KeyStore = (function () {
 				nohide:  true
 			}));
 		});
+		return future;
+	};
+
+	/*
+	 * Replacing a key takes several calls. Contacts and calendar setup store the
+	 * same account's key at the same time, so run those one after the other: side
+	 * by side, both see no key and the second store fails with "Key already exists".
+	 */
+	_putCredentials = function (accountId, value) {
+		var future = new Future(),
+			queue = putQueues[accountId];
+
+		function run() {
+			var put = _replaceCredentials(accountId, value);
+			put.then(function () {
+				var exception = put.exception,
+					next;
+
+				if (exception) {
+					future.setException(exception);
+				} else {
+					future.result = put.result;
+				}
+
+				next = putQueues[accountId].shift();
+				if (next) {
+					next();
+				} else {
+					delete putQueues[accountId];
+				}
+			});
+		}
+
+		if (queue) {
+			queue.push(run);
+		} else {
+			putQueues[accountId] = [];
+			run();
+		}
 		return future;
 	};
 
