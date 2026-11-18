@@ -2,6 +2,7 @@
 /*global Contacts, fs, Log, Future, libPath, checkResult */
 
 var path = require("path"); //required for vCard converter.
+var crypto = require("crypto");
 var Quoting = require(libPath + "Quoting.js");
 var vCardReader = require(libPath + "vCardReader.js");
 var vCardWriter = require(libPath + "vCardWriter.js");
@@ -31,8 +32,16 @@ var vCard = (function () {
 		return data.replace("END:VCARD", "NOTE:" + note + "\r\nEND:VCARD");
 	}
 
+	//The same file for a contact whatever its name becomes, so that updates replace the photo.
+	function photoFileName(accountName, uid, name, photoType) {
+		var key = [accountName || "nameless", uid || (name.givenName + " " + name.familyName)].join("\n");
+		return photoPath + crypto.createHash("sha256").update(key).digest("hex").substr(0, 32) + photoType;
+	}
+
 	//public interface:
 	return {
+		photoFileName: photoFileName,
+
 		/**
 		 * Required for initialisation of vCard parser. Will basically create
 		 * a temporary directory in /tmp
@@ -168,7 +177,7 @@ var vCard = (function () {
 					obj.categories = categories;
 
 					if (photo.photoData.length > 0) { //got a photo!! :)
-						filename = photoPath + (input.account.name || "nameless") + obj.name.givenName + obj.name.familyName + photo.photoType;
+						filename = photoFileName(input.account.name, uid, obj.name, photo.photoType);
 						reader.writePhoto(photo, filename).then(function () {
 							//storing those here and NOT using ContactsLib to set photos introduces the issue that photos will always stay
 							//but I did not manage to show the photo in all places in webos.
