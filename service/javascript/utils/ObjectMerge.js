@@ -156,6 +156,29 @@ var ObjectMerge = (function () {
 		},
 
 		/**
+		 * Uploads send what changed since transport.modnum, which stands still while uploads are
+		 * off. So the first sync that finds them on starts from when the choice was stored,
+		 * otherwise everything synced until then would count as changed here.
+		 * @return true if the transport object has to be saved
+		 */
+		moveUploadCheckpoint: function (transport, stored, allowed) {
+			var since = stored && stored.config && stored.config._rev;
+			if (!allowed) {
+				if (transport.uploadsOn) {
+					transport.uploadsOn = false;
+					return true;
+				}
+				return false;
+			}
+			if (transport.uploadsOn) {
+				return false;
+			}
+			transport.uploadsOn = true;
+			transport.modnum = Math.max(transport.modnum || 0, since || 0);
+			return true;
+		},
+
+		/**
 		 * Makes generated calendar text what RFC 4791 section 4.1 asks of a stored object.
 		 */
 		prepareCalendar: function (text, type, uid, now) {

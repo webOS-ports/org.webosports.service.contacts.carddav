@@ -117,8 +117,26 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			//separate future: the sync adds its own steps to "future", and those must run before syncCameBackCB.
 			configFuture.nest(searchAccountConfig({accountId: this.client.clientId}, true));
 			configFuture.then(this, function storedConfigCB() {
-				ObjectMerge.refreshUploadChoice(this.client.config, checkResult(configFuture));
-				this.$super(run)(future);
+				var stored = checkResult(configFuture), transport = this.client.transport, config = this.client.config,
+					startSync = function () {
+						this.$super(run)(future);
+					}.bind(this), saved;
+
+				ObjectMerge.refreshUploadChoice(config, stored);
+				if (transport && ObjectMerge.moveUploadCheckpoint(transport, stored, this.getSyncOrder().some(function (kindName) {
+						return ObjectMerge.uploadAllowed(config, kindName);
+					})) && transport._id) {
+					saved = this.handler.updateAccountTransportObject(transport, {modnum: transport.modnum, uploadsOn: transport.uploadsOn});
+					saved.then(this, function checkpointSavedCB() {
+						var result = checkResult(saved);
+						if (result.results && result.results.length) {
+							transport._rev = result.results[0].rev;
+						}
+						startSync();
+					});
+				} else {
+					startSync();
+				}
 			});
 			future.then(this, function syncCameBackCB() {
 				var result = checkResult(future);

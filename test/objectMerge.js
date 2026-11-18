@@ -62,6 +62,42 @@ bdd.describe("sending changes", function () {
 		});
 	});
 
+	bdd.describe("the upload checkpoint", function () {
+		var stored = {returnValue: true, config: {_rev: 500}};
+
+		bdd.it("starts from when uploads were switched on", function () {
+			var transport = {modnum: 100};
+			assert.strictEqual(Merge.moveUploadCheckpoint(transport, stored, true), true);
+			assert.deepStrictEqual(transport, {modnum: 500, uploadsOn: true});
+		});
+
+		bdd.it("stays where it is afterwards, so later edits are sent", function () {
+			var transport = {modnum: 100, uploadsOn: true};
+			assert.strictEqual(Merge.moveUploadCheckpoint(transport, stored, true), false);
+			assert.strictEqual(transport.modnum, 100);
+		});
+
+		bdd.it("never moves backwards", function () {
+			var transport = {modnum: 900};
+			Merge.moveUploadCheckpoint(transport, stored, true);
+			assert.strictEqual(transport.modnum, 900);
+		});
+
+		bdd.it("does not move while uploads are off", function () {
+			var transport = {modnum: 100};
+			assert.strictEqual(Merge.moveUploadCheckpoint(transport, stored, false), false);
+			assert.deepStrictEqual(transport, {modnum: 100});
+		});
+
+		bdd.it("moves again when uploads are switched off and on", function () {
+			var transport = {modnum: 100, uploadsOn: true};
+			assert.strictEqual(Merge.moveUploadCheckpoint(transport, stored, false), true);
+			assert.strictEqual(transport.uploadsOn, false);
+			assert.strictEqual(Merge.moveUploadCheckpoint(transport, stored, true), true);
+			assert.strictEqual(transport.modnum, 500);
+		});
+	});
+
 	bdd.describe("events", function () {
 		var GENERATED = cal("BEGIN:VEVENT\r\nUID:u\r\nSUMMARY:New\r\nDTSTART:20260701T100000Z\r\nDTEND:20260701T110000Z\r\nEND:VEVENT\r\n");
 
