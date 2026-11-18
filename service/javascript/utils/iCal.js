@@ -470,7 +470,7 @@ var iCal = (function () {
 			break;
 		default:
 			if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM" && lObj.key !== "RDATE") {
-				Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+				Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Skipping it.");
 			}
 			break;
 		}
@@ -508,7 +508,7 @@ var iCal = (function () {
 			return false; //signal that we are finished
 		default:
 			if (lObj.key !== "X-LIC-LOCATION" && lObj.key !== "RDATE") {
-				Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+				Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Skipping it.");
 			}
 			break;
 		}
@@ -712,7 +712,7 @@ var iCal = (function () {
 			event[translationQuote[lObj.key]] = Quoting.unquote(lObj.value);
 		} else if (transTime[lObj.key]) {
 			if (!DATETIME.test(lObj.value) && !DATE.test(lObj.value)) {
-				Log.log("Skipping unreadable time in line " + lObj.line);
+				Log.log("Skipping unreadable time in " + lObj.key);
 				return event;
 			}
 			if (lObj.parameters.tzid) {
@@ -815,7 +815,7 @@ var iCal = (function () {
 				break;
 			default:
 				if (lObj.key !== "PRODID" && lObj.key !== "METHOD" && lObj.key !== "END") {
-					Log.log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+					Log.log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Skipping it.");
 				}
 				break;
 			}

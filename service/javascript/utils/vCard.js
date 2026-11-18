@@ -277,7 +277,7 @@ var vCard = (function () {
 				contact = new Contacts.Contact(input.contact),
 				person = new Contacts.Person();
 
-			Log.log("Got contact: ", input.contact);
+			Log.log("Got a contact to convert.");
 			vCardIndex += 1;
 			person.populateFromContact(contact);
 
@@ -344,8 +344,7 @@ var vCard = (function () {
 				if (result.blob) {
 					data = data.replace("END:VCARD", result.blob + "END:VCARD");
 				}
-				Log.debug("Modified data:", data);
-				resFuture.result = { returnValue: true, result: data };
+								resFuture.result = { returnValue: true, result: data };
 			});
 
 			return resFuture;

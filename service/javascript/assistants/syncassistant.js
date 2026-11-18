@@ -614,7 +614,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		future.then(this, function saveTransportCB() {
 			checkResult(future); //will always be true.
-			Log.debug("Starting sync for ", folder.name);
+			Log.debug("Starting sync of a folder of ", kindName);
 			SyncStatus.setStatus(this.client.clientId, kindName, "Syncing " + folder.name);
 			future.nest(this._initCollectionId(kindName));
 		});
@@ -622,7 +622,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			var result = checkResult(future);
 
 			if (!result.returnValue) {
-				Log.log("No local id for ", folder.name, ". Stopping sync for this folder.");
+				Log.log("No local id for a folder of ", kindName, ". Stopping sync for this folder.");
 				future.result = {needsUpdate: false};
 				return;
 			}
@@ -673,7 +673,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					delete this.collectionIds; //reset this for orphaned checks.
 
 					if (!result.more) {
-						Log.debug("Sync for folder ", folder.name, " finished.");
+						Log.debug("Sync of a folder of ", kindName, " finished.");
 						this.SyncKey.nextFolder(kindName);
 						result.more = this.SyncKey.hasMoreFolders(kindName);
 						if (!this.SyncKey.hasMoreFolders(kindName)) {

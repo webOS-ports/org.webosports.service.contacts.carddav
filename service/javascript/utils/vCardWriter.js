@@ -87,7 +87,7 @@ var vCardWriter = function () {
 				if (err) {
 					Log.log("Could not read back vCard from ", filename, ": ", err);
 				} else {
-					Log.log("Read vCard from " + filename + ": " + data);
+					Log.log("Read vCard from " + filename);
 				}
 
 				future.result = {returnValue: !err, data: data};
