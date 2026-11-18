@@ -921,7 +921,15 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		var future = new Future(), resultEntries, needEtags;
 
 		if (entriesIndex < entries.length && entriesIndex < 10) {
-			if (entries[entriesIndex].doDelete || entries[entriesIndex].alreadyDownloaded) { //no need to download for deleted entry, skip.
+			if (entries[entriesIndex].doDelete && kindName === Kinds.objects.calendarevent.name && !entries[entriesIndex].childrenDeleted) {
+				//the occurrences of a deleted event go with it.
+				entries[entriesIndex].childrenDeleted = true;
+				future.nest(CalendarEventHandler.deleteChildren(entries[entriesIndex].remoteId));
+				future.then(this, function childrenDeletedCB() {
+					checkResult(future);
+					future.nest(this._downloadData(kindName, entries, entriesIndex));
+				});
+			} else if (entries[entriesIndex].doDelete || entries[entriesIndex].alreadyDownloaded) { //no need to download for deleted entry, skip.
 				SyncStatus.downloadedOne(this.client.clientId, kindName);
 				future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 			} else {
@@ -1026,7 +1034,18 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 						future.then(this, function conversionCB() {
 							var result = checkResult(future), obj;
-							if (result.returnValue === true) {
+							if (result.returnValue === true && result.cancelled) {
+								//RFC 5545 section 3.8.1.11: a cancelled event is gone for the user.
+								Log.log("Object ", entriesIndex, " is cancelled.");
+								if (entries[entriesIndex].add) {
+									entries.splice(entriesIndex, 1);
+									entriesIndex -= 1;
+									future.result = {returnValue: true};
+								} else {
+									entries[entriesIndex].doDelete = true;
+									future.nest(CalendarEventHandler.deleteChildren(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config)));
+								}
+							} else if (result.returnValue === true) {
 								Log.log("Object ", entriesIndex, " converted ok. Doing next one.");
 								obj = result.result;
 								obj.uri = entries[entriesIndex].uri;

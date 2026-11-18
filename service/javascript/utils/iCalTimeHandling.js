@@ -88,12 +88,12 @@ var Time = (function () {
 	 * Convert duration string (for example +P0D) into microseconds to add to javascript timestamps.
 	 */
 	function convertDurationIntoMicroseconds(duration) {
-		var signRegExp = /^([+\-])?PT?([0-9DHM]+)/gi, parts, sign, remaining,
-			weekRegExp = /(\d)+W/gi,
-			dayRegExp = /(\d)+D/gi,
-			hourRegExp = /(\d)+H/gi,
-			minuteRegExp = /(\d)+M/gi,
-			secondRegExp = /(\d)+S/gi,
+		var signRegExp = /^([+\-])?P([0-9WDTHMS]+)$/i, parts, sign, remaining,
+			weekRegExp = /(\d+)W/i,
+			dayRegExp = /(\d+)D/i,
+			hourRegExp = /(\d+)H/i,
+			minuteRegExp = /(\d+)M/i,
+			secondRegExp = /(\d+)S/i,
 			offset = 0;
 
 		parts = signRegExp.exec(duration);
@@ -167,6 +167,15 @@ var Time = (function () {
 			pushTimezone(event.tzId || TZManager.timezone);
 			//Also push the mapped timezone, in case its needed
 			pushTimezone(timezoneMapper.mapWindowsToIANA(event.tzId));
+
+			//these are given in their own zones and get worked out to the coming years.
+			(event.rdateValues || []).concat(event.exdateValues || [], event.recurrenceIdRaw ? [event.recurrenceIdRaw] : []).forEach(function (entry) {
+				pushTimezone(entry.tzid);
+				pushTimezone(timezoneMapper.mapWindowsToIANA(entry.tzid));
+			});
+			if (event.needsExpansion) {
+				years.push(MAX_TZ_YEAR - 6, MAX_TZ_YEAR - 5, MAX_TZ_YEAR - 4, MAX_TZ_YEAR - 3);
+			}
 
 			tsFields.forEach(function (field) {
 				if (event[field]) {
@@ -622,13 +631,9 @@ var Time = (function () {
 						dt.setDate(dt.getDate() + 1);
 						newDtend = dt.getTime();
 					} else {
-						dt = new Date(event.dtstart);
-						dt.setHours(23);
-						dt.setMinutes(59);
-						dt.setSeconds(59);
-						newDtend = convertTime(dt.getTime(), source, target);
+						newDtend = event.dtstart; //RFC 5545 section 3.6.1: it ends when it starts.
 					}
-					Log.log_icalDebug("----DTEND DID NOT EXIST ", dt.getTime(), " -> ", newDtend);
+					Log.log_icalDebug("----DTEND DID NOT EXIST, now ", newDtend);
 					event.dtend = newDtend;
 				}
 
@@ -717,6 +722,11 @@ var Time = (function () {
 		},
 
 		convertDurationIntoMicroseconds: convertDurationIntoMicroseconds,
+		wallAt: wallAt,
+		wallToInstant: wallToInstant,
+		wallOfHeldTime: wallOfHeldTime,
+		heldTimeOfWall: heldTimeOfWall,
+		wallOfText: wallOfText,
 		iCalTimeToWebOsTime: iCalTimeToWebOsTime,
 		webOsTimeToICal: webOsTimeToICal,
 

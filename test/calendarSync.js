@@ -87,6 +87,33 @@ bdd.describe("a series with exceptions", function () {
 		});
 	});
 
+	bdd.it("loses its old occurrences when it changes", function () {
+		var merged = [], merge = global.DB.merge, entry = {obj: {}, uri: "/a.ics"};
+		global.DB.merge = function (objects) {
+			merged = merged.concat(objects);
+			return answer({returnValue: true});
+		};
+		stored = [{_id: "series"}, {_id: "child", parentId: "series", remoteId: "/a.ics"}];
+		return finished(CalendarEventHandler.processEvent([entry], 0, "/a.ics", {returnValue: true, result: entry.obj})).then(function () {
+			global.DB.merge = merge;
+			assert.deepStrictEqual(merged.map(function (object) { return object._id; }).indexOf("child") >= 0, true);
+			assert.strictEqual(merged.some(function (object) { return object._id === "series"; }), false);
+		});
+	});
+
+	bdd.it("takes its occurrences along when it goes", function () {
+		var merged = [], merge = global.DB.merge;
+		global.DB.merge = function (objects) {
+			merged = merged.concat(objects);
+			return answer({returnValue: true});
+		};
+		stored = [{_id: "series"}, {_id: "child", parentId: "series"}];
+		return finished(CalendarEventHandler.deleteChildren("/a.ics")).then(function () {
+			global.DB.merge = merge;
+			assert.deepStrictEqual(merged, [{_id: "child", _del: true, preventSync: true}]);
+		});
+	});
+
 	bdd.it("is stored with its account even though it already has an id", function () {
 		var assistant = Object.create(SyncAssistant.prototype), to = {}, transform;
 		assistant.client = {clientId: "account", config: {}};

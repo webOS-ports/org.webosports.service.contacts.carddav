@@ -186,10 +186,33 @@ var CalendarEventHandler = (function () {
 			return future;
 		},
 
+		/**
+		 * Deletes the exceptions and generated occurrences stored for an event.
+		 * @param remoteId the remoteId of the event
+		 * @return future
+		 */
+		deleteChildren: function (remoteId) {
+			var future = findEventByRemoteId(remoteId);
+			future.then(function childrenCB() {
+				var result = checkResult(future), toMerge = (result.results || []).filter(function (res) {
+					return res.parentId || res.relatedTo || res.parentDtstart;
+				}).map(function (res) {
+					return {_id: res._id, _del: true, preventSync: true};
+				});
+				if (toMerge.length) {
+					future.nest(DB.merge(toMerge));
+				} else {
+					future.result = {returnValue: true};
+				}
+			});
+			return future;
+		},
+
 		processEvent: function (entries, entriesIndex, remoteId, result) {
 			var entry = entries[entriesIndex], future = new Future();
 
-			if (entry.obj.rrule) {
+			//a changed event can lose occurrences or gain them, so its old ones go first.
+			if (entry.obj.rrule || result.hasExceptions || !entry.add) {
 				Log.debug("Event has rrule, deleting child events for remoteId ", remoteId, " and entry ", entry);
 				future.nest(findEventByRemoteId(remoteId));
 				future.then(function findByRemoteIdCB() {
