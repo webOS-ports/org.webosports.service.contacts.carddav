@@ -6,7 +6,7 @@
 var timezoneMapper = {
 
     mapWindowsToIANA: function(tzWindows) {
-        for (i=0; i<tzMap.length; i++) {
+        for (var i=0; i<tzMap.length; i++) {
             if (tzMap[i].tz_windows == tzWindows){
                 Log.log_icalDebug("** Found timezone name map for Windows ", tzWindows, " as IANA ", tzMap[i].tz_iana);
                 return tzMap[i].tz_iana;
@@ -16,7 +16,7 @@ var timezoneMapper = {
     },
 
     mapIANAToWindows: function(tzIANA) {
-        for (i=0; i<tzMap.length; i++) {
+        for (var i=0; i<tzMap.length; i++) {
             if (tzMap[i].tz_iana == tzIANA){
                 Log.log_icalDebug("** Found timezone name map for IANA ", tzIANA, " as Windows ", tzMap[i].tz_windows);
                 return tzMap[i].tz_windows;

@@ -26,6 +26,10 @@ global.Log = {log: quiet, debug: quiet, log_icalDebug: quiet};
 var requested;
 var manager = {
 	timezone: "Europe/Amsterdam",
+	timezones: {},
+	hasTimezoneInfo: function () {
+		return false;
+	},
 	loadTimezones: function (timezones) {
 		requested = timezones;
 		return new global.Future({returnValue: true});

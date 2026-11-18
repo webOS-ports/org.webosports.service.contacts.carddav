@@ -146,7 +146,7 @@ var iCal = (function () {
 		return rule;
 	}
 
-	function buildRRULE(rr) {
+	function buildRRULE(rr, allDay) {
 		var text = "RRULE:", i, j, day;
 		text += "FREQ=" + rr.freq + ";";
 		if (rr.count) {
@@ -156,7 +156,8 @@ var iCal = (function () {
 			text += "INTERVAL=" + rr.interval + ";";
 		}
 		if (rr.until) {
-			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, false, true) + ";";
+			// RFC 5545: UNTIL must be DATE when DTSTART is DATE (all-day), DATETIME otherwise
+			text += "UNTIL=" + Time.webOsTimeToICal(rr.until, allDay || false, !allDay) + ";";
 		}
 		if (rr.wkst || rr.wkst === 0 || rr.wkst === "0") {
 			text += "WKST=" + numToDay[rr.wkst] + ";";
@@ -269,6 +270,30 @@ var iCal = (function () {
 		return rrule;
 	}
 
+	// BYSETPOS=N;BYDAY=XX is BYDAY=NXX (the 2nd Tuesday), which webOS can hold, but only for one
+	// day of a month. BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1 picks the last of those days each month,
+	// which is one event; written as -1MO,-1TU... it would be five. webOS has no way to say that,
+	// so the rule is marked and parseWebCalICal keeps the first occurrence alone.
+	function applyBySetPos(rrule) {
+		var positions = String(rrule.bySetPos).split(","), byDay, day, oneDay, i;
+		delete rrule.bySetPos;
+		(rrule.rules || []).forEach(function (rule) {
+			if (rule.ruleType === "BYDAY") {
+				byDay = rule;
+			}
+		});
+		oneDay = byDay && (rrule.freq === "MONTHLY" || rrule.freq === "YEARLY") && byDay.ruleValue.length === 1;
+		if (!oneDay || byDay.ruleValue[0].ord) {
+			rrule.unsupported = "BYSETPOS";
+			return;
+		}
+		day = byDay.ruleValue[0].day;
+		byDay.ruleValue = [];
+		for (i = 0; i < positions.length; i += 1) {
+			byDay.ruleValue.push({day: day, ord: parseInt(positions[i], 10)});
+		}
+	}
+
 	function parseRRULE(rs) {
 		var rrule = {}, params, kv, i;
 		params = rs.split(";");
@@ -279,19 +304,16 @@ var iCal = (function () {
 				rrule.freq = kv[1];
 				break;
 			case "COUNT":
-				rrule.count = kv[1];
+				rrule.count = parseInt(kv[1], 10);
 				break;
 			case "UNTIL":
 				rrule.until = kv[1]; //will be transformed to TS at the end of event processing to get TZID right.
 				break;
 			case "INTERVAL":
-				rrule.interval = kv[1];
+				rrule.interval = parseInt(kv[1], 10);
 				break;
 			case "WKST":
 				rrule.wkst = dayToNum[kv[1]];
-				break;
-			case "BYSETPOS":
-				rrule.bySetPos = kv[1];
 				break;
 			case "BYDAY":
 			case "BYMONTHDAY":
@@ -303,6 +325,9 @@ var iCal = (function () {
 				}
 				rrule.rules.push(parseRULEofRRULE(kv[0], kv[1]));
 				break;
+			case "BYSETPOS":
+				rrule.bySetPos = kv[1];
+				break;
 			default:
 				if (kv[0].charAt(0) !== "D" && kv[0].charAt(0) !== "W" && kv[0].charAt(0) !== "M" && kv[0].charAt(0) !== "Y") { //no complaint about vCalendar rules.
 					Log.log("rrule Parameter " + kv[0] + " not supported. Will skip " + params[i]);
@@ -310,19 +335,8 @@ var iCal = (function () {
 				break;
 			}
 		}
-		// BYSETPOS=N;BYDAY=XX is equivalent to BYDAY=NXX (e.g. the 2nd Tuesday).
-		// Apply BYSETPOS as the ord on BYDAY rules that have no ordinal of their own.
-		if (rrule.bySetPos && rrule.rules) {
-			rrule.rules.forEach(function (rule) {
-				if (rule.ruleType === "BYDAY") {
-					rule.ruleValue.forEach(function (rv) {
-						if (!rv.ord) {
-							rv.ord = rrule.bySetPos;
-						}
-					});
-				}
-			});
-			delete rrule.bySetPos;
+		if (rrule.bySetPos) {
+			applyBySetPos(rrule);
 		}
 		if (!rrule.freq) {
 			return parseRRULEvCalendar(rs);
@@ -355,10 +369,14 @@ var iCal = (function () {
 			//get parameter value
 			oldIndex = index + 1;
 			if (line[oldIndex] === '"') {
-				//parameter quoted => find next quote.
-				index = line.indexOf('"', oldIndex + 1) + 1; //need to include ending quote.
-				//line[index] now should be ";" or ":"
-				if (index < 0 || (line[index] !== ";" && line[index] !== ":")) {
+				// Scan for closing quote, skipping backslash-escaped characters (e.g. \").
+				index = oldIndex + 1;
+				while (index < line.length && line[index] !== '"') {
+					if (line[index] === "\\") { index += 1; } // skip escaped char
+					index += 1;
+				}
+				index += 1; // move past closing quote; line[index] should now be ";" or ":"
+				if (index > line.length || (line[index] !== ";" && line[index] !== ":")) {
 					throw "Could not correctly parse line " + line + " paramName = " + paramName + " remaining line: " + line.substring(oldIndex);
 				}
 			} else {
@@ -375,6 +393,11 @@ var iCal = (function () {
 		}
 
 		lObj.value = line.substring(index + 1);
+
+		//TZID="Eastern Standard Time" has to match the same name unquoted.
+		if (lObj.parameters.tzid) {
+			lObj.parameters.tzid = lObj.parameters.tzid.replace(/^"|"$/g, "");
+		}
 
 		return lObj;
 	}
@@ -407,10 +430,20 @@ var iCal = (function () {
 		return alarm;
 	}
 
+	// "+0530" is 5.5 hours. Dividing by 100 made it 5.3.
+	function parseUtcOffset(value) {
+		var parts = /^([+\-])(\d\d)(\d\d)/.exec(value), hours;
+		if (!parts) {
+			return undefined;
+		}
+		hours = parseInt(parts[2], 10) + parseInt(parts[3], 10) / 60;
+		return parts[1] === "-" ? -hours : hours;
+	}
+
 	function parseDaylightStandard(lObj, obj) {
 		switch (lObj.key) {
 		case "TZOFFSETTO":
-			obj.offset = parseInt(lObj.value, 10) / 100;
+			obj.offset = parseUtcOffset(lObj.value);
 			break;
 		case "RRULE":
 			obj.rrule = parseRRULE(lObj.value);
@@ -647,6 +680,10 @@ var iCal = (function () {
 		} else if (translationQuote[lObj.key]) {
 			event[translationQuote[lObj.key]] = Quoting.unquote(lObj.value);
 		} else if (transTime[lObj.key]) {
+			if (!DATETIME.test(lObj.value) && !DATE.test(lObj.value)) {
+				Log.log("Skipping unreadable time in line " + lObj.line);
+				return event;
+			}
 			if (lObj.parameters.tzid) {
 				Log.log_icalDebug("Having Timezone: ", lObj.parameters.tzid);
 				if (lObj.value.charAt(lObj.value.length - 1) === "Z") {
@@ -708,7 +745,7 @@ var iCal = (function () {
 				} else if (lObj.value === "VTIMEZONE") {
 					event.tzMode = true;
 				} else if (lObj.value === "VTODO") {
-					event.ignoreMode = true; //TODO: add todo support here.
+					event.ignoreMode = lObj.value; //TODO: add todo support here.
 				} else if (lObj.value === "VJOURNAL" || lObj.value === "VFREEBUSY") {
 					event.ignoreMode = lObj.value;
 				} else if (lObj.value === "VEVENT") {
@@ -773,8 +810,14 @@ var iCal = (function () {
 		}
 
 		if (!revent) {
-			Log.log_icalDebug("Got no recurring event. No events at all? ", events);
-			return;
+			//A CalDAV object holds one event. Without a repeat some servers still send several
+			//under one UID, or only changed occurrences. Keep one rather than lose them all.
+			revent = events.filter(function (candidate) {
+				return !candidate.recurrenceId;
+			})[0] || events[0];
+			delete revent.recurrenceId;
+			Log.log("No recurring event among ", events.length, " events with one UID, keeping one.");
+			return revent;
 		}
 
 		Log.log_icalDebug("Have parent ", revent, " and ", events.length, " children.");
@@ -874,6 +917,10 @@ var iCal = (function () {
 		//so substracting one second should repair this issue (hopefully :().
 		if (event.allDay) { //86400000 = one day.
 			event.dtend -= 86399000;
+			//Some exporters write DTEND = DTSTART for a one day event, which would now end the day before.
+			if (event.dtend < event.dtstart) {
+				event.dtend = event.dtstart + 1000;
+			}
 		}
 
 		//webOS interprets RFC5545 a bit different here than the rest of the world.
@@ -1007,7 +1054,7 @@ var iCal = (function () {
 					}
 					text.push(transTime[field] +
 						(allDay ? ";VALUE=DATE" : "") +
-						(event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
+						(!allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") +
 						":" +
 						Time.webOsTimeToICal(value, allDay, event.tzId === "UTC"));
 				} else if (field.indexOf("x-") === 0 && typeof event[field] === "string") {
@@ -1019,16 +1066,16 @@ var iCal = (function () {
 						break;
 					case "exdates":
 						if (event.exdates.length > 0) {
-							text.push("EXDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
+							text.push("EXDATE" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.exdates.join(","));
 						}
 						break;
 					case "rdates":
 						if (event.rdates.length > 0) {
-							text.push("RDATE" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
+							text.push("RDATE" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.rdates.join(","));
 						}
 						break;
 					case "recurrenceId":
-						text.push("RECURRENCE-ID" + (event.allDay ? "VALUE=DATE" : ";VALUE=DATE-TIME") + (event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
+						text.push("RECURRENCE-ID" + (event.allDay ? ";VALUE=DATE" : ";VALUE=DATE-TIME") + (!event.allDay && event.tzId && event.recurrenceId.indexOf("Z") === -1 && event.tzId !== "UTC" ? ";TZID=" + event.tzId : "") + ":" + event.recurrenceId);
 						break;
 					case "alarm":
 						text = buildALARM(event.alarm, text);
@@ -1040,7 +1087,7 @@ var iCal = (function () {
 						break;
 					case "rrule":
 						if (event.rrule) {
-							text.push(buildRRULE(event.rrule));
+							text.push(buildRRULE(event.rrule, event.allDay));
 						}
 						break;
 					default:
@@ -1068,6 +1115,21 @@ var iCal = (function () {
 		return result;
 	}
 
+	//The calendar compares exceptions by their day in the event's zone, see iCalTimeHandling.
+	function applyExceptionDays(event, children) {
+		if (event.rrule) {
+			event.exdates = children.reduce(function (days, child) {
+				return days.concat(child.exceptionDays || []);
+			}, event.exceptionDays || []).filter(function (day, index, all) {
+				return all.indexOf(day) === index;
+			});
+		}
+		delete event.exceptionDays;
+		children.forEach(function (child) {
+			delete child.exceptionDays;
+		});
+	}
+
 	function getNewEvent() {
 		return {
 			alarm: [],
@@ -1082,10 +1144,11 @@ var iCal = (function () {
 
 	function preProcessIcal(ical) {
 		var i, j, lines, lines2, line, result = [], proc;
-		proc = ical.replace(/\r\n /g, ""); //remove line breaks in key:value pairs.
-		proc = proc.replace(/\n /g, ""); //remove line breaks in key:value pairs.
-		proc = proc.replace(/\=\r\n/g, ""); //remove old line breaks in key:value pairs.
-		proc = proc.replace(/\=\n/g, ""); //remove old line breaks in key:value pairs.
+		proc = ical.replace(/\r\n[ \t]/g, ""); //remove line breaks in key:value pairs. RFC 5545 folds with a space or a tab.
+		proc = proc.replace(/\n[ \t]/g, ""); //remove line breaks in key:value pairs.
+		// NOTE: do NOT strip =\r\n or =\n here — those are vCalendar 1.0 QP soft
+		// line breaks and are not used in iCal 2.0. Stripping them corrupts any
+		// property value (UID, base64, etc.) that legitimately ends with '='.
 
 		lines = proc.split("\r\n"); //now every line contains a key:value pair => split them. somehow the \r seems to get lost somewhere?? is this always the case?
 
@@ -1114,7 +1177,12 @@ var iCal = (function () {
 			lines = preProcessIcal(ical);
 
 			for (i = 0; i < lines.length; i += 1) {
-				lObj = parseOneLine(lines[i]);
+				try {
+					lObj = parseOneLine(lines[i]);
+				} catch (e) {
+					Log.log("Skipping unreadable line: ", e);
+					continue;
+				}
 				if (event.alarmMode) {
 					alarm = parseAlarm(lObj, event.alarm[event.alarm.length - 1]);
 					if (alarm) {
@@ -1148,10 +1216,16 @@ var iCal = (function () {
 			}
 
 			for (i = events.length - 1; i >= 0; i -= 1) {
-				if (!events[i].valid) {
+				if (!events[i].valid || !events[i].dtstart) {
 					events.splice(i, 1);
+				} else {
+					delete events[i].valid;
+					if (events[i].rrule && events[i].rrule.unsupported) {
+						Log.log("Keeping only the first occurrence, rule not supported: ", events[i].rrule.unsupported);
+						delete events[i].rrule;
+						delete events[i].exdates;
+					}
 				}
-				delete events[i].valid;
 			}
 
 			Log.log_icalDebug("Parsing finished, event:", events);
@@ -1170,6 +1244,7 @@ var iCal = (function () {
 						applyHacks(event);
 					});
 					applyHacks(revent, exceptions);
+					applyExceptionDays(revent, exceptions);
 					Log.log_icalDebug("After TZ conversion:", revent, " and ", exceptions);
 					outerFuture.result = {returnValue: true, result: revent, hasExceptions: exceptions.length > 0, exceptions: exceptions};
 				} else {
