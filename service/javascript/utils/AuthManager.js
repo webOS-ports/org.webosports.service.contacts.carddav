@@ -82,7 +82,7 @@ var AuthManager = (function () {
 			["cnonce=\"", userAuth.digest.cnonce, "\""].join("")
 		].join(", ");
 
-		Log.debug("authString: ", authString);
+		Log.debug("Built digest auth string.");
 
 		return authString;
 

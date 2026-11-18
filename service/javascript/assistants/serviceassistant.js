@@ -191,7 +191,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 
 					future.then(this, function () {
 						var result = checkResult(future), username, password, authToken, oauth;
-						Log.debug("------------->Checked Key" + JSON.stringify(result));
+						Log.debug("------------->Checked Key, found: ", !!result.value);
 
 						if (result.value) {  //found key
 							Log.debug("------------->Existing Key Found, will overwrite data.");

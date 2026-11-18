@@ -350,7 +350,8 @@ var httpClient = (function () {
 
 			retries[origin].received = true;
 			if (!options.binary) {
-				Log.log_httpClient("Body: " + body.toString("utf8"));
+				//Size only: bodies carry tokens, contacts and events.
+				Log.log_httpClient("Body: ", body.length, " bytes");
 			}
 
 			var result = {
@@ -489,7 +490,8 @@ var httpClient = (function () {
 						}
 					}
 
-					Log.log_httpClient("Sending request ", reqName(origin, retry), " with data ", data, " to server.");
+					//Size only: a token refresh sends the refresh token and client secret here.
+				Log.log_httpClient("Sending request ", reqName(origin, retry), " with ", (data ? data.length : 0), " bytes of data to server.");
 					Log.log_httpClient("Options: ", printOptions(options));
 					Log.debug("Sending request ", reqName(origin, retry), " to " + options.prefix + options.path);
 
