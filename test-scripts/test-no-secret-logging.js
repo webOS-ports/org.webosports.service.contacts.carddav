@@ -193,6 +193,7 @@ function loadPage(dir, params) {
         $L: function (s) { return s; },
         enyo: {kind: function (k) { kind = k; }, windowParams: params, scrim: {show: stub, hide: stub}},
         UrlSchemes: {urlSchemes: {}},
+        OAuthWindow: {open: function () { return {close: stub}; }},
         PalmSystem: {launchParams: JSON.stringify(params), deviceInfo: JSON.stringify({modelName: "LuneOS Device"})},
         navigator: {InAppBrowser: {open: stub, close: stub}}
     };
@@ -221,9 +222,12 @@ function pagesCase() {
     captured = [];
     google = loadPage("GoogleOauth", params);
     google.create();
-    google.gotAuthToken({}, "Success code=" + TOKEN);
-    google.gotAccessToken({}, {access_token: TOKEN, refresh_token: TOKEN, token_type: "Bearer"});
-    google.gotName({}, {email: "user@example.org", id_token: TOKEN});
+    google.signInReady({}, {url: "https://accounts.example/?secret=" + TOKEN, state: "s", codeVerifier: TOKEN,
+        redirectUri: "http://localhost/cdav/oauth2callback"});
+    google.gotRedirect("http://localhost/cdav/oauth2callback?state=s&code=" + TOKEN);
+    google.gotRedirect("http://localhost/cdav/oauth2callback?state=" + TOKEN + "&code=" + TOKEN);
+    google.gotTokens({}, {access_token: TOKEN, refresh_token: TOKEN, token_type: "Bearer", expires_in: 3600,
+        refresh_url: "https://token.example/", email: "user@example.org"});
     google.getAccessTokenFailed({}, failed);
     google.windowParamsChangeHandler({}, {params: params});
     google.credentialsCameBack({}, {returnValue: true, credentials: TOKEN});

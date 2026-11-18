@@ -11,7 +11,6 @@ function debug(msg) {
 	console.error(msg);
 }
 
-var BASE_URL = "https://accounts.google.com/o/oauth2/";
 /*
  * The Google OAuth client is the builder's own: no client id or secret is in
  * this repository (the ones it once had are public and are to be revoked). The
@@ -36,17 +35,17 @@ enyo.kind({
 	kind: "VFlexBox",
 	className: "enyo-bg",
 	components: [
-		{ name: "getAccessToken", kind: "WebService", url: BASE_URL + "token", method: "POST",
-			onSuccess: "gotAccessToken", onFailure: "getAccessTokenFailed" },
-		{ name: "getUserName", kind: "WebService", url: "https://www.googleapis.com/userinfo/v2/me", method: "GET",
-			onSuccess: "gotName", onFailure: "getAccessTokenFailed" },
+		{ name: "googleOAuthStart", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
+			method: "googleOAuthStart", onSuccess: "signInReady", onFailure: "getAccessTokenFailed" },
+		{ name: "googleOAuthExchange", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
+			method: "googleOAuthExchange", onSuccess: "gotTokens", onFailure: "getAccessTokenFailed" },
 		//used to change credentials:
 		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "checkCredentials", onSuccess: "credentialsCameBack", onFailure: "credentialsCameBack" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
-		{ kind: "PageHeader", content: "Sign in with Google below, please", pack: "center" },
+		{ kind: "PageHeader", content: "Sign in with Google in the window that opens", pack: "center" },
 		{ name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
-		{ kind: "WebView", flex: 9, onPageTitleChanged: "gotAuthToken"},
+		{ flex: 9 },
 		{kind: "CrossAppResult", name: "crossAppResult" },
 		{className: "accounts-footer-shadow", tabIndex: -1},
 		{kind: "Toolbar", className: "enyo-toolbar-light", components: [
@@ -54,7 +53,7 @@ enyo.kind({
 		]}
 	],
 	create: function () {
-		var url, devInfo;
+		var loginHint;
 		this.inherited(arguments);
 		console.error(">>>>>>>>>>>>>>>>>>>> create");
 
@@ -72,29 +71,10 @@ enyo.kind({
 			return;
 		}
 
-		url = BASE_URL + "auth?client_id=" +
-				  encodeURIComponent(CLIENT_ID) +
-				  "&response_type=code" +
-				  "&redirect_uri=" + encodeURIComponent("urn:ietf:wg:oauth:2.0:oob") +
-			"&scope=" + encodeURIComponent("https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/carddav https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile");
-
-		if (this.params && this.params.account && this.params.account.credentials && this.params.account.credentials.user) {
-			url += "&login_hint=" + encodeURIComponent(this.params.account.credentials.user);
+		if (this.params && this.params.account && this.params.account.credentials) {
+			loginHint = this.params.account.credentials.user;
 		}
-
-		if (window.PalmSystem && PalmSystem.deviceInfo) {
-			devInfo = JSON.parse(PalmSystem.deviceInfo);
-			if (devInfo.modelName === "LuneOS Device") {
-				//is LuneOS:
-				this.log("Poping up Google page with OAuth request.");
-				navigator.InAppBrowser.open(url);
-				navigator.InAppBrowser.ontitlechanged = this.gotAuthToken.bind(this, {}); //send empty "Sender" on LuneOS.
-				navigator.InAppBrowser.ondoneclicked = this.doBack.bind(this);
-			} else if (devInfo.platformVersionMajor === 3) {
-				//is legacy webos:
-				this.$.webView.setUrl(url);
-			}
-		}
+		this.$.googleOAuthStart.call({clientId: CLIENT_ID, loginHint: loginHint});
 
 		if (this.params.mode === "modify" && this.params.account) {
 			this.accountId = this.params.account._id;
@@ -103,40 +83,56 @@ enyo.kind({
 
 		console.error("<<<<<<<<<<<<<<<<<<<< create");
 	},
-	gotAuthToken: function (inSender, inResponse) {
-		if (this.doing) {
+	signInReady: function (inSender, inResponse) {
+		if (!inResponse.url) {
+			this.getAccessTokenFailed(inSender, inResponse);
 			return;
 		}
+		this.signIn = inResponse;
+		this.oauthWindow = window.OAuthWindow.open({
+			url: inResponse.url,
+			name: "googleSignIn",
+			redirectPrefix: inResponse.redirectUri,
+			onRedirect: this.gotRedirect.bind(this),
+			onError: this.showLoginError.bind(this)
+		});
+	},
+	gotRedirect: function (url) {
+		var query = {};
 
-		var start = inResponse.indexOf("code=") + 5,
-			code;
-		if (start >= 5) {
-			code = inResponse.substring(start);
-			debug("Got authorization code.");
-
-			this.doing = true;
-			this.$.getAccessToken.call({
-				code:           code,
-				client_id:      CLIENT_ID,
-				client_secret:  CLIENT_SECRET,
-				redirect_uri:   "urn:ietf:wg:oauth:2.0:oob", //means token will be returned as title of page.
-				grant_type:     "authorization_code"
-			});
-			if (navigator.InAppBrowser) {
-				navigator.InAppBrowser.close();
+		this.oauthWindow = null;
+		(url.split("#")[0].split("?")[1] || "").split("&").forEach(function (part) {
+			var pos = part.indexOf("=");
+			if (pos > 0) {
+				query[part.substring(0, pos)] = decodeURIComponent(part.substring(pos + 1).replace(/\+/g, " "));
 			}
-			this.$.pageHeader.setContent("Getting access token from google...");
+		});
+
+		if (query.state !== this.signIn.state) {
+			log("Sign-in redirect had the wrong state.");
+			this.showLoginError($L("Sign-in failed. Please try again."));
+		} else if (!query.code) {
+			log("Sign-in was refused: " + query.error);
+			this.showLoginError($L("Google did not allow the sign-in."));
 		} else {
-			log("Could not extract code: " + start);
+			debug("Got authorization code.");
+			this.$.pageHeader.setContent("Getting access token from google...");
+			this.$.googleOAuthExchange.call({
+				code: query.code,
+				codeVerifier: this.signIn.codeVerifier,
+				clientId: CLIENT_ID,
+				clientSecret: CLIENT_SECRET
+			});
 		}
 	},
-	gotAccessToken: function (inSender, inResponse) {
+	gotTokens: function (inSender, inResponse) {
+		if (!inResponse.access_token) {
+			this.getAccessTokenFailed(inSender, inResponse);
+			return;
+		}
 		debug("Got access token.");
-
 		this.token_response = inResponse;
-
-		this.$.getUserName.call({access_token: inResponse.access_token});
-		this.$.pageHeader.setContent("Getting username to show in webOS...");
+		this.gotName(inSender, {email: inResponse.email});
 	},
 	gotName: function (inSender, inResponse) {
 		debug("Got user name.");
@@ -158,7 +154,8 @@ enyo.kind({
 				client_id: CLIENT_ID,
 				client_secret: CLIENT_SECRET,
 				authToken: this.token_response.token_type + " " + this.token_response.access_token,
-				refresh_url: BASE_URL + "token",
+				refresh_url: this.token_response.refresh_url,
+				expires: Date.now() + this.token_response.expires_in * 1000,
 				username: username
 			},
 			config;
@@ -263,6 +260,9 @@ enyo.kind({
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
 	},
 	doBack: function () {
+		if (this.oauthWindow) {
+			this.oauthWindow.close();
+		}
 		this.$.crossAppResult.sendResult({returnValue: false});
 	},
 	credentialsCameBack: function (inSender, inResponse) {

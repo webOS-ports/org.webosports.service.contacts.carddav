@@ -23,6 +23,7 @@ function runCreate(fill) {
 	var source = fs.readFileSync(crossAppTarget, "utf8"),
 		kind,
 		opened = [],
+		started = [],
 		errors = [],
 		instance,
 		context;
@@ -40,7 +41,7 @@ function runCreate(fill) {
 			launchParams: JSON.stringify({mode: "create"}),
 			deviceInfo: JSON.stringify({modelName: "LuneOS Device"})
 		},
-		navigator: {InAppBrowser: {open: function (url) { opened.push(url); }}}
+		OAuthWindow: {open: function (opts) { opened.push(opts); return {close: function () {}}; }}
 	};
 	context.window = context;
 	vm.createContext(context);
@@ -50,27 +51,32 @@ function runCreate(fill) {
 	instance.inherited = function () {};
 	instance.log = function () {};
 	instance.showLoginError = function (msg) { errors.push(msg); };
+	instance.$ = {googleOAuthStart: {call: function (args) { started.push(args); }}};
 	instance.create();
-	return {opened: opened, errors: errors};
+	return {instance: instance, started: started, opened: opened, errors: errors};
 }
 
 bdd.describe("Google OAuth client configuration", function () {
 	bdd.it("does not start sign-in without a client from the build", function () {
 		var r = runCreate(null);
-		assert.deepStrictEqual(r.opened, []);
+		assert.deepStrictEqual(r.started, []);
 		assert.strictEqual(r.errors.length, 1);
 	});
 
 	bdd.it("does not start sign-in when only one of id and secret is set", function () {
-		assert.deepStrictEqual(runCreate({id: "id.apps.googleusercontent.com", secret: ""}).opened, []);
-		assert.deepStrictEqual(runCreate({id: "", secret: "s3cret"}).opened, []);
+		assert.deepStrictEqual(runCreate({id: "id.apps.googleusercontent.com", secret: ""}).started, []);
+		assert.deepStrictEqual(runCreate({id: "", secret: "s3cret"}).started, []);
 	});
 
 	bdd.it("signs in with the client id the build fills in", function () {
 		var r = runCreate({id: "test-id.apps.googleusercontent.com", secret: "test-secret"});
 		assert.deepStrictEqual(r.errors, []);
+		assert.strictEqual(r.started.length, 1);
+		assert.strictEqual(r.started[0].clientId, "test-id.apps.googleusercontent.com");
+		r.instance.signInReady({}, {url: "https://accounts.example/", redirectUri: "http://localhost/cb", state: "s"});
 		assert.strictEqual(r.opened.length, 1);
-		assert.strictEqual(new URL(r.opened[0]).searchParams.get("client_id"), "test-id.apps.googleusercontent.com");
+		assert.strictEqual(r.opened[0].url, "https://accounts.example/");
+		assert.strictEqual(r.opened[0].redirectPrefix, "http://localhost/cb");;
 	});
 
 	bdd.it("keeps no client id or secret in the sources", function () {

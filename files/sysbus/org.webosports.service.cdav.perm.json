@@ -1,8 +1,11 @@
 {
     "org.webosports.service.cdav": [
         "cdav-service.operation",
+        "accountsservice.management",
         "activity.operation",
+        "activity.query",
         "database.operation",
+        "keymanager-service.operation",
         "time.query"
     ]
 }
