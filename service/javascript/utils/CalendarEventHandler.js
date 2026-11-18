@@ -150,18 +150,22 @@ var CalendarEventHandler = (function () {
 			});
 
 			future.then(this, function () {
-				var result = checkResult(future);
+				var result = checkResult(future), children;
 				if (result.returnValue && !result.result) { //either no success or ordinary event that already was processed.
-					if (result.results.length > 0) {
+					//occurrences worked out here are no changes the server has to know about.
+					children = result.results.filter(function (e) {
+						return !e.generatedOccurrence;
+					});
+					if (children.length > 0) {
 						//have children!
-						result.results.forEach(function (e, index) {
+						children.forEach(function (e, index) {
 							e.uid = parentEvent.uid || parentEvent.uId;
 							e.relateTo = e.uid;
 							e.remoteId = parentEvent.remoteId + "exception" + index;
 							e.uri = parentEvent.uri;
 						});
 
-						future.nest(iCal.generateICalWithExceptions(parentEvent, result.results));
+						future.nest(iCal.generateICalWithExceptions(parentEvent, children));
 					} else {
 						//no children => just process the event.
 						future.nest(iCal.generateICal(parentEvent));

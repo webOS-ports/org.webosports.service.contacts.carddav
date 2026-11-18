@@ -59,7 +59,8 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 				username: userAuth.username,
 				url: url,
 				urlScheme: urlScheme,
-				name: name
+				name: name,
+				twoWay: args.twoWay === true
 			}
 		};
 	}
@@ -189,6 +190,9 @@ checkCredentialsAssistant.prototype.run = function (outerfuture) {
 			this.config.url = url || this.config.url;
 			this.config.urlScheme = urlScheme || this.config.urlScheme;
 			this.config.ignoreSSLCertificateErrors = !!args.ignoreSSLCertificateErrors;
+			if (args.twoWay !== undefined) {
+				this.config.twoWay = args.twoWay === true;
+			}
 
 			if (this.config._id && this.config._kind) {
 				future.nest(DB.merge([this.config]));

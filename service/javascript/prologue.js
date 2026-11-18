@@ -49,6 +49,7 @@ var KindsTasks = KindsModule.KindsTasks;
 
 var iCal = require(libPath + "iCal.js");
 var iCalTask = require(libPath + "iCalTask.js");
+var ObjectMerge = require(libPath + "ObjectMerge.js");
 
 //load assistants:
 var SyncAssistant = require(servicePath + "/javascript/assistants/syncassistant.js");

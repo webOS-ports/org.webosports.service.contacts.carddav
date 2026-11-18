@@ -2,6 +2,8 @@
 /************************************************************
 Contains global kinds references - NOT USED BY CONFIGURATOR
 *************************************************************/
+//allowUpsync says a kind can be sent to a server. Whether it is depends on the account,
+//see ObjectMerge.uploadAllowed.
 var Kinds = {
 	objects: {
 		calendar: {
@@ -16,7 +18,7 @@ var Kinds = {
 			identifier: "org.webosports.cdav.calendarevent",
 			id: "org.webosports.cdav.calendarevent:1",
 			connected_kind: "calendar",
-			allowUpsync: false
+			allowUpsync: true
 		},
 		contactset: {
 			name: "contactset",
@@ -30,7 +32,7 @@ var Kinds = {
 			identifier: "org.webosports.cdav.contact",
 			id: "org.webosports.cdav.contact:1",
 			connected_kind: "contactset",
-			allowUpsync: false
+			allowUpsync: true
 		},
 		tasklist: {
 			name: "tasklist",
@@ -44,7 +46,7 @@ var Kinds = {
 			identifier: "org.webosports.cdav.task",
 			id: "org.webosports.cdav.task:1",
 			connected_kind: "tasklist",
-			allowUpsync: false
+			allowUpsync: true
 		}
 	},
 	account: {
@@ -70,7 +72,7 @@ exports.KindsContacts = {
 			identifier: "org.webosports.cdav.contact",
 			id: "org.webosports.cdav.contact:1",
 			connected_kind: "contactset",
-			allowUpsync: false
+			allowUpsync: true
 		}
 	},
 	account: {
@@ -97,7 +99,7 @@ exports.KindsCalendar = {
 			identifier: "org.webosports.cdav.calendarevent",
 			id: "org.webosports.cdav.calendarevent:1",
 			connected_kind: "calendar",
-			allowUpsync: false
+			allowUpsync: true
 		}
 	},
 	account: {
@@ -124,7 +126,7 @@ exports.KindsTasks = {
 			identifier: "org.webosports.cdav.task",
 			id: "org.webosports.cdav.task:1",
 			connected_kind: "tasklist",
-			allowUpsync: false
+			allowUpsync: true
 		}
 	},
 	account: {

@@ -210,7 +210,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				return function (to, from) {
 					to.accountId = this.client.clientId;
 					to.excludeFromAll = false;
-					to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
+					to.isReadOnly = !ObjectMerge.uploadAllowed(this.client.config, Kinds.objects[kindName].connected_kind); //issue: if that changes, we'll have to recreate calendars
 					to.name = from.name;
 					to.syncSource = "cdav";
 					to.remoteId = from.remoteId || from.uri;
@@ -293,7 +293,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		if (name === "local2remote") {
 			Log.debug("==========================> allowUpsync: ", Kinds.objects[kindName].allowUpsync, " for ", kindName);
-			if (Kinds.objects[kindName].allowUpsync) { //configure upsync via kinds.js
+			if (ObjectMerge.uploadAllowed(this.client.config, kindName)) { //the kind and the account have to allow it.
 				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback, no real conversion here.
 					Log.log("\n\n**************************SyncAssistant:_local2remote*****************************");
 					Log.debug("Transforming ", from);
@@ -1349,6 +1349,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					Log.log("Upload of ", rid, " failed so hard that reupload won't work. Do not retry.");
 					batch[index].local.uploadFailed = 0;
 					batch[index].local.etag = "0"; //reset etag to trigger redownload.
+					this._requestFullListing(kindName, batch[index].local.calendarId);
 					error = true; //make sure full update is done, ctags on server probably won't change.
 				} else {
 					//keep rid and etag out of db => otherwise object will be deleted on next downsync!
@@ -1373,6 +1374,54 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		});
 
 		return future;
+	},
+
+	/*
+	 * The server's copy is needed again, even if the collection itself did not change.
+	 */
+	_requestFullListing: function (kindName, collectionId) {
+		"use strict";
+		this.SyncKey.forEachFolder(kindName, function (folder) {
+			if (folder.collectionId === collectionId) {
+				folder.ctag = 0;
+				delete folder.syncToken;
+				delete folder.pendingSyncToken;
+			}
+		});
+	},
+
+	/*
+	 * Puts what can be edited here into the server's current version of an object.
+	 * Result conflict: the server has something newer, its version wins.
+	 */
+	_mergeWithServer: function (kindName, remote) {
+		"use strict";
+		var future = new Future(), outer = new Future();
+
+		if (remote.etag === "0") {
+			outer.result = {returnValue: false, conflict: true};
+			return outer;
+		}
+		future.nest(CalDav.downloadObject(this.params, remote));
+		future.then(this, function currentVersionCB() {
+			var result = checkResult(future);
+			if (result.returnValue !== true) {
+				outer.result = {returnValue: false, conflict: result.returnCode === 404 || result.returnCode === 410};
+			} else if (result.etag && result.etag !== remote.etag) {
+				Log.log("Object changed on the server, keeping that version.");
+				outer.result = {returnValue: false, conflict: true};
+			} else {
+				if (kindName === Kinds.objects.contact.name) {
+					remote.data = ObjectMerge.mergeCard(result.data, remote.data);
+				} else if (kindName === Kinds.objects.task.name) {
+					remote.data = ObjectMerge.mergeTask(result.data, remote.data);
+				} else {
+					remote.data = ObjectMerge.mergeEvent(result.data, remote.data);
+				}
+				outer.result = {returnValue: true};
+			}
+		});
+		return outer;
 	},
 
 	/*
@@ -1429,10 +1478,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			return future;
 		}
 
+		//Occurrences worked out here do not exist on the server, and a series stored that way
+		//cannot be written back. Removing one occurrence is a change of its series.
+		if (obj.local.generatedOccurrence || (obj.local.expandedRule && obj.operation === "save") ||
+				(obj.local.parentId && obj.operation === "delete")) {
+			Log.log("Not an object of the server, skipping upload.");
+			future.result = {etag: obj.local.etag, uri: obj.remote.uri, returnValue: true};
+			return future;
+		}
+
+		this.params.cardDav = kindName === Kinds.objects.contact.name;
+		this.params.tasks = kindName === Kinds.objects.task.name;
+
 		function conversionCB(f) {
-			var result = checkResult(f);
+			var result = checkResult(f), merged;
 			if (result.returnValue === true) {
 				obj.remote.data = result.result; //copy vCard/iCal result into obj.
+				if (kindName === Kinds.objects.calendarevent.name) {
+					obj.remote.data = ObjectMerge.prepareCalendar(obj.remote.data, "VEVENT", obj.local.uid || obj.local.uId || obj.remote.remoteId, Date.now());
+				}
 
 				if (result.uri) {
 					obj.remote.uri = result.uri;
@@ -1446,7 +1510,19 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
 				}
 
-				future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+				if (obj.remote.add || !obj.local.etag) {
+					future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+				} else {
+					merged = self._mergeWithServer(kindName, obj.remote);
+					merged.then(function mergedCB() {
+						var mergeResult = checkResult(merged);
+						if (mergeResult.returnValue === true) {
+							future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+						} else {
+							future.result = {uri: obj.remote.uri, returnValue: false, noReUpload: mergeResult.conflict};
+						}
+					});
+				}
 			} else {
 				Log.log("Conversion of ", obj.local, " failed: ", result);
 				if (!obj.remote.uri) {
@@ -1466,6 +1542,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else if (kindName === Kinds.objects.contact.name) {
 				future.nest(vCard.generateVCard({accountName: this.client.config.name,
 												contact: obj.local, kind: Kinds.objects[kindName].id}));
+			} else if (kindName === Kinds.objects.task.name) {
+				future.result = {returnValue: true, result: iCalTask.generateTask(obj.local, Date.now())};
 			} else {
 				throw new Error("Kind '" + kindName + "' not supported in _putOneRemoteObject.");
 			}
@@ -1612,7 +1690,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (!syncObj) {
 			future.result = { returnValue: true};
 		} else {
-			if (syncObj.allowUpsync && (!this.client.transport.syncKey[syncObj.name] || !this.client.transport.syncKey[syncObj.name].error)) {
+			if (ObjectMerge.uploadAllowed(this.client.config, syncObj.name) && (!this.client.transport.syncKey[syncObj.name] || !this.client.transport.syncKey[syncObj.name].error)) {
 				//only redo upsync if not in error state
 
 				rev = this.client.transport.modnum;

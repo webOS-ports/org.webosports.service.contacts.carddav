@@ -60,6 +60,14 @@ enyo.kind({
 					{kind: "Spacer"},
 					{content: "Ignore SSL Certificate Errors"}
 				]},
+				{kind: "HFlexBox", style: "padding-left: 10px;", components: [
+					{
+						kind: "CheckBox",
+						name: "ckTwoWay"
+					},
+					{kind: "Spacer"},
+					{content: "Send changes made here to the server"}
+				]},
 				{ kind: "Button", tabIndex: "4",  caption: "Check Credentials", onclick: "doCheckCredentials", className: "enyo-button-dark" }
 			]}
 		]},
@@ -154,6 +162,7 @@ enyo.kind({
 				this.$.picker.setValue(-1);
 			}
 			this.$.ckIgnoreSSLCertificateErrors.setChecked(!!account.ignoreSSLCertificateErrors);
+			this.$.ckTwoWay.setChecked(account.twoWay === true);
 		} else {
 			this.showLoginError("Change credentials", "Could not find account info in db. Best is to delete account and create new one.");
 		}
@@ -175,7 +184,8 @@ enyo.kind({
 				user: this.$.txtUsername.getValue(),
 				password: this.$.txtPassword.getValue()
 			},
-			ignoreSSLCertificateErrors: this.$.ckIgnoreSSLCertificateErrors.getChecked()
+			ignoreSSLCertificateErrors: this.$.ckIgnoreSSLCertificateErrors.getChecked(),
+			twoWay: this.$.ckTwoWay.getChecked()
 		};
 
 		this.$.alert.setContent("");
@@ -221,7 +231,8 @@ enyo.kind({
 			url: this.account.url,
 			urlScheme: this.account.urlScheme,
 			name: this.account.name,
-			ignoreSSLCertificateErrors: this.account.ignoreSSLCertificateErrors
+			ignoreSSLCertificateErrors: this.account.ignoreSSLCertificateErrors,
+			twoWay: this.account.twoWay
 		});
 	},
 	credentialsOK: function (inSender, inResponse) {
