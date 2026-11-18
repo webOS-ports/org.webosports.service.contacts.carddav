@@ -43,7 +43,12 @@ enyo.kind({
 		{ name: "checkCredentials", kind: "PalmService", service: "palm://org.webosports.service.cdav/",
 			method: "checkCredentials", onSuccess: "credentialsCameBack", onFailure: "credentialsCameBack" },
 		{kind: "ApplicationEvents", onWindowParamsChange: "windowParamsChangeHandler"},
-		{ kind: "PageHeader", content: "Sign in with Google in the window that opens", pack: "center" },
+		{ kind: "PageHeader", content: "Sign in with Google", pack: "center" },
+		{ name: "description", style: "padding:20px;text-align:center;",
+			content: "Google's sign-in opens in a separate window. After you allow access, C+DAV downloads your contacts and calendars to this device. It does not change anything in your Google account." },
+		{ layoutKind: "HFlexLayout", pack: "center", components: [
+			{ name: "signInButton", kind: "Button", caption: "Continue to Google", onclick: "startSignIn", className: "enyo-button-affirmative" }
+		]},
 		{ name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
 		{ flex: 9 },
 		{kind: "CrossAppResult", name: "crossAppResult" },
@@ -53,7 +58,6 @@ enyo.kind({
 		]}
 	],
 	create: function () {
-		var loginHint;
 		this.inherited(arguments);
 		console.error(">>>>>>>>>>>>>>>>>>>> create");
 
@@ -67,14 +71,10 @@ enyo.kind({
 
 		if (!googleClientConfigured(CLIENT_ID, CLIENT_SECRET)) {
 			log("Google OAuth client id/secret were not set at build time.");
+			this.$.signInButton.hide();
 			this.showLoginError($L("Google sign-in is not available in this build."));
 			return;
 		}
-
-		if (this.params && this.params.account && this.params.account.credentials) {
-			loginHint = this.params.account.credentials.user;
-		}
-		this.$.googleOAuthStart.call({clientId: CLIENT_ID, loginHint: loginHint});
 
 		if (this.params.mode === "modify" && this.params.account) {
 			this.accountId = this.params.account._id;
@@ -82,6 +82,16 @@ enyo.kind({
 		}
 
 		console.error("<<<<<<<<<<<<<<<<<<<< create");
+	},
+	startSignIn: function () {
+		var loginHint;
+
+		if (this.params && this.params.account && this.params.account.credentials) {
+			loginHint = this.params.account.credentials.user;
+		}
+		this.$.alert.hide();
+		this.$.signInButton.setDisabled(true);
+		this.$.googleOAuthStart.call({clientId: CLIENT_ID, loginHint: loginHint});
 	},
 	signInReady: function (inSender, inResponse) {
 		if (!inResponse.url) {
@@ -237,6 +247,7 @@ enyo.kind({
 	showLoginError: function (msg) {
 		this.$.alert.setContent(msg);
 		this.$.alert.show();
+		this.$.signInButton.setDisabled(false); //lets the user try again.
 	},
 	// called when app is opened or reopened
 	windowParamsChangeHandler: function (inSender, event) {
