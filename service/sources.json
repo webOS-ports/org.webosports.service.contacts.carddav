@@ -63,6 +63,9 @@
 		"source": "javascript/assistants/discoveryassistant.js"
 	},
 	{
+		"source": "javascript/assistants/googleoauthassistant.js"
+	},
+	{
 		"source": "javascript/assistants/oncreateassistant.js"
 	},
 	{

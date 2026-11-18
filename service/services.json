@@ -73,6 +73,16 @@
 					"public": true
 				},
 				{
+					"name": "googleOAuthStart",
+					"assistant": "GoogleOAuthStart",
+					"public": true
+				},
+				{
+					"name": "googleOAuthExchange",
+					"assistant": "GoogleOAuthExchange",
+					"public": true
+				},
+				{
 					"name": "addItem",
 					"assistant": "AddItemAssistant",
 					"public": true

@@ -12,6 +12,8 @@
         "org.webosports.service.cdav/discovery",
         "org.webosports.service.cdav/triggerSlowSync",
         "org.webosports.service.cdav/checkStatus",
+        "org.webosports.service.cdav/googleOAuthStart",
+        "org.webosports.service.cdav/googleOAuthExchange",
         "org.webosports.service.cdav/addItem",
         "org.webosports.service.cdav/resources"
     ]
