@@ -138,4 +138,28 @@ bdd.describe("uploading", function () {
 			assert.strictEqual(result.results.length, 3);
 		});
 	});
+
+	function failedUpload(answerOfServer) {
+		var assistant = Object.create(SyncAssistant.prototype), folders = [
+			{collectionId: "mine", ctag: "c", syncToken: "s", pendingSyncToken: "p"},
+			{collectionId: "other", ctag: "c", syncToken: "s"}
+		], batch = [{local: {calendarId: "mine", etag: "e"}}];
+		assistant.client = {clientId: "account", config: {}};
+		assistant.SyncKey = {forEachFolder: function (kindName, callback) { folders.forEach(callback); }};
+		assistant._putOneRemoteObject = function () { return answer(answerOfServer); };
+		return finished(assistant._processOne(0, [], batch, "calendarevent")).then(function () {
+			return {folders: folders, local: batch[0].local};
+		});
+	}
+
+	bdd.it("after a failed upload the next sync lists the collection, so the retry happens", function () {
+		return failedUpload({returnValue: false, uri: "/mine/a.ics"}).then(function (state) {
+			assert.strictEqual(state.local.uploadFailed, 1);
+			assert.strictEqual(state.local.etag, "e");
+			assert.strictEqual(state.folders[0].ctag, 0);
+			assert.strictEqual(state.folders[0].syncToken, undefined);
+			assert.strictEqual(state.folders[0].pendingSyncToken, undefined);
+			assert.deepStrictEqual(state.folders[1], {collectionId: "other", ctag: "c", syncToken: "s"});
+		});
+	});
 });

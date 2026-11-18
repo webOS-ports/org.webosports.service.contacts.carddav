@@ -1360,6 +1360,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				} else {
 					//keep rid and etag out of db => otherwise object will be deleted on next downsync!
 					Log.debug("Upload of ", rid, " failed. Save failure for later.");
+					//the retry starts from a listing, which an unchanged collection would not get.
+					this._requestFullListing(kindName, batch[index].local.calendarId);
 					batch[index].local.uploadFailed = batch[index].local.uploadFailed ? batch[index].local.uploadFailed + 1 : 1;
 				}
 			}
