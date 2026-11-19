@@ -1880,79 +1880,116 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return future;
 	},
 
-	//Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
+	/*
+	 * Completes the activity first and only then creates the SyncOnEdit
+	 * activities. A SyncOnEdit activity replaces the one with its name, which
+	 * is often the activity being completed here. The activity manager drops a
+	 * running activity that gets replaced without releasing its power lock, so
+	 * the phone stayed awake for 15 minutes after each edit.
+	 * Edits made in between are not lost: the new activities watch for every
+	 * revision after the one this sync uploaded.
+	 * Returns a future that always gives true.
+	 */
+	_completeThenSyncOnEdit: function (activity, createSyncOnEdit) {
+		"use strict";
+		var completed = new Future(), created = new Future(), done = new Future(),
+			syncObjects = this.getSyncObjects(), kindName, upSyncs = [], call;
+
+		call = activity.complete();
+		if (call) {
+			completed.nest(call);
+		} else {
+			completed.result = {returnValue: false, notOwned: true};
+		}
+
+		completed.then(this, function completedCB() {
+			var result = checkResult(completed);
+			if (result && result.exception) {
+				Log.log("Complete FAILED, exception = ", result.exception);
+			} else {
+				Log.log("Complete came back.");
+			}
+
+			if (createSyncOnEdit) {
+				for (kindName in syncObjects) {
+					if (syncObjects.hasOwnProperty(kindName)) {
+						upSyncs.push(syncObjects[kindName]);
+					}
+				}
+				created.nest(this._buildSyncOnEditActivity(upSyncs, 0));
+			} else {
+				Log.log("CDav-complete(): skipping creating of sync activities");
+				created.result = {returnValue: true};
+			}
+		});
+
+		created.then(this, function createdCB() {
+			var result = checkResult(created);
+			if (result && result.exception) {
+				Log.log("Creating sync-on-edit activities FAILED, exception = ", result.exception);
+			} else {
+				Log.debug("All sync on edit creation came back.");
+			}
+			done.result = true;
+		});
+
+		return done;
+	},
+
+	/*
+	 * Completes the activity that started this sync. Inner syncs for one
+	 * capability then set up the SyncOnEdit activities again.
+	 * Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
+	 */
 	complete: function (activity) {
 		"use strict";
 
 		var syncActivity, outerFuture = new Future(), future = new Future(),
-			syncObjects = this.getSyncObjects(), kindName, upSyncs = [],
 			args = this.controller.args;
 		Log.log("CDav-Completing activity ", activity.name);
 
-		//handle sync on edit acitivities:
-		if (this.recreateActivitiesOnComplete && args.capability) { //only create sync on edit activities for inner service calls
-			for (kindName in syncObjects) {
-				if (syncObjects.hasOwnProperty(kindName)) {
-					upSyncs.push(syncObjects[kindName]);
-				}
-			}
-
-			future.nest(this._buildSyncOnEditActivity(upSyncs, 0));
-
-			future.then(this, function syncOnEditCB() {
-				Log.debug("All sync on edit creation came back.");
-				future.result = true;
+		// this.recreateActivitiesOnComplete will be set to false when
+		// the sync command is run while the capability is disabled
+		if (!this.recreateActivitiesOnComplete || args.capability) {
+			this._completeThenSyncOnEdit(activity, this.recreateActivitiesOnComplete && args.capability).then(this, function completedCB(f) {
+				checkResult(f);
+				outerFuture.result = true;
 			});
-		} else {
-			Log.debug("Not creating sync-on-edit activities, because no capability in args: ", args);
-			future.result = true;
+			return outerFuture;
 		}
 
-		future.then(this, function completeDoneCB(future) {
-			checkResult(future);
-			// this.recreateActivitiesOnComplete will be set to false when
-			// the sync command is run while the capability is disabled
-			// This is a little messy
-			if (!this.recreateActivitiesOnComplete || args.capability) {
-				Log.log("CDav-complete(): skipping creating of sync activities");
-				activity.complete().then(this, function () {
-					Log.log("Complete came back.");
-					future.result = true;
-				});
+		Log.debug("Not creating sync-on-edit activities, because no capability in args: ", args);
+		future.nest(this.getPeriodicSyncActivity());
+
+		future.then(this, function getPeriodicSyncActivityCB() {
+			var restart = false, f;
+			syncActivity = checkResult(future);
+			if (activity._activityId === syncActivity.activityId) {
+				Log.log("Periodic sync. Restarting activity");
+				restart = true;
 			} else {
-				future.nest(this.getPeriodicSyncActivity());
-
-				future.then(this, function getPeriodicSyncActivityCB() {
-					var restart = false, f;
-					syncActivity = checkResult(future);
-					if (activity._activityId === syncActivity.activityId) {
-						Log.log("Periodic sync. Restarting activity");
-						restart = true;
-					} else {
-						Log.log("Not periodic sync. Completing activity");
-					}
-					if (this._hadLocalRevisionError) { //no clue, comes from mojoservice-sync-framework so we will keep this here.
-						restart = true;
-						this._hadLocalRevisionError = false;
-					}
-
-					f = activity.complete(restart);
-					if (f) {
-						future.nest(f);
-					} else {
-						Log.log("Completing activity failed.");
-						future.result = {returnValue: true};
-					}
-				});
-
-				future.then(this, function completeCB(future) {
-					Log.debug("Complete succeeded, result = ", checkResult(future));
-					outerFuture.result = true;
-				}, function completeErrorCB(future) {
-					Log.log("Complete FAILED, exception = ", future.exception);
-					outerFuture.result = false;
-				});
+				Log.log("Not periodic sync. Completing activity");
 			}
+			if (this._hadLocalRevisionError) { //no clue, comes from mojoservice-sync-framework so we will keep this here.
+				restart = true;
+				this._hadLocalRevisionError = false;
+			}
+
+			f = activity.complete(restart);
+			if (f) {
+				future.nest(f);
+			} else {
+				Log.log("Completing activity failed.");
+				future.result = {returnValue: true};
+			}
+		});
+
+		future.then(this, function completeCB(future) {
+			Log.debug("Complete succeeded, result = ", checkResult(future));
+			outerFuture.result = true;
+		}, function completeErrorCB(future) {
+			Log.log("Complete FAILED, exception = ", future.exception);
+			outerFuture.result = false;
 		});
 
 		return outerFuture;
