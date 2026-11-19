@@ -51,7 +51,16 @@ function runCreate(fill) {
 	instance.inherited = function () {};
 	instance.log = function () {};
 	instance.showLoginError = function (msg) { errors.push(msg); };
-	instance.$ = {googleOAuthStart: {call: function (args) { started.push(args); }}};
+	instance.$ = {
+		googleOAuthStart: {call: function (args) { started.push(args); }},
+		signInButton: {
+			hidden: false,
+			disabled: false,
+			hide: function () { this.hidden = true; },
+			setDisabled: function (value) { this.disabled = value; }
+		},
+		alert: {hide: function () {}}
+	};
 	instance.create();
 	return {instance: instance, started: started, opened: opened, errors: errors};
 }
@@ -61,6 +70,7 @@ bdd.describe("Google OAuth client configuration", function () {
 		var r = runCreate(null);
 		assert.deepStrictEqual(r.started, []);
 		assert.strictEqual(r.errors.length, 1);
+		assert.strictEqual(r.instance.$.signInButton.hidden, true);
 	});
 
 	bdd.it("does not start sign-in when only one of id and secret is set", function () {
@@ -71,6 +81,10 @@ bdd.describe("Google OAuth client configuration", function () {
 	bdd.it("signs in with the client id the build fills in", function () {
 		var r = runCreate({id: "test-id.apps.googleusercontent.com", secret: "test-secret"});
 		assert.deepStrictEqual(r.errors, []);
+		assert.deepStrictEqual(r.started, []);
+		assert.deepStrictEqual(r.opened, []);
+		r.instance.startSignIn();
+		assert.strictEqual(r.instance.$.signInButton.disabled, true);
 		assert.strictEqual(r.started.length, 1);
 		assert.strictEqual(r.started[0].clientId, "test-id.apps.googleusercontent.com");
 		r.instance.signInReady({}, {url: "https://accounts.example/", redirectUri: "http://localhost/cb", state: "s"});

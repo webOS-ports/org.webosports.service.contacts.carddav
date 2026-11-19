@@ -6,6 +6,11 @@ var AuthManager = require(libPath + "AuthManager.js");
 var CalDav = (function () {
 	"use strict";
 
+	//A failed listing makes the sync skip the whole kind, on a new account that means
+	//no data until the next periodic sync. These answers usually pass within seconds.
+	var TEMPORARY_SERVER_ERRORS = [502, 503, 504],
+		FOLDER_RETRY_DELAYS = [2000, 5000, 10000];
+
 	function endsWith(str, suffix) {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
 	}
@@ -752,32 +757,43 @@ var CalDav = (function () {
 		 * @return future, result.folders will contain array folders
 		 */
 		getFolders: function (params, filter) {
-			var future = new Future(), options = preProcessOptions(params, "PROPFIND"), data, folders;
-
-			options.headers.Depth = 1;
-			options.parse = true;
+			var data, attempt = 0;
 
 			data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:resourcetype /><d:displayname /><c:supported-calendar-component-set /></d:prop></d:propfind>";
 			if (params.cardDav) {
 				data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\"><d:prop><d:resourcetype /><d:displayname /></d:prop></d:propfind>";
 			}
-			future.nest(httpClient.sendRequest(options, data));
 
-			future.then(this, function foldersCB() {
-				var result = checkResult(future);
-				if (result.returnValue === true) {
-					folders = getFolderList(result.parsedBody, filter, options.prefix);
-					future.result = {
-						returnValue: true,
-						folders: folders
-					};
-				} else {
-					Log.log("Error during getFolders: ", result);
-					future.result = result;
-				}
-			});
+			function listFolders() {
+				var future = new Future(), options = preProcessOptions(params, "PROPFIND");
 
-			return future;
+				options.headers.Depth = 1;
+				options.parse = true;
+				future.nest(httpClient.sendRequest(options, data));
+
+				future.then(function foldersCB() {
+					var result = checkResult(future), delay = FOLDER_RETRY_DELAYS[attempt];
+					if (result.returnValue === true) {
+						future.result = {
+							returnValue: true,
+							folders: getFolderList(result.parsedBody, filter, options.prefix)
+						};
+					} else if (TEMPORARY_SERVER_ERRORS.indexOf(result.returnCode) >= 0 && delay !== undefined) {
+						attempt += 1;
+						Log.log("Server answered ", result.returnCode, " to the folder listing, trying again in ", delay, "ms.");
+						setTimeout(function () {
+							future.nest(listFolders());
+						}, delay);
+					} else {
+						Log.log("Error during getFolders: ", result);
+						future.result = result;
+					}
+				});
+
+				return future;
+			}
+
+			return listFolders();
 		},
 
 		/**
