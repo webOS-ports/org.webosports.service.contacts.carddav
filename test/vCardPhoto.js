@@ -22,6 +22,15 @@ global.libPath = utils;
 global.Log = {log: quiet, debug: quiet, log_icalDebug: quiet};
 
 var written;
+global.httpClient = {
+	parseURLIntoOptions: function (url, options) { options.host = require("url").parse(url).hostname; },
+	sendRequest: function (options) {
+		fetched.push(options);
+		return new global.Future(photoAnswer);
+	}
+};
+var fetched = [], photoAnswer;
+
 global.fs = {
 	mkdir: function (dir, mode, callback) { callback(); },
 	writeFile: function (file, data, callback) {
@@ -42,21 +51,89 @@ function importing(name) {
 }
 
 var vCard = require(utils + "vCard.js");
+var Reader = require(utils + "vCardReader.js");
+
+function read(lines, version) {
+	var reader = new Reader();
+	reader.processString("BEGIN:VCARD\r\nVERSION:" + (version || "3.0") + "\r\n" + lines.join("\r\n") + "\r\nEND:VCARD\r\n", version || "3.0");
+	return reader;
+}
+
+function allLines(reader) {
+	var result = [], line = reader.readLine();
+	while (line !== null) {
+		result.push(line);
+		line = reader.readLine();
+	}
+	return result;
+}
+
+bdd.describe("reading a vCard", function () {
+	bdd.it("joins lines folded with a tab or a space", function () {
+		var lines = allLines(read(["NOTE:one\r\n\ttwo\r\n three"]));
+		assert.ok(lines.indexOf("NOTE:onetwothree") >= 0, lines.join("|"));
+	});
+
+	bdd.it("finds fields in any case and in groups", function () {
+		var reader = read(["uid:lower", "item1.CATEGORIES:A,B", "fn:Solo Name", "ANNIVERSARY:20100601"]);
+		assert.strictEqual(reader.extractUID(), "lower");
+		assert.strictEqual(reader.extractCategories(), "A,B");
+		assert.strictEqual(reader.extractFullName(), "Solo Name");
+		assert.strictEqual(reader.extractAnniversary(), "2010-06-01");
+	});
+
+	[["--04-12", "1900-04-12"], ["--0412", "1900-04-12"], ["19850412", "1985-04-12"], ["1985-04-12T00:00:00Z", "1985-04-12"], ["19850412T1030", "1985-04-12"]].forEach(function (c) {
+		bdd.it("reads the birthday " + c[0], function () {
+			assert.ok(allLines(read(["BDAY:" + c[0]])).indexOf("BDAY:" + c[1]) >= 0);
+		});
+	});
+
+	bdd.it("removes the uri form of a phone number", function () {
+		var lines = allLines(read(["TEL;VALUE=uri;TYPE=\"voice,home\":tel:+31-6-1;ext=5"], "4.0"));
+		assert.ok(lines.indexOf("TEL;VALUE=uri;TYPE=\"voice,home\":+31-6-1 x5") >= 0, lines.join("|"));
+	});
+
+	[
+		["PHOTO;ENCODING=b;TYPE=JPEG:QUJD", "QUJD", ".jpeg", undefined],
+		["item1.PHOTO;ENCODING=b;TYPE=PNG:QUJD", "QUJD", ".png", undefined],
+		["PHOTO:data:image/png;base64,QUJD", "QUJD", ".png", undefined],
+		["PHOTO;VALUE=uri:https://example.org/p.jpg", "", ".jpeg", "https://example.org/p.jpg"],
+		["PHOTO:https://example.org/p.jpg", "", ".jpeg", "https://example.org/p.jpg"],
+		["PHOTO:cid:part1", "", ".jpeg", undefined]
+	].forEach(function (c) {
+		bdd.it("reads " + c[0].substr(0, 26), function () {
+			var photo = read([c[0]]).extractPhoto();
+			assert.strictEqual(photo.photoData, c[1]);
+			assert.strictEqual(photo.photoType, c[2]);
+			assert.strictEqual(photo.photoUrl, c[3]);
+		});
+	});
+});
 
 function card(uid) {
 	return "BEGIN:VCARD\r\nVERSION:3.0\r\n" + (uid ? "UID:" + uid + "\r\n" : "") + "PHOTO;ENCODING=b;TYPE=JPEG:QUJD\r\nEND:VCARD\r\n";
 }
 
-function photoFor(uid, name) {
+function parsed(text, name) {
 	written = [];
 	global.Contacts = {vCardImporter: importing(name)};
 	return new Promise(function (resolve) {
-		var future = vCard.parseVCard({account: {name: "me", kind: "kind", accountId: "a"}, vCard: card(uid)});
+		var future = vCard.parseVCard({account: {name: "me", kind: "kind", accountId: "a"}, vCard: text});
 		future.then(function () {
-			var result = global.checkResult(future);
-			resolve({file: written[0], stored: result.result.photos[0].localPath});
+			resolve(global.checkResult(future).result);
 		});
 	});
+}
+
+function photoFor(uid, name) {
+	return parsed(card(uid), name).then(function (result) {
+		return {file: written[0], stored: result.photos[0].localPath};
+	});
+}
+
+var NO_NAME = {givenName: "", familyName: ""};
+function linked(url) {
+	return "BEGIN:VCARD\r\nVERSION:3.0\r\nUID:u\r\nPHOTO;VALUE=uri:" + url + "\r\nEND:VCARD\r\n";
 }
 
 bdd.describe("contact photos", function () {
@@ -66,6 +143,44 @@ bdd.describe("contact photos", function () {
 			return photoFor("id-1", {givenName: "Ann", familyName: "New"}).then(function (after) {
 				assert.strictEqual(after.file, before.file);
 			});
+		});
+	});
+
+	bdd.it("downloads a photo given as a link, without credentials", function () {
+		fetched = [];
+		photoAnswer = {returnValue: true, headers: {"content-type": "image/png"}, body: Buffer.from("x")};
+		return parsed(linked("https://example.org/p"), NO_NAME).then(function (result) {
+			assert.strictEqual(result.photos.length, 3);
+			assert.ok(/\.png$/.test(written[0]), written[0]);
+			assert.strictEqual(fetched[0].headers.Authorization, undefined);
+		});
+	});
+
+	[["a web page", {returnValue: true, headers: {"content-type": "text/html"}, body: Buffer.from("x")}],
+		["a failure", {returnValue: false, returnCode: 404, headers: {}}]].forEach(function (c) {
+		bdd.it("ignores " + c[0] + " instead of a photo", function () {
+			photoAnswer = c[1];
+			return parsed(linked("https://example.org/p"), NO_NAME).then(function (result) {
+				assert.deepStrictEqual(result.photos, []);
+				assert.deepStrictEqual(written, []);
+			});
+		});
+	});
+
+	bdd.it("limits where a photo may come from and how large it is", function () {
+		fetched = [];
+		photoAnswer = {returnValue: false, headers: {}};
+		return parsed(linked("https://example.org/p"), NO_NAME).then(function () {
+			assert.strictEqual(fetched[0].publicOnly, true);
+			assert.strictEqual(fetched[0].maxBytes, 2097152);
+		});
+	});
+
+	bdd.it("uses the full name when there is no other", function () {
+		var text = "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Solo Name\r\nN:;;;;\r\nANNIVERSARY:2010-06-01\r\nEND:VCARD\r\n";
+		return parsed(text, {givenName: "", familyName: ""}).then(function (result) {
+			assert.strictEqual(result.name.givenName, "Solo Name");
+			assert.strictEqual(result.anniversary, "2010-06-01");
 		});
 	});
 

@@ -40,7 +40,7 @@ global.httpClient = {
 
 var CalDav = require(utils + "CalDav.js");
 var realSetTimeout = global.setTimeout;
-var ok = {returnValue: true, returnCode: 207, parsedBody: {}};
+var ok = {returnValue: true, returnCode: 207, parsedBody: {multistatus: {response: [{href: {$t: "/home/"}}]}}};
 
 function failure(code) {
 	return {returnValue: false, returnCode: code};

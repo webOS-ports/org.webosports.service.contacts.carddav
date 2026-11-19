@@ -2,6 +2,8 @@
 /*global Log, httpClient, Future, checkResult, libPath */
 
 var AuthManager = require(libPath + "AuthManager.js");
+var urlParser = require("url");
+var dns = require("dns");
 
 var CalDav = (function () {
 	"use strict";
@@ -15,7 +17,7 @@ var CalDav = (function () {
 		return str.indexOf(suffix, str.length - suffix.length) !== -1;
 	}
 
-	function getValue(obj, field, noDecode) {
+	function getValue(obj, field) {
 		var f, f2 = field.toLowerCase();
 		if (!obj) {
 			return;
@@ -24,14 +26,8 @@ var CalDav = (function () {
 		for (f in obj) {
 			if (obj.hasOwnProperty(f)) {
 				if (endsWith(f.toLowerCase(), f2.toLowerCase())) {
-					if (typeof obj[f] === "string") {
-						if (noDecode) {
-							return obj[f];
-						}
-						return decodeURIComponent(obj[f]);
-					} else {
-						return obj[f];
-					}
+					//XML text is what it says: "100% work" is a name, not an encoded URL.
+					return obj[f];
 				}
 			}
 		}
@@ -42,6 +38,47 @@ var CalDav = (function () {
 		if (multistatus) {
 			return getValue(multistatus, "response") || [];
 		}
+	}
+
+	function isMultistatus(body) {
+		return getValue(body, "multistatus") !== undefined;
+	}
+
+	function isSuccessStatus(status) {
+		return !status || (/\b2[0-9][0-9]\b/).test(status);
+	}
+
+	//All hrefs below an element. Some properties may hold any number of them.
+	function getHrefs(element) {
+		var hrefs = getValue(element, "href");
+		if (!hrefs) {
+			return [];
+		}
+		return (hrefs.length >= 0 && typeof hrefs !== "string" ? hrefs : [hrefs]).map(function (href) {
+			return typeof href === "string" ? href : getValue(href, "$t");
+		}).filter(function (href) {
+			return !!href;
+		});
+	}
+
+	function absoluteUrl(href, prefix, base) {
+		if ((/^[a-z][a-z0-9+.\-]*:/i).test(href)) {
+			return href;
+		}
+		if (href.charAt(0) === "/") {
+			return prefix + href;
+		}
+		return urlParser.resolve(base || (prefix + "/"), href);
+	}
+
+	function comparablePath(href) {
+		var path = urlParser.parse(href).pathname || "/";
+		try {
+			path = decodeURIComponent(path);
+		} catch (e) {
+			Log.debug("Path is not URL encoded: ", path);
+		}
+		return path.replace(/\/+$/, "");
 	}
 
 	function processStatus(stat) {
@@ -89,7 +126,8 @@ var CalDav = (function () {
 	function processResponse(res) {
 		Log.log_calDavParsingDebug("Processing response ", res);
 		var response = {
-			href: getValue(getValue(res, "href"), "$t", true),
+			href: getHrefs(res)[0],
+			status: getValue(res, "status") ? processStatus(getValue(res, "status")) : undefined,
 			propstats: getValue(res, "propstat")
 		}, i;
 		if (!response.propstats) {
@@ -125,7 +163,7 @@ var CalDav = (function () {
 		var responses = parseResponseBody(body), i, j, prop, stat, key;
 		for (i = 0; i < responses.length; i += 1) {
 			for (j = 0; j < responses[i].propstats.length; j += 1) {
-				stat = responses[i].propstats[j].status || {};
+				stat = responses[i].propstats[j].status || "";
 				prop = responses[i].propstats[j].prop || {};
 				if (stat.indexOf("404") >= 0) {
 					Log.log_calDavDebug("Prop ", prop, " not found on server. During search for ", searchedKey, ". Skipping.");
@@ -144,40 +182,79 @@ var CalDav = (function () {
 		}
 	}
 
-	function getETags(body, blacklisted) {
-		var responses = parseResponseBody(body), i, j, prop, key, eTags = [], etag, found = false;
+	/**
+	 * Reads uri and etag of the objects in a listing of the collection at requestPath.
+	 * The collection itself and collections inside it are not objects.
+	 * @return {complete, etags}. A listing that is not complete must not be compared to local
+	 *         objects, everything missing from it would count as deleted on the server.
+	 */
+	function getETags(body, blacklisted, requestPath) {
+		var responses = parseResponseBody(body), etags = [], complete = isMultistatus(body), self = comparablePath(requestPath);
 
-		function checkBlacklist(b) {
-			if (responses[i].href === b) {
-				Log.debug("Filtering etag ", responses[i].href, " from blacklist.");
-				found = true;
-			}
-		}
-
-		for (i = 0; i < responses.length; i += 1) {
-			for (j = 0; j < responses[i].propstats.length; j += 1) {
-				prop = responses[i].propstats[j].prop;
+		function etagOfResponse(response) {
+			var etag, isCollection = false;
+			response.propstats.forEach(function (propstat) {
+				var prop = propstat.prop, key;
+				if (!isSuccessStatus(propstat.status)) {
+					return;
+				}
 				for (key in prop) {
 					if (prop.hasOwnProperty(key)) {
-						Log.log_calDavParsingDebug("Comparing ", key, " to getetag.");
 						if (key.toLowerCase().indexOf("getetag") >= 0) {
-							etag = getValue(prop[key], "$t");
+							etag = getValue(prop[key], "$t") || etag;
+						} else if (key.toLowerCase().indexOf("resourcetype") >= 0 && getValue(prop[key], "collection") !== undefined) {
+							isCollection = true;
 						}
 					}
 				}
-				if (etag) { //add found etags with uri
-					if (blacklisted) { //filter for possibly blacklisted strings
-						found = false;
-						blacklisted.forEach(checkBlacklist);
-					}
-					if (!found) {
-						eTags.push({etag: etag, uri: responses[i].href});
+			});
+			return isCollection ? undefined : etag;
+		}
+
+		responses.forEach(function (response) {
+			var isSelf = !!response.href && comparablePath(response.href) === self, etag;
+			if (!isSuccessStatus(response.status) && (isSelf || (/\b507\b/).test(response.status))) {
+				Log.log("Server did not list everything: ", response.status);
+				complete = false;
+			}
+			if (isSelf || !response.href) {
+				return;
+			}
+			etag = etagOfResponse(response);
+			if (etag && (blacklisted || []).indexOf(response.href) < 0) {
+				etags.push({etag: etag, uri: response.href});
+			}
+		});
+		Log.log_calDavDebug("Etag directory: ", etags.length);
+		return {complete: complete, etags: etags, responses: responses.length};
+	}
+
+	function escapeXml(text) {
+		return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+	}
+
+	//The objects in a multiget answer, by path. XML has normalized their line ends.
+	function getObjectData(body) {
+		var objects = {};
+		parseResponseBody(body).forEach(function (response) {
+			response.propstats.forEach(function (propstat) {
+				var prop = propstat.prop, key, entry = objects[comparablePath(response.href || "")] || {};
+				if (!isSuccessStatus(propstat.status) || !response.href) {
+					return;
+				}
+				for (key in prop) {
+					if (prop.hasOwnProperty(key)) {
+						if (key.toLowerCase().indexOf("getetag") >= 0) {
+							entry.etag = getValue(prop[key], "$t");
+						} else if ((/(calendar|address)-data$/i).test(key)) {
+							entry.data = (getValue(prop[key], "$t") || "").replace(/\r?\n/g, "\r\n");
+						}
 					}
 				}
-			}
-		}
-		Log.log_calDavDebug("Etag directory: ", eTags.length);
-		return eTags;
+				objects[comparablePath(response.href)] = entry;
+			});
+		});
+		return objects;
 	}
 
 	/**
@@ -302,8 +379,10 @@ var CalDav = (function () {
 				}
 			}
 
-			if (!filter || folder.resource === filter) {
-				if (folder.uri.toLowerCase().indexOf("http") !== 0) {
+			//a calendar can hold tasks as well, then it is both.
+			if (!filter || folder.resource === filter || (filter === "task" && folder.resource === "calendar" &&
+					folder.supportedComponents.indexOf("VTODO") >= 0)) {
+				if (!(/^https?:/i).test(folder.uri)) {
 					folder.uri = (prefix || "") + folder.uri;
 				}
 				folder.remoteId = folder.uri;
@@ -430,31 +509,23 @@ var CalDav = (function () {
 			options.headers.Depth = 0;
 			options.parse = true;
 
-			//seems to be identical for caldav and carddav. RFC of carddav does not talk about this.
+			//getctag is an extension, sync-token is the standard for this (RFC 6578). The etag of
+			//a collection is not used: nothing says it changes when the content does.
 			data = "<d:propfind xmlns:d=\"DAV:\" xmlns:cs=\"http://calendarserver.org/ns/\">";
 			data += "<d:prop>";
 			data += "<d:displayname />";
 			data += "<cs:getctag />";
-			data += "<d:getetag />";
+			data += "<d:sync-token />";
 			data += "</d:prop>";
 			data += "</d:propfind>";
 
 			future.nest(httpClient.sendRequest(options, data));
 
 			future.then(function () {
-				var result = checkResult(future), ctag, needsUpdate = false;
-				if (result.returnValue) {
-					ctag = getKeyValueFromResponse(result.parsedBody, "getctag");
-					if (ctag) {
-						ctag = getValue(ctag, "$t");
-					} else {
-						ctag = getKeyValueFromResponse(result.parsedBody, "getetag");
-						if (ctag) {
-							ctag = getValue(ctag, "$t");
-						} else {
-							ctag = false;
-						}
-					}
+				var result = checkResult(future), ctag = false, syncToken, needsUpdate = false;
+				if (result.returnValue && isMultistatus(result.parsedBody)) {
+					syncToken = getValue(getKeyValueFromResponse(result.parsedBody, "sync-token"), "$t");
+					ctag = getValue(getKeyValueFromResponse(result.parsedBody, "getctag"), "$t") || syncToken || false;
 				} else {
 					Log.log("Could not receive ctag.");
 				}
@@ -462,7 +533,7 @@ var CalDav = (function () {
 				if (!ctag || !params.ctag || ctag !== params.ctag) {
 					needsUpdate = true;
 				}
-				future.result = { success: result.returnValue, needsUpdate: needsUpdate, ctag: ctag };
+				future.result = { success: result.returnValue, needsUpdate: needsUpdate, ctag: ctag, syncToken: syncToken };
 			});
 
 			return future;
@@ -483,20 +554,32 @@ var CalDav = (function () {
 			startVal = String(date.getUTCFullYear() - 1) + (date.getUTCMonth() < 9 ? "0" : "") + String(date.getUTCMonth() + 1) + (date.getUTCDate() < 10 ? "0" : "") + String(date.getUTCDate()) + "T000000Z";
 
 			data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:calendar-query xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\"><d:prop><d:getetag /></d:prop><c:filter><c:comp-filter name=\"VCALENDAR\"><c:comp-filter name=\"VEVENT\"><c:time-range start=\"" + startVal + "\" /></c:comp-filter></c:comp-filter></c:filter></c:calendar-query>";
+			if (params.tasks) {
+				//all of them: unlike events, tasks do not end up in the past.
+				data = data.replace(/<c:comp-filter name="VEVENT">.*?<\/c:comp-filter>/, "<c:comp-filter name=\"VTODO\" />");
+			}
 			if (disableFilters || params.cardDav) {
 				//no filtering required for contacts, i.e. do propfind request.
 				options.method = "PROPFIND";
 				options.headers.Authorization = AuthManager.getAuthToken("PROPFIND", params.userAuth, options.path);
-				data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><D:propfind xmlns:D=\"DAV:\"><D:prop><D:getetag/></D:prop></D:propfind>";
+				data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><D:propfind xmlns:D=\"DAV:\"><D:prop><D:getetag/><D:resourcetype/></D:prop></D:propfind>";
 			}
 
 			future.nest(httpClient.sendRequest(options, data));
 
 			future.then(function () {
-				var result = checkResult(future), etags;
+				var result = checkResult(future), listing;
 				if (result.returnValue) {
-					etags = getETags(result.parsedBody, blacklist);
-					future.result = { returnValue: true, etags: etags };
+					listing = getETags(result.parsedBody, blacklist, options.path);
+					//A PROPFIND always lists at least the collection. Anything else, a login page
+					//from a Wi-Fi network for example, says nothing about what the server holds.
+					if (!listing.complete || (options.method === "PROPFIND" && listing.responses === 0)) {
+						Log.log("Answer is not a complete listing.");
+						result = {returnValue: false};
+					}
+				}
+				if (result.returnValue) {
+					future.result = { returnValue: true, etags: listing.etags };
 				} else {
 					if (!params.cardDav && !disableFilters) {
 						Log.log("Retry to get etags without filtering.");
@@ -519,19 +602,178 @@ var CalDav = (function () {
 		 */
 		downloadObject: function (params, obj) {
 			var future = new Future(), options = preProcessOptions(params, "GET", obj.uri);
-			options.headers["Content-Type"] = "text/calendar; charset=utf-8";
-			if (params.cardDav) {
-				options.headers["Content-Type"] = "text/vcard; charset=utf-8";
-			}
+			delete options.headers["Content-Type"]; //a GET has no body.
+			//RFC 6352 section 5.1: vCard 3 is what every server has and what the importer knows.
+			options.headers.Accept = params.cardDav ? "text/vcard; version=3.0, text/vcard; q=0.8" : "text/calendar";
 
 			future.nest(httpClient.sendRequest(options, ""));
 
 			future.then(function () {
 				var result = checkResult(future);
-				future.result = { returnValue: result.returnValue, returnCode: result.returnCode, data: result.body };
+				future.result = { returnValue: result.returnValue, returnCode: result.returnCode, data: result.body, etag: result.etag };
 			});
 
 			return future;
+		},
+
+		/**
+		 * Downloads several objects with one request (RFC 4791 section 7.9, RFC 6352 section 8.7).
+		 * @param params usual param object with path of the collection, credentials, ...
+		 * @param objs objects with uri fields
+		 * @return future, result.objects has {data, etag} for each uri the server delivered.
+		 */
+		downloadObjects: function (params, objs) {
+			var future = new Future(), options = preProcessOptions(params, "REPORT"), data, hrefs;
+			options.headers.Depth = 1;
+			options.parse = true;
+
+			hrefs = objs.map(function (obj) {
+				return "<d:href>" + escapeXml(urlParser.parse(obj.uri).path) + "</d:href>";
+			}).join("");
+			if (params.cardDav) {
+				data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:addressbook-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\">" +
+					"<d:prop><d:getetag /><c:address-data content-type=\"text/vcard\" version=\"3.0\" /></d:prop>" + hrefs + "</c:addressbook-multiget>";
+			} else {
+				data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><c:calendar-multiget xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:caldav\">" +
+					"<d:prop><d:getetag /><c:calendar-data /></d:prop>" + hrefs + "</c:calendar-multiget>";
+			}
+
+			future.nest(httpClient.sendRequest(options, data));
+			future.then(function () {
+				var result = checkResult(future), objects = {};
+				if (result.returnValue && isMultistatus(result.parsedBody)) {
+					objects = getObjectData(result.parsedBody);
+					future.result = {
+						returnValue: true,
+						objects: objs.reduce(function (found, obj) {
+							var entry = objects[comparablePath(obj.uri)];
+							if (entry && entry.data) {
+								found[obj.uri] = entry;
+							}
+							return found;
+						}, {})
+					};
+				} else {
+					future.result = {returnValue: false, returnCode: result.returnCode};
+				}
+			});
+			return future;
+		},
+
+		/**
+		 * Asks what changed in a collection since a sync token (RFC 6578).
+		 * @param params usual param object with path of the collection and syncToken
+		 * @return future with changed: [{uri, etag}], removed: [uri], syncToken and truncated.
+		 *         returnValue is false if the token is not valid anymore, or on any other failure.
+		 */
+		syncCollection: function (params) {
+			var future = new Future(), options = preProcessOptions(params, "REPORT"), data;
+			options.headers.Depth = 0;
+			options.parse = true;
+			data = "<?xml version=\"1.0\" encoding=\"utf-8\" ?><d:sync-collection xmlns:d=\"DAV:\"><d:sync-token>" + escapeXml(params.syncToken) +
+				"</d:sync-token><d:sync-level>1</d:sync-level><d:prop><d:getetag /></d:prop></d:sync-collection>";
+
+			future.nest(httpClient.sendRequest(options, data));
+			future.then(function () {
+				var result = checkResult(future), changes, multistatus, self = comparablePath(options.path);
+				multistatus = result.returnValue ? getValue(result.parsedBody, "multistatus") : undefined;
+				if (multistatus === undefined || !getValue(getValue(multistatus, "sync-token"), "$t")) {
+					Log.log("No changes from the sync token, status ", result.returnCode);
+					future.result = {returnValue: false, returnCode: result.returnCode};
+					return;
+				}
+				changes = {returnValue: true, changed: [], removed: [], truncated: false,
+					syncToken: getValue(getValue(multistatus, "sync-token"), "$t")};
+				parseResponseBody(result.parsedBody).forEach(function (response) {
+					var etag;
+					if (!response.href) {
+						return;
+					}
+					if (comparablePath(response.href) === self) {
+						changes.truncated = changes.truncated || (/\b507\b/).test(response.status || "");
+					} else if (!isSuccessStatus(response.status)) {
+						changes.removed.push(response.href);
+					} else {
+						response.propstats.forEach(function (propstat) {
+							if (isSuccessStatus(propstat.status) && propstat.prop) {
+								etag = getValue(getValue(propstat.prop, "getetag"), "$t") || etag;
+							}
+						});
+						if (etag) {
+							changes.changed.push({uri: response.href, etag: etag});
+						}
+					}
+				});
+				future.result = changes;
+			});
+			return future;
+		},
+
+		/**
+		 * Finds the server for a mail domain as RFC 6764 section 6 describes it: an SRV record
+		 * for the service over TLS, a TXT record for its path, then the well-known address.
+		 * @param domain the part of the mail address after the @
+		 * @return future, result.url is the address to start discovery from
+		 */
+		findServer: function (domain) {
+			var future = new Future(), services = ["caldavs", "carddavs"];
+
+			function wellKnown() {
+				future.result = {returnValue: true, url: "https://" + domain + "/.well-known/caldav"};
+			}
+
+			//lowest priority first, among equals by weight (RFC 2782).
+			function pick(records) {
+				var lowest = Math.min.apply(null, records.map(function (r) { return r.priority; })),
+					candidates = records.filter(function (r) { return r.priority === lowest; }),
+					total = candidates.reduce(function (sum, r) { return sum + r.weight; }, 0),
+					point = Math.random() * total, i;
+				for (i = 0; i < candidates.length; i += 1) {
+					point -= candidates[i].weight;
+					if (point < 0) {
+						return candidates[i];
+					}
+				}
+				return candidates[0];
+			}
+
+			function next() {
+				var service = services.shift(), name;
+				if (!service) {
+					wellKnown();
+					return;
+				}
+				name = "_" + service + "._tcp." + domain;
+				CalDav.dns.resolveSrv(name, function (error, records) {
+					var record = !error && records && records.length ? pick(records) : undefined;
+					if (!record || !record.name || record.name === ".") { //"." says: no such service here.
+						next();
+						return;
+					}
+					CalDav.dns.resolveTxt(name, function (txtError, texts) {
+						var path = "/.well-known/" + service.replace(/s$/, "");
+						(txtError ? [] : texts || []).forEach(function (text) {
+							var parts = (/^path=(\/.*)$/).exec([].concat(text).join(""));
+							if (parts) {
+								path = parts[1];
+							}
+						});
+						future.result = {returnValue: true, url: "https://" + record.name.replace(/\.$/, "") + ":" + record.port + path};
+					});
+				});
+			}
+
+			next();
+			return future;
+		},
+
+		dns: dns,
+
+		/**
+		 * Tells if two hrefs name the same resource.
+		 */
+		samePath: function (a, b) {
+			return comparablePath(a) === comparablePath(b);
 		},
 
 		/**
@@ -588,22 +830,28 @@ var CalDav = (function () {
 			var future = new Future(), options = preProcessOptions(params, "PROPFIND"), data, homes = [], folders = { subFolders: {} }, folderCB,
 				tryFolders = [], principals = [];
 
+			function searchNextHome() {
+				var next = homes.shift();
+				Log.log_calDavDebug("Getting folders from ", next.path);
+				params.cardDav = next.cardDav;
+				params.path = next.path;
+				future.nest(CalDav.getFolders(params));
+				future.then(folderCB);
+			}
+
 			function getHomeCB(addressbook, index) {
-				var result = checkResult(future), home, homeSetKey;
+				var result = checkResult(future), home, homeSetKey, found = [];
 				if (result.returnValue === true) {
 					homeSetKey = addressbook ? "addressbook-home-set" : "calendar-home-set";
-					home = getValue(getValue(getKeyValueFromResponse(result.parsedBody, homeSetKey), "href"), "$t");
+					//the property can hold several homes, RFC 4791 section 6.2.1.
+					found = getHrefs(getKeyValueFromResponse(result.parsedBody, homeSetKey)).map(function (href) {
+						return absoluteUrl(href, options.prefix);
+					});
+					home = found[0];
 					if (!home) {
 						Log.log("Could not get ", (addressbook ? "addressbook" : "calendar"), " home folder.");
 					} else {
-						Log.log_calDavDebug("Original home: ", home);
-						if (home.indexOf("http") === 0) {
-							Log.log_calDavDebug("Home already complete?");
-						} else {
-							Log.log("Augmenting home...");
-							home = options.prefix + home;
-						}
-						Log.log_calDavDebug("Got ", (addressbook ? "addressbook" : "calendar"), "-home: ", home);
+						Log.log_calDavDebug("Got ", (addressbook ? "addressbook" : "calendar"), "-home: ", found);
 					}
 				} else {
 					//error, stop, return failure.
@@ -623,18 +871,23 @@ var CalDav = (function () {
 
 					Log.log_calDavDebug("Tried all folders. Will try to get ", (addressbook ? "addressbook" : "calendar"), " folders from original url.");
 					home = params.originalUrl;
+					found = [home];
 				}
 
-				if (homes.length > 0 && homes[0] === home) {
-					Log.log_calDavDebug("Homes identical, ignore second one.");
-				} else {
-					homes.push(home);
-				}
+				found.forEach(function (path) {
+					var known = homes.some(function (entry) {
+						return entry.path === path;
+					});
+					if (!known) {
+						homes.push({path: path, cardDav: addressbook});
+					}
+				});
 
 				if (!addressbook) {
 					data = "<d:propfind xmlns:d=\"DAV:\" xmlns:c=\"urn:ietf:params:xml:ns:carddav\"><d:prop><c:addressbook-home-set/></d:prop></d:propfind>";
 					options.headers.Depth = 0;
 					folders.calendarHome = home;
+					folders.calendarHomes = found;
 					changePath(options, params.userAuth, tryFolders[0]);
 					future.nest(httpClient.sendRequest(options, data));
 					future.then(function () {
@@ -642,12 +895,8 @@ var CalDav = (function () {
 					}); //calendar done, start with addressbook
 				} else {
 					folders.addressbookHome = home;
-					//start folder search and consume first folder.
-					Log.log_calDavDebug("Getting folders from ", homes[0]);
-					params.cardDav = false;
-					params.path = homes.shift();
-					future.nest(CalDav.getFolders(params));
-					future.then(folderCB);
+					folders.addressbookHomes = found;
+					searchNextHome();
 				}
 			}
 
@@ -656,12 +905,10 @@ var CalDav = (function () {
 				if (result.returnValue === true) {
 					principal = getKeyValueFromResponse(result.parsedBody, "current-user-principal");
 					if (principal) {
-						principal = getValue(getValue(principal, "href"), "$t");
+						principal = getHrefs(principal)[0];
 						Log.log_calDavDebug("Got principal: ", principal);
 						if (principal) {
-							if (principal.indexOf("http") < 0) {
-								principal = options.prefix + principal;
-							}
+							principal = absoluteUrl(principal, options.prefix);
 							Log.log_calDavDebug("Adding: ", principal);
 							generateMoreTestPaths(principal, principals);
 						}
@@ -727,11 +974,7 @@ var CalDav = (function () {
 				}
 
 				if (homes.length > 0) { //if we still have unsearched home-foders, search them:
-					Log.log_calDavDebug("Getting folders from ", homes[0]);
-					params.cardDav = true; //bad hack.
-					params.path = homes.shift();
-					future.nest(CalDav.getFolders(params));
-					future.then(this, folderCB);
+					searchNextHome();
 				} else {
 					for (key in folders.subFolders) {
 						if (folders.subFolders.hasOwnProperty(key)) {
@@ -742,7 +985,9 @@ var CalDav = (function () {
 						returnValue: true,
 						folders: fresult,
 						calendarHome: folders.calendarHome,
-						contactHome: folders.addressbookHome
+						calendarHomes: folders.calendarHomes,
+						contactHome: folders.addressbookHome,
+						contactHomes: folders.addressbookHomes
 					};
 				}
 			};
@@ -773,7 +1018,11 @@ var CalDav = (function () {
 
 				future.then(function foldersCB() {
 					var result = checkResult(future), delay = FOLDER_RETRY_DELAYS[attempt];
-					if (result.returnValue === true) {
+					if (result.returnValue === true && (!isMultistatus(result.parsedBody) || !parseResponseBody(result.parsedBody).length)) {
+						//Not an answer from a DAV server, no conclusions about folders from this.
+						Log.log("Folder listing is not a multistatus.");
+						future.result = {returnValue: false, returnCode: result.returnCode};
+					} else if (result.returnValue === true) {
 						future.result = {
 							returnValue: true,
 							folders: getFolderList(result.parsedBody, filter, options.prefix)
@@ -794,6 +1043,43 @@ var CalDav = (function () {
 			}
 
 			return listFolders();
+		},
+
+		/**
+		 * Gets the folders of several home collections.
+		 * @param params object with required params, path is replaced for each home
+		 * @param homes array of home urls
+		 * @param filter optional filter for addressbook, calendar or tasks
+		 * @return future, result.folders has the folders of all homes; failure if one home failed,
+		 *         because folders missing from the result count as deleted.
+		 */
+		getFoldersOfHomes: function (params, homes, filter) {
+			var future = new Future(), all = [], remaining = homes.slice();
+
+			function next() {
+				if (!remaining.length) {
+					future.result = {returnValue: true, folders: all};
+					return;
+				}
+				params.path = remaining.shift();
+				future.nest(CalDav.getFolders(params, filter));
+				future.then(function homeCB() {
+					var result = checkResult(future);
+					if (result.returnValue !== true) {
+						future.result = result;
+						return;
+					}
+					result.folders.forEach(function (folder) {
+						if (!all.some(function (known) { return known.uri === folder.uri; })) {
+							all.push(folder);
+						}
+					});
+					next();
+				});
+			}
+
+			next();
+			return future;
 		},
 
 		/**

@@ -11,7 +11,7 @@ process.env.TZ = "Europe/Amsterdam";
 var assert = require("assert");
 var path = require("path");
 
-var bdd = typeof describe === "function" ? {describe: describe, it: it} : require("node:test");
+var bdd = typeof describe === "function" ? {describe: describe, it: it, beforeEach: beforeEach, afterEach: afterEach} : require("node:test");
 var root = path.join(__dirname, "..");
 var utils = path.join(root, "service", "javascript", "utils") + path.sep;
 
@@ -53,6 +53,7 @@ global.Calendar = {TimezoneManager: function () { return manager; }};
 	delete require.cache[file];
 });
 var iCal = require(utils + "iCal.js");
+var Task = require(utils + "iCalTask.js");
 [utils + "iCal.js", utils + "iCalTimeHandling.js"].forEach(function (file) {
 	delete require.cache[file];
 });
@@ -89,6 +90,13 @@ function clock(timestamp) {
 	return date.getDate() + "/" + (date.getMonth() + 1) + " " + date.getHours() + ":" + ("0" + date.getMinutes()).slice(-2);
 }
 
+function startClock(event) {
+	return clock(event.dtstart);
+}
+
+//Occurrences are stored for a time around now, so the tests fix now.
+var realNow = Date.now;
+
 function startOf(tzId, day, time) {
 	return parse(calendar(vevent(zoned(tzId, day, time)))).then(function (parsed) {
 		return clock(parsed.result.dtstart);
@@ -96,6 +104,15 @@ function startOf(tzId, day, time) {
 }
 
 bdd.describe("iCal parser", function () {
+	bdd.beforeEach(function () {
+		Date.now = function () {
+			return new Date(2026, 6, 1, 12).getTime();
+		};
+	});
+	bdd.afterEach(function () {
+		Date.now = realNow;
+	});
+
 	bdd.describe("reading lines", function () {
 		bdd.it("joins a line folded with a tab", function () {
 			return parse(calendar(vevent(LOCAL + "SUMMARY:Hello\r\n\tWorld\r\n"))).then(function (parsed) {
@@ -220,11 +237,13 @@ bdd.describe("iCal parser", function () {
 			});
 		});
 
-		bdd.it("keeps one event when webOS cannot express BYSETPOS", function () {
-			return parse(calendar(vevent(LOCAL + "RRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=1\r\nEXDATE:20260815T090000\r\n"))).then(function (parsed) {
-				assert.strictEqual(parsed.result.rrule, undefined);
+		bdd.it("works out BYSETPOS when webOS cannot express it", function () {
+			var body = LOCAL + "RRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=1;COUNT=3\r\n";
+			return parse(calendar(vevent(body))).then(function (parsed) {
+				assert.strictEqual(parsed.result.rrule, null);
 				assert.strictEqual(parsed.result.exdates, undefined);
 				assert.strictEqual(clock(parsed.result.dtstart), "15/7 9:00");
+				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["3/8 9:00", "1/9 9:00"]);
 			});
 		});
 
@@ -259,6 +278,233 @@ bdd.describe("iCal parser", function () {
 			return parse(calendar(vevent(body))).then(function (parsed) {
 				assert.ok(parsed.result.rrule.until >= new Date(2026, 6, 20, 23, 59, 59).getTime());
 				assert.strictEqual(parsed.result.rrule.untilText, undefined);
+			});
+		});
+	});
+
+	bdd.describe("what an event says about itself", function () {
+		var SERIES = LOCAL + "RRULE:FREQ=DAILY;COUNT=5\r\nSUMMARY:Series\r\n";
+
+		function occurrence(day, extra) {
+			return "RECURRENCE-ID;TZID=Europe/Amsterdam:" + day + "T090000\r\n" + zoned("Europe/Amsterdam", day, "0900") + extra;
+		}
+
+		bdd.it("reports a cancelled event", function () {
+			return parse(calendar(vevent(LOCAL + "STATUS:CANCELLED\r\n"))).then(function (parsed) {
+				assert.strictEqual(parsed.returnValue, true);
+				assert.strictEqual(parsed.cancelled, true);
+			});
+		});
+
+		bdd.it("removes a cancelled occurrence", function () {
+			var ical = calendar(vevent(SERIES) + vevent(occurrence("20260716", "STATUS:CANCELLED\r\n")));
+			return parse(ical).then(function (parsed) {
+				assert.deepStrictEqual(parsed.result.exdates, ["20260716"]);
+				assert.deepStrictEqual(parsed.exceptions, []);
+				assert.strictEqual(parsed.hasExceptions, false);
+			});
+		});
+
+		[["PT90M", 90], ["PT15M", 15], ["PT1H30M", 90], ["P1W", 10080], ["P1DT2H", 1560], ["PT30S", 0.5]].forEach(function (c) {
+			bdd.it("understands a duration of " + c[0], function () {
+				return parse(calendar(vevent(zoned("Europe/Amsterdam", "20260715", "0900") + "DURATION:" + c[0] + "\r\n"))).then(function (parsed) {
+					assert.strictEqual((parsed.result.dtend - parsed.result.dtstart) / 60000, c[1]);
+				});
+			});
+		});
+
+		bdd.it("ends a timed event without an end when it starts", function () {
+			return parse(calendar(vevent(zoned("Europe/Amsterdam", "20260715", "0900")))).then(function (parsed) {
+				assert.strictEqual(parsed.result.dtend, parsed.result.dtstart);
+			});
+		});
+
+		bdd.it("gives a changed occurrence without an end the length of the series", function () {
+			return parse(calendar(vevent(SERIES) + vevent(occurrence("20260716", "SUMMARY:Moved\r\n")))).then(function (parsed) {
+				assert.strictEqual(parsed.exceptions[0].dtend - parsed.exceptions[0].dtstart, 3600000);
+			});
+		});
+
+		bdd.it("turns an alarm after the end into one after the start", function () {
+			var alarm = "BEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER;RELATED=END:PT5M\r\nEND:VALARM\r\n";
+			return parse(calendar(vevent(LOCAL + alarm))).then(function (parsed) {
+				assert.strictEqual(parsed.result.alarm[0].alarmTrigger.value, "PT65M");
+				assert.strictEqual(parsed.result.alarm[0].relatedToEnd, undefined);
+			});
+		});
+
+		bdd.it("reads names in any case", function () {
+			var ical = "begin:vcalendar\r\nversion:2.0\r\nbegin:vevent\r\nuid:x\r\n" +
+				"dtstart;tzid=Europe/Amsterdam:20260715T090000\r\ndtend;tzid=Europe/Amsterdam:20260715T100000\r\n" +
+				"summary:Lower\r\nrrule:freq=daily;count=2\r\nend:vevent\r\nend:vcalendar\r\n";
+			return parse(ical).then(function (parsed) {
+				assert.strictEqual(parsed.result.subject, "Lower");
+				assert.strictEqual(parsed.result.rrule.freq, "DAILY");
+			});
+		});
+
+		bdd.it("leaves no working fields behind", function () {
+			return parse(calendar(vevent(SERIES + "RDATE;TZID=Europe/Amsterdam:20260801T090000\r\n"))).then(function (parsed) {
+				[parsed.result].concat(parsed.exceptions).forEach(function (event) {
+					["rruleText", "rdateValues", "exdateValues", "recurrenceIdRaw", "recurrenceRange", "needsExpansion"].forEach(function (key) {
+						assert.strictEqual(event[key], undefined, key);
+					});
+				});
+			});
+		});
+	});
+
+	bdd.describe("occurrences the calendar cannot work out", function () {
+		bdd.it("adds RDATE dates to a repeat the calendar handles", function () {
+			var body = LOCAL + "RRULE:FREQ=DAILY;COUNT=2\r\nRDATE;TZID=America/New_York:20260801T090000\r\n";
+			return parse(calendar(vevent(body))).then(function (parsed) {
+				assert.strictEqual(parsed.result.rrule.count, 2);
+				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["1/8 15:00"]);
+				assert.strictEqual(parsed.hasExceptions, true);
+			});
+		});
+
+		bdd.it("gives an RDATE period its own length", function () {
+			var body = LOCAL + "RDATE;VALUE=PERIOD:20260801T080000Z/PT2H\r\n";
+			return parse(calendar(vevent(body))).then(function (parsed) {
+				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["1/8 10:00"]);
+				assert.strictEqual(parsed.exceptions[0].dtend - parsed.exceptions[0].dtstart, 7200000);
+			});
+		});
+
+		bdd.it("stores an hourly repeat as occurrences", function () {
+			var body = LOCAL + "RRULE:FREQ=HOURLY;INTERVAL=6;COUNT=3\r\nSUMMARY:Pill\r\n";
+			return parse(calendar(vevent(body))).then(function (parsed) {
+				assert.strictEqual(parsed.result.rrule, null);
+				assert.ok(/HOURLY/.test(parsed.result.expandedRule));
+				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["15/7 15:00", "15/7 21:00"]);
+				assert.strictEqual(parsed.exceptions[1].subject, "Pill");
+				assert.strictEqual(parsed.exceptions[1].generatedOccurrence, true);
+			});
+		});
+
+		bdd.it("respects cancelled times and changed occurrences in such a repeat", function () {
+			var ical = calendar(vevent(LOCAL + "RRULE:FREQ=HOURLY;COUNT=4\r\nEXDATE;TZID=Europe/Amsterdam:20260715T100000\r\n") +
+				vevent("RECURRENCE-ID;TZID=Europe/Amsterdam:20260715T110000\r\n" + zoned("Europe/Amsterdam", "20260715", "1130") + "SUMMARY:Moved\r\n"));
+			return parse(ical).then(function (parsed) {
+				assert.deepStrictEqual(parsed.exceptions.map(startClock).sort(), ["15/7 11:30", "15/7 12:00"]);
+			});
+		});
+
+		bdd.it("uses the week start of a two-weekly repeat", function () {
+			var body = zoned("Europe/Amsterdam", "20260707", "0900") + "DTEND;TZID=Europe/Amsterdam:20260707T100000\r\n" +
+				"RRULE:FREQ=WEEKLY;INTERVAL=2;COUNT=4;BYDAY=TU,SU;WKST=SU\r\n";
+			return parse(calendar(vevent(body))).then(function (parsed) {
+				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["19/7 9:00", "21/7 9:00", "2/8 9:00"]);
+			});
+		});
+
+		bdd.it("applies a change to this and all later occurrences", function () {
+			var ical = calendar(vevent(LOCAL + "RRULE:FREQ=DAILY;COUNT=4\r\nSUMMARY:Old\r\n") +
+				vevent("RECURRENCE-ID;RANGE=THISANDFUTURE;TZID=Europe/Amsterdam:20260716T090000\r\n" +
+					zoned("Europe/Amsterdam", "20260716", "1100") + "DTEND;TZID=Europe/Amsterdam:20260716T120000\r\nSUMMARY:New\r\n"));
+			return parse(ical).then(function (parsed) {
+				var later = parsed.exceptions.slice().sort(function (a, b) { return a.dtstart - b.dtstart; });
+				assert.strictEqual(parsed.result.subject, "Old");
+				assert.deepStrictEqual(later.map(startClock), ["16/7 11:00", "17/7 11:00", "18/7 11:00"]);
+				assert.deepStrictEqual(later.map(function (e) { return e.subject; }), ["New", "New", "New"]);
+			});
+		});
+
+		bdd.it("keeps an all-day repeat on its days", function () {
+			var body = "DTSTART;VALUE=DATE:20260715\r\nDTEND;VALUE=DATE:20260716\r\nRRULE:FREQ=MONTHLY;BYDAY=MO,TU,WE,TH,FR;BYSETPOS=-1;COUNT=2\r\n";
+			return parse(calendar(vevent(body))).then(function (parsed) {
+				assert.deepStrictEqual(parsed.exceptions.map(startClock), ["31/7 12:00"]);
+			});
+		});
+	});
+
+	bdd.describe("tasks", function () {
+		function task(body) {
+			return "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VTODO\r\nUID:t1\r\nSUMMARY:Buy\\, milk\r\n" + body + "END:VTODO\r\nEND:VCALENDAR\r\n";
+		}
+		function readTask(text) {
+			return new Promise(function (resolve) {
+				var future = Task.parseTask(text);
+				future.then(function () {
+					resolve(global.checkResult(future));
+				});
+			});
+		}
+
+		bdd.it("reads a task with a due time in its zone", function () {
+			return readTask(task("DESCRIPTION:Two\\nlines\r\nDUE;TZID=America/New_York:20260715T090000\r\nPRIORITY:1\r\n")).then(function (read) {
+				assert.strictEqual(read.result.subject, "Buy, milk");
+				assert.strictEqual(read.result.notes, "Two\nlines");
+				assert.strictEqual(read.result.dueDate, Date.UTC(2026, 6, 15, 13));
+				assert.strictEqual(read.result.priority, 1);
+				assert.strictEqual(read.result.completed, false);
+				assert.strictEqual(read.result.uid, "t1");
+			});
+		});
+
+		bdd.it("has no due date when none is given", function () {
+			return readTask(task("")).then(function (read) {
+				assert.strictEqual(read.result.dueDate, null);
+				assert.strictEqual(read.result.priority, 2);
+			});
+		});
+
+		[["STATUS:COMPLETED\r\n", null], ["PERCENT-COMPLETE:100\r\n", null], ["COMPLETED:20260701T100000Z\r\n", Date.UTC(2026, 6, 1, 10)]].forEach(function (c) {
+			bdd.it("sees it is done from " + c[0].trim(), function () {
+				return readTask(task(c[0])).then(function (read) {
+					assert.strictEqual(read.result.completed, true);
+					assert.strictEqual(read.result.completedDate, c[1]);
+				});
+			});
+		});
+
+		[[4, 1], [5, 2], [6, 3], [9, 3], [0, 2]].forEach(function (c) {
+			bdd.it("maps priority " + c[0], function () {
+				return readTask(task("PRIORITY:" + c[0] + "\r\n")).then(function (read) {
+					assert.strictEqual(read.result.priority, c[1]);
+				});
+			});
+		});
+
+		bdd.it("skips a cancelled task and objects without one", function () {
+			return readTask(task("STATUS:CANCELLED\r\n")).then(function (read) {
+				assert.strictEqual(read.cancelled, true);
+				return readTask(calendar(vevent(LOCAL)));
+			}).then(function (read) {
+				assert.strictEqual(read.cancelled, true);
+			});
+		});
+
+		bdd.it("does not take a web page for an empty object", function () {
+			return readTask("<html></html>").then(function (read) {
+				assert.strictEqual(read.returnValue, false);
+				assert.strictEqual(read.cancelled, undefined);
+			});
+		});
+
+		bdd.it("uses the main task, not a changed occurrence or an alarm", function () {
+			var text = "BEGIN:VCALENDAR\r\nBEGIN:VTODO\r\nUID:t\r\nRECURRENCE-ID:20260101T000000Z\r\nSUMMARY:Changed\r\nEND:VTODO\r\n" +
+				"BEGIN:VTODO\r\nUID:t\r\nSUMMARY:Main\r\nBEGIN:VALARM\r\nSUMMARY:Alarm\r\nEND:VALARM\r\nEND:VTODO\r\nEND:VCALENDAR\r\n";
+			return readTask(text).then(function (read) {
+				assert.strictEqual(read.result.subject, "Main");
+			});
+		});
+
+		bdd.it("an event parser ignores an object with only a task", function () {
+			return parse(task("")).then(function (parsed) {
+				assert.strictEqual(parsed.cancelled, true);
+			});
+		});
+
+		bdd.it("survives being written and read again", function () {
+			var due = Date.UTC(2026, 6, 15, 13), done = Date.UTC(2026, 6, 1, 10),
+				text = Task.generateTask({subject: "A, b; c", notes: "x\ny", dueDate: due, priority: 1, completed: true, completedDate: done, uid: "u"}, done);
+			assert.ok(/\r\nDTSTAMP:20260701T100000Z\r\n/.test(text), text);
+			assert.ok(/\r\nSUMMARY:A\\, b\\; c\r\n/.test(text), text);
+			assert.ok(/\r\nSTATUS:COMPLETED\r\nPERCENT-COMPLETE:100\r\n/.test(text), text);
+			return readTask(text).then(function (read) {
+				assert.deepStrictEqual(read.result, {subject: "A, b; c", notes: "x\ny", completed: true, completedDate: done, priority: 1, dueDate: due, uid: "u"});
 			});
 		});
 	});

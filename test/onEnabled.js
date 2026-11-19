@@ -95,7 +95,7 @@ bdd.describe("OnEnabled", function () {
 	bdd.it("disables both capabilities of an account when asked at the same moment", function () {
 		reset();
 		return Promise.all([start("contacts", false), start("calendar", false)]).then(function (results) {
-			assert.deepStrictEqual(results, [true, true]);
+			assert.deepStrictEqual(results, [{returnValue: true}, {returnValue: true}]);
 			assert.deepStrictEqual(disabled, ["contacts", "calendar"]);
 			assert.strictEqual(maxActive, 1);
 		});
@@ -137,7 +137,7 @@ bdd.describe("OnEnabled", function () {
 			inProgress.account = false;
 		}, 100);
 		return start("contacts", false).then(function (result) {
-			assert.strictEqual(result, true);
+			assert.deepStrictEqual(result, {returnValue: true});
 			assert.deepStrictEqual(disabled, ["contacts"]);
 		});
 	});

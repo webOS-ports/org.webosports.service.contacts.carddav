@@ -149,7 +149,7 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 				}
 				future.nest(CalDav.discovery(params));
 			} else {
-				future.result = { returnValue: true, calendarHome: calendarHome, contactHome: contactHome};
+				future.result = { returnValue: true, calendarHome: calendarHome, contactHome: contactHome, calendarHomes: [calendarHome], contactHomes: [contactHome]};
 			}
 		});
 
@@ -158,16 +158,26 @@ DiscoveryAssistant.prototype.processAccount = function (args, config) {
 
 			if (result.returnValue === true) {
 				config[Kinds.objects.calendarevent.name] = {
-					homeFolder: result.calendarHome
+					homeFolder: result.calendarHome,
+					homeFolders: result.calendarHomes
+				};
+				//tasks live in the same place as calendars.
+				config[Kinds.objects.task.name] = {
+					homeFolder: result.calendarHome,
+					homeFolders: result.calendarHomes
 				};
 				config[Kinds.objects.contact.name] = {
-					homeFolder: result.contactHome
+					homeFolder: result.contactHome,
+					homeFolders: result.contactHomes
 				};
 			} else {
 				Log.log("Could not discover addressbook and calendar folders: ", result);
 
 				Log.log("Setting home folders to original URL and hoping for the best.");
 				config[Kinds.objects.calendarevent.name] = {
+					homeFolder: config.url
+				};
+				config[Kinds.objects.task.name] = {
 					homeFolder: config.url
 				};
 				config[Kinds.objects.contact.name] = {

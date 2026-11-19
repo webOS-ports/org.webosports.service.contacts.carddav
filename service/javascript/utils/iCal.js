@@ -3,6 +3,7 @@
 
 var Quoting = require(libPath + "Quoting.js");
 var Time = require(libPath + "iCalTimeHandling.js");
+var Recurrence = require(libPath + "iCalRecurrence.js");
 
 //from later node.js versions. If we fade out 2.x support, this can go away and be replaced by node.js util._extend method.
 var extend = function (origin, add) {
@@ -394,6 +395,17 @@ var iCal = (function () {
 
 		lObj.value = line.substring(index + 1);
 
+		//RFC 5545 section 2: names of components, properties and parameters and the values
+		//of enumerations are case insensitive.
+		if (lObj.key === "BEGIN" || lObj.key === "END" || lObj.key === "RRULE" || lObj.key === "STATUS") {
+			lObj.value = lObj.value.toUpperCase();
+		}
+		["value", "related", "range"].forEach(function (name) {
+			if (lObj.parameters[name]) {
+				lObj.parameters[name] = lObj.parameters[name].toUpperCase();
+			}
+		});
+
 		//TZID="Eastern Standard Time" has to match the same name unquoted.
 		if (lObj.parameters.tzid) {
 			lObj.parameters.tzid = lObj.parameters.tzid.replace(/^"|"$/g, "");
@@ -407,6 +419,7 @@ var iCal = (function () {
 		if (lObj.key === "TRIGGER") {
 			//process trigger.
 			alarm.trigger = lObj.line; //save complete trigger string.
+			alarm.relatedToEnd = lObj.parameters.related === "END";
 			//TODO: try to repair some deficiencies of webOs here... for example related end could be easily repaired if dtend and dtstart are known.
 			alarm.alarmTrigger = { value: lObj.value, valueType: lObj.parameters.value || "DURATION" }; //decode string a bit for webOs.
 			if (alarm.alarmTrigger.value === "P" || alarm.alarmTrigger.value === "-P" || alarm.alarmTrigger.value === "P0D") { //fix issue in webOS 2.1.1 with alarm 0 min before start.
@@ -457,7 +470,7 @@ var iCal = (function () {
 			break;
 		default:
 			if (lObj.key !== "TZNAME" && lObj.key !== "TZOFFSETFROM" && lObj.key !== "RDATE") {
-				Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+				Log.log("Current translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Skipping it.");
 			}
 			break;
 		}
@@ -495,7 +508,7 @@ var iCal = (function () {
 			return false; //signal that we are finished
 		default:
 			if (lObj.key !== "X-LIC-LOCATION" && lObj.key !== "RDATE") {
-				Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+				Log.log("My translation from iCal-TZ to webOs event does not understand " + lObj.key + " yet. Skipping it.");
 			}
 			break;
 		}
@@ -639,6 +652,19 @@ var iCal = (function () {
 		return res;
 	}
 
+	//The dates of an RDATE or EXDATE as written, a PERIOD brings its own length.
+	function dateValues(lObj, values) {
+		lObj.value.split(",").forEach(function (text) {
+			var parts = text.split("/"), entry = {value: parts[0], tzid: lObj.parameters.tzid};
+			if (parts[1]) {
+				entry.duration = (/^[+\-]?P/i).test(parts[1]) ? Time.convertDurationIntoMicroseconds(parts[1]) :
+						Time.iCalTimeToWebOsTime(parts[1]) - Time.iCalTimeToWebOsTime(parts[0]);
+			}
+			values = (values || []).concat([entry]);
+		});
+		return values;
+	}
+
 	function parseLineIntoObject(lObj, event) {
 		var translation, translationQuote, transTime, year;
 		//not in webOs: UID
@@ -652,7 +678,7 @@ var iCal = (function () {
 			"CONTACT"       :    "contact",
 			"PRIORITY"      :    "priority",
 			"RELATED-TO"    :    "relatedTo",
-			"STATUS"        :    "requestStatus",
+			"STATUS"        :    "status",
 			"RESOURCES"     :    "resources",
 			"SEQUENCE"      :    "sequence",
 			"TRANSP"        :    "transp",
@@ -675,13 +701,18 @@ var iCal = (function () {
 			"LAST-MODIFIED" :    "lastModified"
 		};
 
+		if (lObj.key === "RECURRENCE-ID") {
+			event.recurrenceIdRaw = {value: lObj.value, tzid: lObj.parameters.tzid};
+			event.recurrenceRange = lObj.parameters.range;
+		}
+
 		if (translation[lObj.key]) {
 			event[translation[lObj.key]] = lObj.value;
 		} else if (translationQuote[lObj.key]) {
 			event[translationQuote[lObj.key]] = Quoting.unquote(lObj.value);
 		} else if (transTime[lObj.key]) {
 			if (!DATETIME.test(lObj.value) && !DATE.test(lObj.value)) {
-				Log.log("Skipping unreadable time in line " + lObj.line);
+				Log.log("Skipping unreadable time in " + lObj.key);
 				return event;
 			}
 			if (lObj.parameters.tzid) {
@@ -733,9 +764,11 @@ var iCal = (function () {
 				event.attach.push(lObj.value);
 				break;
 			case "EXDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
+				event.exdateValues = dateValues(lObj, event.exdateValues);
 				event.exdates = parseDATEARRAY(lObj.value, event.exdates); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
 				break;
 			case "RDATE": //EXDATE / RDATE is a list of timestamps . webOs wants them in an array
+				event.rdateValues = dateValues(lObj, event.rdateValues);
 				event.rdates = parseDATEARRAY(lObj.value, event.rdates); // => split list, fill array. Doc says webos wants the date-time strings not ts like everywhere else.. hm.
 				break;
 			case "BEGIN": //ignore begins other than ALARM.
@@ -769,6 +802,7 @@ var iCal = (function () {
 				break;
 			case "RRULE":
 				event.rrule = parseRRULE(lObj.value);
+				event.rruleText = lObj.value;
 				break;
 			case "VERSION":
 				if (lObj.value !== "2.0") {
@@ -781,7 +815,7 @@ var iCal = (function () {
 				break;
 			default:
 				if (lObj.key !== "PRODID" && lObj.key !== "METHOD" && lObj.key !== "END") {
-					Log.log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Will skip line " + lObj.line);
+					Log.log("My translation from iCal to webOs event does not understand " + lObj.key + " yet. Skipping it.");
 				}
 				break;
 			}
@@ -801,7 +835,7 @@ var iCal = (function () {
 		//search for original event, should usually be the first event.
 		Log.log_icalDebug("processing ", events.length, " events in search of parentids.");
 		for (i = events.length - 1; i >= 0; i -= 1) {
-			if (events[i].rrule) {
+			if (events[i].rrule || (events[i].rdateValues && !events[i].recurrenceId)) {
 				revent = events[i];
 				parentdtstart = revent.dtstart;
 
@@ -1000,7 +1034,8 @@ var iCal = (function () {
 			"contact"           :    "CONTACT",
 			"priority"          :    "PRIORITY",
 			"relatedTo"         :    "RELATED-TO",
-			"requestStatus"     :    "STATUS",
+			"status"            :    "STATUS",
+			"requestStatus"     :    "STATUS", //where older versions kept it.
 			"resources"         :    "RESOURCES",
 			"sequence"          :    "SEQUENCE",
 			//"transp"          :    "TRANSP", //intentionally skip this to let server decide...
@@ -1130,6 +1165,27 @@ var iCal = (function () {
 		});
 	}
 
+	//A changed occurrence without an end lasts as long as the others. An alarm relative to the
+	//end is stored relative to the start, the only way the calendar has.
+	function finishEvent(event, parent) {
+		if (parent && !event.dtend) {
+			event.dtend = event.dtstart + (parent.dtend - parent.dtstart);
+		}
+		(event.alarm || []).forEach(function (alarm) {
+			var offset;
+			if (alarm.relatedToEnd && alarm.alarmTrigger) {
+				offset = Time.convertDurationIntoMicroseconds(alarm.alarmTrigger.value) + (event.dtend - event.dtstart);
+				alarm.alarmTrigger.value = (offset < 0 ? "-" : "") + "PT" + Math.round(Math.abs(offset) / 60000) + "M";
+				alarm.trigger = "TRIGGER:" + alarm.alarmTrigger.value;
+			}
+			delete alarm.relatedToEnd;
+		});
+	}
+
+	function isCancelled(event) {
+		return event.status === "CANCELLED";
+	}
+
 	function getNewEvent() {
 		return {
 			alarm: [],
@@ -1173,6 +1229,12 @@ var iCal = (function () {
 		 */
 		parseICal: function (ical) {
 			var lines, i, lObj, event = getNewEvent(), alarm, tzContinue, outerFuture = new Future(), tz = {}, tzDataMap = {}, events = [];
+
+			//one collection can hold events and tasks.
+			if ((/BEGIN:VCALENDAR/i).test(ical) && !(/BEGIN:VEVENT/i).test(ical)) {
+				outerFuture.result = {returnValue: true, cancelled: true};
+				return outerFuture;
+			}
 
 			lines = preProcessIcal(ical);
 
@@ -1220,11 +1282,8 @@ var iCal = (function () {
 					events.splice(i, 1);
 				} else {
 					delete events[i].valid;
-					if (events[i].rrule && events[i].rrule.unsupported) {
-						Log.log("Keeping only the first occurrence, rule not supported: ", events[i].rrule.unsupported);
-						delete events[i].rrule;
-						delete events[i].exdates;
-					}
+					events[i].needsExpansion = !!(events[i].rdateValues || events[i].recurrenceRange ||
+							(events[i].rrule && Recurrence.needsExpansion(events[i].rruleText, events[i].rrule.unsupported)));
 				}
 			}
 
@@ -1240,11 +1299,22 @@ var iCal = (function () {
 						outerFuture.result = {returnValue: false};
 						return;
 					}
+					if (isCancelled(revent)) {
+						outerFuture.result = {returnValue: true, cancelled: true};
+						return;
+					}
+					finishEvent(revent);
 					exceptions.forEach(function (event) {
+						finishEvent(event, revent);
 						applyHacks(event);
 					});
 					applyHacks(revent, exceptions);
 					applyExceptionDays(revent, exceptions);
+					Recurrence.apply(revent, exceptions, Time, Date.now());
+					//the day of a cancelled occurrence is an exception now, nothing more to show.
+					exceptions = exceptions.filter(function (event) {
+						return !isCancelled(event);
+					});
 					Log.log_icalDebug("After TZ conversion:", revent, " and ", exceptions);
 					outerFuture.result = {returnValue: true, result: revent, hasExceptions: exceptions.length > 0, exceptions: exceptions};
 				} else {

@@ -2,6 +2,8 @@
 /************************************************************
 Contains global kinds references - NOT USED BY CONFIGURATOR
 *************************************************************/
+//allowUpsync says a kind can be sent to a server. Whether it is depends on the account,
+//see ObjectMerge.uploadAllowed.
 var Kinds = {
 	objects: {
 		calendar: {
@@ -16,7 +18,7 @@ var Kinds = {
 			identifier: "org.webosports.cdav.calendarevent",
 			id: "org.webosports.cdav.calendarevent:1",
 			connected_kind: "calendar",
-			allowUpsync: false
+			allowUpsync: true
 		},
 		contactset: {
 			name: "contactset",
@@ -30,13 +32,21 @@ var Kinds = {
 			identifier: "org.webosports.cdav.contact",
 			id: "org.webosports.cdav.contact:1",
 			connected_kind: "contactset",
+			allowUpsync: true
+		},
+		tasklist: {
+			name: "tasklist",
+			identifier: "org.webosports.cdav.tasklist",
+			id: "org.webosports.cdav.tasklist:1",
+			connected_kind: "task",
 			allowUpsync: false
 		},
 		task: {
 			name: "task",
 			identifier: "org.webosports.cdav.task",
 			id: "org.webosports.cdav.task:1",
-			allowUpsync: false
+			connected_kind: "tasklist",
+			allowUpsync: true
 		}
 	},
 	account: {
@@ -62,7 +72,7 @@ exports.KindsContacts = {
 			identifier: "org.webosports.cdav.contact",
 			id: "org.webosports.cdav.contact:1",
 			connected_kind: "contactset",
-			allowUpsync: false
+			allowUpsync: true
 		}
 	},
 	account: {
@@ -89,7 +99,7 @@ exports.KindsCalendar = {
 			identifier: "org.webosports.cdav.calendarevent",
 			id: "org.webosports.cdav.calendarevent:1",
 			connected_kind: "calendar",
-			allowUpsync: false
+			allowUpsync: true
 		}
 	},
 	account: {
@@ -99,6 +109,33 @@ exports.KindsCalendar = {
 	syncOrder: [
 		Kinds.objects.calendar.name,
 		Kinds.objects.calendarevent.name
+	]
+};
+
+exports.KindsTasks = {
+	objects: {
+		tasklist: {
+			name: "tasklist",
+			identifier: "org.webosports.cdav.tasklist",
+			id: "org.webosports.cdav.tasklist:1",
+			connected_kind: "task",
+			allowUpsync: false
+		},
+		task: {
+			name: "task",
+			identifier: "org.webosports.cdav.task",
+			id: "org.webosports.cdav.task:1",
+			connected_kind: "tasklist",
+			allowUpsync: true
+		}
+	},
+	account: {
+		id: "com.palm.account:1",
+		metadata_id: "org.webosports.cdav.account.tasks:1"
+	},
+	syncOrder: [
+		Kinds.objects.tasklist.name,
+		Kinds.objects.task.name
 	]
 };
 

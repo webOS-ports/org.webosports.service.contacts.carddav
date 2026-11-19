@@ -1,5 +1,5 @@
 /*jslint regexp: true, node: true, nomen: true, newcap: true */
-/*global Contacts, fs, Log, Future, libPath, checkResult */
+/*global Contacts, fs, Log, Future, libPath, checkResult, httpClient */
 
 var path = require("path"); //required for vCard converter.
 var crypto = require("crypto");
@@ -11,7 +11,40 @@ var vCard = (function () {
 	"use strict";
 	var tmpPath = "/tmp/caldav-contacts/", //don't forget trailling slash!!
 		photoPath = "/media/internal/.caldav_photos/",
-		vCardIndex = 0;
+		vCardIndex = 0,
+		MAX_PHOTO_BYTES = 2097152;
+
+	//A vCard can point to its photo. The address comes from whoever edited the contact, so it is
+	//fetched without credentials and only from public addresses, also after redirects.
+	function downloadPhoto(photo) {
+		var future = new Future(), options = {
+			method: "GET",
+			headers: {"User-Agent": "org.webosports.service.cdav-connector"},
+			binary: true,
+			publicOnly: true,
+			maxBytes: MAX_PHOTO_BYTES
+		};
+
+		httpClient.parseURLIntoOptions(photo.photoUrl, options);
+		future.nest(httpClient.sendRequest(options, ""));
+		future.then(function () {
+			var result = checkResult(future), type = ((result.headers || {})["content-type"] || "").toLowerCase(),
+				image = (/^image\/([a-z0-9.+\-]+)/).exec(type);
+			if (result.returnValue && image && result.body) {
+				photo.buffer = result.body;
+				photo.photoType = "." + image[1].replace("jpg", "jpeg");
+				future.result = {returnValue: true};
+			} else {
+				Log.log("Could not use the contact photo, status ", result.returnCode);
+				future.result = {returnValue: false};
+			}
+		});
+		return future;
+	}
+
+	function isEmptyName(name) {
+		return !name || !(name.givenName || name.familyName || name.middleName);
+	}
 
 	function applyHacks(data, server) {
 		if (server === "egroupware") {
@@ -93,6 +126,8 @@ var vCard = (function () {
 				photo,
 				uid,
 				categories,
+				fullName,
+				anniversary,
 				filewritten = false,
 				reader = new vCardReader();
 
@@ -117,12 +152,14 @@ var vCard = (function () {
 			// Photos don't display reliably in webOS anyway (see comment below).
 			var vCardData = input.vCard;
 			if (vCardData.length > 25360) {
-				vCardData = vCardData.replace(/^PHOTO[^\r\n]*(\r?\n[\t ][^\r\n]*)*/mg, "");
+				vCardData = vCardData.replace(/^([A-Za-z0-9\-]+\.)?PHOTO[^\r\n]*(\r?\n[\t ][^\r\n]*)*/img, "");
 			}
 			reader.processString(vCardData, version);
 			photo = reader.extractPhoto();
 			uid = reader.extractUID();
 			categories = reader.extractCategories();
+			fullName = reader.extractFullName();
+			anniversary = reader.extractAnniversary();
 
 			//setup importer
 			vCardImporter = new Contacts.vCardImporter({
@@ -151,7 +188,7 @@ var vCard = (function () {
 			});
 
 			future.then(function () {
-				var result = checkResult(future), obj, key;
+				var result = checkResult(future), obj, key, photoReady;
 
 				if (filewritten) {
 					fs.unlink(filename);
@@ -176,7 +213,22 @@ var vCard = (function () {
 					obj.uid = uid;
 					obj.categories = categories;
 
-					if (photo.photoData.length > 0) { //got a photo!! :)
+					//FN is the one name every vCard has, N is optional in version 4.
+					if (isEmptyName(obj.name) && fullName && !(obj.organizations || []).some(function (org) { return org.name === fullName; })) {
+						obj.name = obj.name || {};
+						obj.name.givenName = fullName;
+					}
+					if (anniversary) {
+						obj.anniversary = anniversary;
+					}
+
+					photoReady = photo.photoUrl ? downloadPhoto(photo) : new Future({returnValue: photo.photoData.length > 0});
+					photoReady.then(function () {
+						var ready = checkResult(photoReady).returnValue === true;
+						if (!ready) {
+							future.result = {returnValue: true, obj: obj};
+							return;
+						}
 						filename = photoFileName(input.account.name, uid, obj.name, photo.photoType);
 						reader.writePhoto(photo, filename).then(function () {
 							//storing those here and NOT using ContactsLib to set photos introduces the issue that photos will always stay
@@ -186,10 +238,7 @@ var vCard = (function () {
 							obj.photos.push({localPath: filename, primary: false, type: "type_list"});
 							future.result = {returnValue: true, obj: obj};
 						});
-					} else {
-						//no photo, continue.
-						future.result = {returnValue: true, obj: obj};
-					}
+					});
 				} else { //no contact, some error must have happend.
 					Log.log("No result from conversion: ", result);
 					resFuture.result = {returnValue: false, result: {}};
@@ -228,7 +277,7 @@ var vCard = (function () {
 				contact = new Contacts.Contact(input.contact),
 				person = new Contacts.Person();
 
-			Log.log("Got contact: ", input.contact);
+			Log.log("Got a contact to convert.");
 			vCardIndex += 1;
 			person.populateFromContact(contact);
 
@@ -295,8 +344,7 @@ var vCard = (function () {
 				if (result.blob) {
 					data = data.replace("END:VCARD", result.blob + "END:VCARD");
 				}
-				Log.debug("Modified data:", data);
-				resFuture.result = { returnValue: true, result: data };
+								resFuture.result = { returnValue: true, result: data };
 			});
 
 			return resFuture;

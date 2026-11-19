@@ -1,0 +1,35 @@
+[
+	{
+		"type": "db.kind",
+		"object": "org.webosports.cdav.tasklist:1",
+		"caller": "org.webosports.app.cdav",
+		"operations": {
+			"read": "allow",
+			"create": "allow",
+			"delete": "allow",
+			"update": "allow"
+		}
+	},
+	{
+		"type": "db.kind",
+		"object": "org.webosports.cdav.tasklist:1",
+		"caller": "org.webosports.service.cdav",
+		"operations": {
+			"read": "allow",
+			"create": "allow",
+			"delete": "allow",
+			"update": "allow"
+		}
+	},
+	{
+		"type": "db.kind",
+		"object": "org.webosports.cdav.tasklist:1",
+		"caller": "com.palm.app.tasks",
+		"operations": {
+			"read": "allow",
+			"create": "allow",
+			"delete": "allow",
+			"update": "allow"
+		}
+	}
+]

@@ -53,6 +53,7 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 				this.config.urlScheme = launchArgs.config.urlScheme || this.config.urlScheme;
 				this.config.username =  launchArgs.config.username || launchArgs.username || this.config.username;
 				this.config.accountId = this.accountId || this.config.accountId;
+				this.config.twoWay = launchArgs.config.twoWay === true || this.config.twoWay;
 				this.config.ignoreSSLCertificateErrors = launchArgs.config.ignoreSSLCertificateErrors || this.config.ignoreSSLCertificateErrors;
 
 				if (launchArgs.config.credentials) {
@@ -67,6 +68,8 @@ var ServiceAssistant = Transport.ServiceAssistantBuilder({
 					launchArgs.capability = "CONTACTS";
 				} else if (launchArgs.$activity.name.indexOf("calendarevent") > 0) {
 					launchArgs.capability = "CALENDAR";
+				} else if (launchArgs.$activity.name.indexOf(":task") > 0) {
+					launchArgs.capability = "TASKS";
 				}
 			}
 

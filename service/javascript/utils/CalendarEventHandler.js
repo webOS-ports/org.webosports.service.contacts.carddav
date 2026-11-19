@@ -150,18 +150,22 @@ var CalendarEventHandler = (function () {
 			});
 
 			future.then(this, function () {
-				var result = checkResult(future);
+				var result = checkResult(future), children;
 				if (result.returnValue && !result.result) { //either no success or ordinary event that already was processed.
-					if (result.results.length > 0) {
+					//occurrences worked out here are no changes the server has to know about.
+					children = result.results.filter(function (e) {
+						return !e.generatedOccurrence;
+					});
+					if (children.length > 0) {
 						//have children!
-						result.results.forEach(function (e, index) {
+						children.forEach(function (e, index) {
 							e.uid = parentEvent.uid || parentEvent.uId;
 							e.relateTo = e.uid;
 							e.remoteId = parentEvent.remoteId + "exception" + index;
 							e.uri = parentEvent.uri;
 						});
 
-						future.nest(iCal.generateICalWithExceptions(parentEvent, result.results));
+						future.nest(iCal.generateICalWithExceptions(parentEvent, children));
 					} else {
 						//no children => just process the event.
 						future.nest(iCal.generateICal(parentEvent));
@@ -186,10 +190,33 @@ var CalendarEventHandler = (function () {
 			return future;
 		},
 
+		/**
+		 * Deletes the exceptions and generated occurrences stored for an event.
+		 * @param remoteId the remoteId of the event
+		 * @return future
+		 */
+		deleteChildren: function (remoteId) {
+			var future = findEventByRemoteId(remoteId);
+			future.then(function childrenCB() {
+				var result = checkResult(future), toMerge = (result.results || []).filter(function (res) {
+					return res.parentId || res.relatedTo || res.parentDtstart;
+				}).map(function (res) {
+					return {_id: res._id, _del: true, preventSync: true};
+				});
+				if (toMerge.length) {
+					future.nest(DB.merge(toMerge));
+				} else {
+					future.result = {returnValue: true};
+				}
+			});
+			return future;
+		},
+
 		processEvent: function (entries, entriesIndex, remoteId, result) {
 			var entry = entries[entriesIndex], future = new Future();
 
-			if (entry.obj.rrule) {
+			//a changed event can lose occurrences or gain them, so its old ones go first.
+			if (entry.obj.rrule || result.hasExceptions || !entry.add) {
 				Log.debug("Event has rrule, deleting child events for remoteId ", remoteId, " and entry ", entry);
 				future.nest(findEventByRemoteId(remoteId));
 				future.then(function findByRemoteIdCB() {

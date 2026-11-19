@@ -94,7 +94,9 @@ var OnEnabled = Class.create(Sync.EnabledAccountCommand, {
 				if (exception) {
 					outerFuture.setException(exception);
 				} else {
-					outerFuture.result = result;
+					//the framework answers a plain true. The accounts service takes that as a
+					//failure and then keeps the capability switched on.
+					outerFuture.result = result === true ? {returnValue: true} : result;
 				}
 				finished();
 			});

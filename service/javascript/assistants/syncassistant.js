@@ -3,7 +3,7 @@
  * Description: Handles the remote to local data conversion for CalDav and CardDav
  */
 /*jslint nomen: true, node: true */
-/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, libPath */
+/*global Log, Class, Sync, Kinds, Future, CalDav, DB, PalmCall, Activity, checkResult, libPath, ObjectMerge, iCalTask, searchAccountConfig */
 /*exported SyncAssistant */
 
 var vCard = require(libPath + "vCard.js");
@@ -16,7 +16,7 @@ var SyncStatus = require(libPath + "SyncStatus.js");
 var SyncAssistant = Class.create(Sync.SyncCommand, {
 	run: function run(outerfuture, subscription) {
 		"use strict";
-		var args = this.controller.args || {}, future = new Future(), accountId = args.accountId, errorOut, processCapabilities;
+		var args = this.controller.args || {}, future = new Future(), configFuture, accountId = args.accountId, errorOut, processCapabilities;
 
 		this.recreateActivitiesOnComplete = true;
 
@@ -55,6 +55,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "CONTACTS"}).then(syncCB.bind(this, "contacts"));
 					} else if (capObj.capability === "CALENDAR") {
 						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "CALENDAR"}).then(syncCB.bind(this, "calendar"));
+					} else if (capObj.capability === "TASKS") {
+						PalmCall.call("palm://org.webosports.service.cdav/", "sync", {accountId: accountId, capability: "TASKS"}).then(syncCB.bind(this, "tasks"));
 					} else {
 						Log.log("Unknown capability:", capObj);
 						outerfuture.nest(processCapabilities(capabilities, index + 1));
@@ -110,8 +112,32 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			}
 			//we have a capability, run usual sync
 			this.SyncKey = new SyncKey(this.client, this.handler);
+			configFuture = new Future();
 
-			this.$super(run)(future);
+			//separate future: the sync adds its own steps to "future", and those must run before syncCameBackCB.
+			configFuture.nest(searchAccountConfig({accountId: this.client.clientId}, true));
+			configFuture.then(this, function storedConfigCB() {
+				var stored = checkResult(configFuture), transport = this.client.transport, config = this.client.config,
+					startSync = function () {
+						this.$super(run)(future);
+					}.bind(this), saved;
+
+				ObjectMerge.refreshUploadChoice(config, stored);
+				if (transport && ObjectMerge.moveUploadCheckpoint(transport, stored, this.getSyncOrder().some(function (kindName) {
+						return ObjectMerge.uploadAllowed(config, kindName);
+					})) && transport._id) {
+					saved = this.handler.updateAccountTransportObject(transport, {modnum: transport.modnum, uploadsOn: transport.uploadsOn});
+					saved.then(this, function checkpointSavedCB() {
+						var result = checkResult(saved);
+						if (result.results && result.results.length) {
+							transport._rev = result.results[0].rev;
+						}
+						startSync();
+					});
+				} else {
+					startSync();
+				}
+			});
 			future.then(this, function syncCameBackCB() {
 				var result = checkResult(future);
 				Log.debug("Sync came back: ", result);
@@ -162,7 +188,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		Log.log("\n\n**************************SyncAssistant: getNewRemoteObject *****************************");
 		var postfix, remoteId, result;
 
-		if (kindName === Kinds.objects.calendarevent.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.task.name) {
 			postfix = ".ics";
 		} else if (kindName === Kinds.objects.contact.name) {
 			postfix = ".vcf";
@@ -199,20 +225,26 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	getTransformer: function (name, kindName) {
 		"use strict";
 		Log.log("\n\n**************************SyncAssistant: getTransformer*****************************");
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name || kindName === Kinds.objects.task.name) {
 			return this._getObjectTransformer(name, kindName);
 		}
 
-		if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
+		if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name || kindName === Kinds.objects.tasklist.name) {
 			if (name === "remote2local") {
 				return function (to, from) {
 					to.accountId = this.client.clientId;
 					to.excludeFromAll = false;
-					to.isReadOnly = !Kinds.objects[Kinds.objects[kindName].connected_kind].allowUpsync; //issue: if that changes, we'll have to recreate calendars
+					to.isReadOnly = !ObjectMerge.uploadAllowed(this.client.config, Kinds.objects[kindName].connected_kind); //issue: if that changes, we'll have to recreate calendars
 					to.name = from.name;
 					to.syncSource = "cdav";
 					to.remoteId = from.remoteId || from.uri;
 					to.uri = from.uri;
+					if (kindName === Kinds.objects.tasklist.name) {
+						to.visible = true;
+						to.order = to.order || "position";
+						to.show = to.show || "all";
+						to.position = to.position || Date.now();
+					}
 
 					return true; //notify of changes.
 				}.bind(this);
@@ -259,6 +291,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					//calendarId is used by webOS. There is no such thing for contacts, yet.
 					//so we call it calendarId for them, too, right now, to prevent code duplication.
 					to.calendarId = from.collectionId;
+					if (kindName === Kinds.objects.task.name) {
+						to.taskListId = from.collectionId;
+					}
 				}
 
 				to.etag = from.etag;
@@ -282,7 +317,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		if (name === "local2remote") {
 			Log.debug("==========================> allowUpsync: ", Kinds.objects[kindName].allowUpsync, " for ", kindName);
-			if (Kinds.objects[kindName].allowUpsync) { //configure upsync via kinds.js
+			if (ObjectMerge.uploadAllowed(this.client.config, kindName)) { //the kind and the account have to allow it.
 				return function (to, from) { //i.e. will be called with remote / local. Issue: Also does not wait for a callback, no real conversion here.
 					Log.log("\n\n**************************SyncAssistant:_local2remote*****************************");
 					Log.debug("Transforming ", from);
@@ -338,7 +373,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (obj.remoteId) {
 			return obj.remoteId; //use uri, it is unique and constant.
 		}
-		if (obj.uri && (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name)) {
+		if (obj.uri && (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name || kindName === Kinds.objects.task.name)) {
 			obj.remoteId = ID.uriToRemoteId(obj.uri, this.client.config);
 			return obj.remoteId;
 		}
@@ -410,9 +445,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		this.SyncKey.prepare(kindName, state);
 
 		Log.log("State: ", state, " for kind ", kindName);
-		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name) {
+		if (kindName === Kinds.objects.calendarevent.name || kindName === Kinds.objects.contact.name || kindName === Kinds.objects.task.name) {
 			future.nest(this._getRemoteChanges(state, kindName));
-		} else if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name) {
+		} else if (kindName === Kinds.objects.calendar.name || kindName === Kinds.objects.contactset.name || kindName === Kinds.objects.tasklist.name) {
 			future.nest(this._getRemoteCollectionChanges(state, kindName));
 		} else {
 			throw new Error("--------------> Kind name not recognized: '" + kindName + "'");
@@ -431,7 +466,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		var future = new Future(),
 			subKind = Kinds.objects[kindName].connected_kind,
 			home = this.client.config[subKind] ? this.client.config[subKind].homeFolder : undefined,
-			filter = (kindName === Kinds.objects.calendar.name) ? "calendar" : "contact",
+			homes,
+			filter = {calendar: "calendar", tasklist: "task"}[kindName] || "contact",
 			localFolders;
 
 		SyncStatus.setRunning(this.client.clientId, kindName);
@@ -472,14 +508,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				localFolders = result.results;
 
 				//now get remote folders
-				this.params.path = home;
-				Log.debug("Getting remote collections for ", kindName, " from ", home, ", filtering for ", filter);
+				homes = (this.client.config[subKind] && this.client.config[subKind].homeFolders) || [home];
+				Log.debug("Getting remote collections for ", kindName, " from ", homes, ", filtering for ", filter);
 				if (kindName === Kinds.objects.contact.name || kindName === Kinds.objects.contactset.name) {
 					this.params.cardDav = true;
 				} else {
 					this.params.cardDav = false;
 				}
-				future.nest(CalDav.getFolders(this.params, filter));
+				future.nest(CalDav.getFoldersOfHomes(this.params, homes, filter));
 			} else {
 				Log.log("Could not get local folders.");
 				SyncStatus.setDone(this.client.clientId, kindName);
@@ -588,6 +624,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		} else {
 			this.params.cardDav = false;
 		}
+		this.params.tasks = kindName === Kinds.objects.task.name;
 		folder.downloadsFailed = false; //reset that flag here.
 
 		SyncStatus.setRunning(this.client.clientId, kindName);
@@ -595,7 +632,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 		future.then(this, function saveTransportCB() {
 			checkResult(future); //will always be true.
-			Log.debug("Starting sync for ", folder.name);
+			Log.debug("Starting sync of a folder of ", kindName);
 			SyncStatus.setStatus(this.client.clientId, kindName, "Syncing " + folder.name);
 			future.nest(this._initCollectionId(kindName));
 		});
@@ -603,7 +640,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			var result = checkResult(future);
 
 			if (!result.returnValue) {
-				Log.log("No local id for ", folder.name, ". Stopping sync for this folder.");
+				Log.log("No local id for a folder of ", kindName, ". Stopping sync for this folder.");
 				future.result = {needsUpdate: false};
 				return;
 			}
@@ -625,6 +662,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		future.then(this, function handleDoNeedSyncResponse() {
 			var result = checkResult(future), ctag = result.ctag;
 			Log.debug("------------- Got need update response: ", result.needsUpdate);
+			if (result.success && folder.pendingDeletes && folder.pendingDeletes.length) {
+				result.needsUpdate = true; //deletes still have to reach the server.
+			}
 			if (ctag) {
 				//store this here. Error will still be true, so ctag will be ignored on failures anyway
 				//But if not done here, ctag won't be stored on download of more than 10 objects.
@@ -632,11 +672,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				folder.ctag = ctag;
 			}
 
+			if (result.syncToken) {
+				if (result.needsUpdate) {
+					//taken before the listing, changes made meanwhile come again next time.
+					folder.pendingSyncToken = folder.pendingSyncToken || result.syncToken;
+				} else if (!folder.syncToken) {
+					folder.syncToken = result.syncToken;
+				}
+			}
+
 			if (result.needsUpdate) {
 				//download etags and possibly data
 				future.nest(this._doUpdate(kindName, folder));
 				future.then(this, function updateCB() {
-					var result = checkResult(future);
+					var result = checkResult(future), folderDone = !result.more;
 
 					//general cleanup:
 					//this is required here to let next getRemoteChanges not run into error-case.
@@ -645,7 +694,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					delete this.collectionIds; //reset this for orphaned checks.
 
 					if (!result.more) {
-						Log.debug("Sync for folder ", folder.name, " finished.");
+						Log.debug("Sync of a folder of ", kindName, " finished.");
 						this.SyncKey.nextFolder(kindName);
 						result.more = this.SyncKey.hasMoreFolders(kindName);
 						if (!this.SyncKey.hasMoreFolders(kindName)) {
@@ -658,8 +707,14 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						//all went well, save ctag to fastly determine if sync is necessary at all
 						Log.debug("Not storing ctag ", ctag, " because: result.error = ", result.error, " and folder.downloadsFailed = ", folder.downloadsFailed);
 						folder.ctag = 0;
+						delete folder.syncToken;
+						delete folder.pendingSyncToken;
 					} else {
 						Log.debug("All went well, save ctag ", folder.ctag, " in folder.");
+						if (folderDone && folder.pendingSyncToken) {
+							folder.syncToken = folder.pendingSyncToken;
+							delete folder.pendingSyncToken;
+						}
 					}
 
 					if (result.error) {
@@ -809,6 +864,97 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 	/*
 	 * Handles download and parsing of etag data and then download of object data.
 	 */
+	/*
+	 * Lists the objects of a collection, from the changes since the last sync (RFC 6578) if the
+	 * server has them. The result looks the same either way.
+	 */
+	_listRemoteObjects: function (kindName, folder) {
+		"use strict";
+		var outer = new Future(), future, changes;
+
+		function listEverything(params) {
+			var listing = CalDav.downloadEtags(params);
+			listing.then(function listingCB() {
+				outer.result = checkResult(listing);
+			});
+		}
+
+		//Changes since a token cover everything in the collection, and a calendar can hold events
+		//and tasks. Tasks are few, so their filtered listing saves fetching every changed event.
+		if (!folder.syncToken || kindName === Kinds.objects.task.name ||
+				(folder.pendingDeletes && folder.pendingDeletes.length)) {
+			return CalDav.downloadEtags(this.params);
+		}
+
+		this.params.syncToken = folder.syncToken;
+		future = CalDav.syncCollection(this.params);
+		future.then(this, function changesCB() {
+			changes = checkResult(future);
+			delete this.params.syncToken;
+			if (changes.returnValue !== true) {
+				//RFC 6578 section 3.2: an expired token means starting over with a full listing.
+				Log.log("Sync token not usable, listing everything.");
+				delete folder.syncToken;
+				listEverything(this.params);
+				return;
+			}
+			folder.pendingSyncToken = changes.syncToken;
+			if (changes.truncated) {
+				folder.ctag = 0; //more to come, the next sync goes on from the new token.
+			}
+			future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
+		});
+		future.then(this, function localCB() {
+			var result = checkResult(future);
+			if (result.returnValue === true) {
+				outer.result = {
+					returnValue: true,
+					etags: ETag.applyChanges(result.results, changes, this.currentCollectionId, CalDav.samePath)
+				};
+			} else {
+				outer.result = {returnValue: false, exception: result.exception};
+			}
+		});
+		return outer;
+	},
+
+	//Fetches the next objects with one request. Whatever this does not bring is fetched alone.
+	_prefetchObjects: function (entries) {
+		"use strict";
+		var future = new Future(), wanted = entries.slice(0, 10).filter(function (entry) {
+			return !entry.doDelete && !entry.alreadyDownloaded;
+		});
+
+		this.prefetched = {};
+		if (wanted.length < 2 || this.multigetFailed) {
+			future.result = {returnValue: true};
+			return future;
+		}
+		future.nest(CalDav.downloadObjects(this.params, wanted));
+		future.then(this, function objectsCB() {
+			var result = checkResult(future);
+			if (result.returnValue === true) {
+				this.prefetched = result.objects;
+			} else {
+				Log.log("Server cannot deliver several objects at once, status ", result.returnCode);
+				this.multigetFailed = true;
+			}
+			future.result = {returnValue: true};
+		});
+		return future;
+	},
+
+	_downloadObject: function (entry) {
+		"use strict";
+		var object = this.prefetched && this.prefetched[entry.uri];
+		if (object) {
+			delete this.prefetched[entry.uri];
+			entry.etag = object.etag || entry.etag;
+			return new Future({returnValue: true, returnCode: 207, data: object.data});
+		}
+		return CalDav.downloadObject(this.params, entry);
+	},
+
 	_doUpdate: function (kindName, folder) {
 		"use strict";
 		var future = new Future(), remoteEtags, entries;
@@ -827,19 +973,23 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else {
 				//download etags and trigger next callback
 				entries = [];
-				future.nest(CalDav.downloadEtags(this.params));
+				future.nest(this._listRemoteObjects(kindName, folder));
 			}
 		}
 
 		future.then(this, function handleRemoteEtags() {
 			Log.log("---------------------->handleRemoteEtags()");
-			var result = checkResult(future), i;
+			var result = checkResult(future), i, retried;
 			if (result.returnValue === true) {
 				remoteEtags = result.etags;
 				for (i = 0; i < remoteEtags.length; i += 1) {
 					remoteEtags[i].remoteId = ID.uriToRemoteId(remoteEtags[i].uri, this.client.config);
 				}
-				future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
+				retried = this._retryDeletes(kindName, folder, remoteEtags);
+				retried.then(this, function deletesRetriedCB() {
+					remoteEtags = checkResult(retried).etags;
+					future.nest(ETag.getLocalEtags(kindName, this.client.clientId));
+				});
 			} else {
 				Log.log("Could not download etags. Reason: ", result);
 				future.result = { returnValue: false, exception: result.exception };
@@ -919,13 +1069,31 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		"use strict";
 		var future = new Future(), resultEntries, needEtags;
 
+		if (entriesIndex === 0 && !this.prefetchStarted && entries.length) {
+			this.prefetchStarted = true;
+			future.nest(this._prefetchObjects(entries));
+			future.then(this, function prefetchedCB() {
+				checkResult(future);
+				future.nest(this._downloadData(kindName, entries, 0));
+			});
+			return future;
+		}
+
 		if (entriesIndex < entries.length && entriesIndex < 10) {
-			if (entries[entriesIndex].doDelete || entries[entriesIndex].alreadyDownloaded) { //no need to download for deleted entry, skip.
+			if (entries[entriesIndex].doDelete && kindName === Kinds.objects.calendarevent.name && !entries[entriesIndex].childrenDeleted) {
+				//the occurrences of a deleted event go with it.
+				entries[entriesIndex].childrenDeleted = true;
+				future.nest(CalendarEventHandler.deleteChildren(entries[entriesIndex].remoteId));
+				future.then(this, function childrenDeletedCB() {
+					checkResult(future);
+					future.nest(this._downloadData(kindName, entries, entriesIndex));
+				});
+			} else if (entries[entriesIndex].doDelete || entries[entriesIndex].alreadyDownloaded) { //no need to download for deleted entry, skip.
 				SyncStatus.downloadedOne(this.client.clientId, kindName);
 				future.nest(this._downloadData(kindName, entries, entriesIndex + 1));
 			} else {
 				//this is currently just a get, should work fine for vCard and iCal alike.
-				future.nest(CalDav.downloadObject(this.params, entries[entriesIndex]));
+				future.nest(this._downloadObject(entries[entriesIndex]));
 
 				future.then(this, function downloadCB() {
 					var result = checkResult(future);
@@ -1014,6 +1182,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							}
 
 							future.nest(CalendarEventHandler.parseICal(result.data));
+						} else if (kindName === Kinds.objects.task.name) {
+							future.nest(iCalTask.parseTask(result.data));
 						} else if (kindName === Kinds.objects.contact.name) {
 							Log.debug("Starting vCard conversion");
 							future.nest(vCard.parseVCard({account: { name: this.client.config.name,
@@ -1025,12 +1195,28 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 
 						future.then(this, function conversionCB() {
 							var result = checkResult(future), obj;
-							if (result.returnValue === true) {
+							if (result.returnValue === true && result.cancelled) {
+								//RFC 5545 section 3.8.1.11: a cancelled event is gone for the user.
+								Log.log("Object ", entriesIndex, " is cancelled.");
+								if (entries[entriesIndex].add) {
+									entries.splice(entriesIndex, 1);
+									entriesIndex -= 1;
+									future.result = {returnValue: true};
+								} else {
+									entries[entriesIndex].doDelete = true;
+									if (kindName === Kinds.objects.calendarevent.name) {
+										future.nest(CalendarEventHandler.deleteChildren(ID.uriToRemoteId(entries[entriesIndex].uri, this.client.config)));
+									} else {
+										future.result = {returnValue: true};
+									}
+								}
+							} else if (result.returnValue === true) {
 								Log.log("Object ", entriesIndex, " converted ok. Doing next one.");
 								obj = result.result;
 								obj.uri = entries[entriesIndex].uri;
 								obj.etag = entries[entriesIndex].etag;
 								obj.uploadFailed = 0; //reset upload retry flag here, because local changes are overwritten now anyway.
+								obj.notOnServer = false;
 
 								entries[entriesIndex].collectionId = this.SyncKey.currentFolder(kindName).collectionId;
 								entries[entriesIndex].obj = obj;
@@ -1064,7 +1250,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 						//413 - Entity too large, allows retry
 						//Most of the 500 errors are server issues that might resolve in the future.
 						//401 can happen if oauth token runs out.. hm. :-/
-						if (result.returnCode >= 400 && result.returnCode !== 413 && result.returnCode < 500 && result.returnCode !== 401) {
+						//403, 408, 425 and 429 are how servers say "not now", Google limits with 403 and 429.
+						if (result.returnCode >= 400 && result.returnCode < 500 && [401, 403, 408, 413, 425, 429].indexOf(result.returnCode) < 0) {
 							Log.log("Failed with unrecoverable status code ", result.returnCode, " will never retry download.");
 						} else {
 							Log.debug("Failed with probably recoverable status code ", result.returnCode, " will retry download next sync.");
@@ -1079,6 +1266,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} //end update
 		} else { //entriesIndex >= entries.length -> finished.
 			Log.log(entriesIndex, " items received and converted.");
+			this.prefetchStarted = false;
 			resultEntries = entries.splice(0, entriesIndex);
 
 			if (entries.length > 0) {
@@ -1185,6 +1373,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (batch[index].local.uploadFailed) {
 					batch[index].local.uploadFailed = 0;
 				}
+				if (batch[index].local.notOnServer) {
+					batch[index].local.notOnServer = false;
+				}
 
 				//save those ONLY for successful uploads.
 				//save uri and etag in local object.
@@ -1195,12 +1386,22 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 				if (result.noReUpload) {
 					Log.log("Upload of ", rid, " failed so hard that reupload won't work. Do not retry.");
 					batch[index].local.uploadFailed = 0;
+					batch[index].local.notOnServer = false;
 					batch[index].local.etag = "0"; //reset etag to trigger redownload.
+					this._requestFullListing(kindName, batch[index].local.calendarId);
 					error = true; //make sure full update is done, ctags on server probably won't change.
 				} else {
 					//keep rid and etag out of db => otherwise object will be deleted on next downsync!
 					Log.debug("Upload of ", rid, " failed. Save failure for later.");
+					//the retry starts from a listing, which an unchanged collection would not get.
+					this._requestFullListing(kindName, batch[index].local.calendarId);
 					batch[index].local.uploadFailed = batch[index].local.uploadFailed ? batch[index].local.uploadFailed + 1 : 1;
+					if (batch[index].isNew) {
+						batch[index].local.notOnServer = true; //it gets a placeholder etag, but stays new.
+					}
+					if (result.retryDelete) {
+						this._rememberDelete(kindName, batch[index].local.calendarId, {uri: result.uri, etag: batch[index].local.etag});
+					}
 				}
 			}
 
@@ -1220,6 +1421,137 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		});
 
 		return future;
+	},
+
+	/*
+	 * The server's copy is needed again, even if the collection itself did not change.
+	 */
+	_requestFullListing: function (kindName, collectionId) {
+		"use strict";
+		this.SyncKey.forEachFolder(kindName, function (folder) {
+			if (folder.collectionId === collectionId) {
+				folder.ctag = 0;
+				delete folder.syncToken;
+				delete folder.pendingSyncToken;
+			}
+		});
+	},
+
+	/*
+	 * True if the same request can work later: no connection, login or trouble at the server.
+	 * Any other answer is the server's decision.
+	 */
+	_isTemporaryFailure: function (returnCode) {
+		"use strict";
+		return !returnCode || returnCode < 0 || returnCode === 401 || returnCode === 408 || returnCode === 423 ||
+			returnCode === 429 || returnCode >= 500;
+	},
+
+	/*
+	 * A deleted object is gone from the database, so nothing else remembers that the server
+	 * still has to hear about it. Without this the next listing brings it back.
+	 */
+	_rememberDelete: function (kindName, collectionId, item) {
+		"use strict";
+		this.SyncKey.forEachFolder(kindName, function (folder) {
+			if (folder.collectionId === collectionId) {
+				folder.pendingDeletes = (folder.pendingDeletes || []).filter(function (known) {
+					return known.uri !== item.uri;
+				}).concat([item]);
+			}
+		});
+	},
+
+	/*
+	 * Sends the deletes that failed earlier, now that the server answers.
+	 * Result etags: the listing without what must not be downloaded again.
+	 */
+	_retryDeletes: function (kindName, folder, remoteEtags) {
+		"use strict";
+		var outer = new Future(), self = this, pending = folder.pendingDeletes || [], kept = [], etags = remoteEtags, index = 0;
+
+		function isOther(uri) {
+			return function (entry) {
+				return !CalDav.samePath(entry.uri, uri);
+			};
+		}
+
+		function next() {
+			var item = pending[index], listed, sent;
+			index += 1;
+			if (!item) {
+				if (kept.length) {
+					folder.pendingDeletes = kept;
+				} else {
+					delete folder.pendingDeletes;
+				}
+				outer.result = {returnValue: true, etags: etags};
+				return;
+			}
+
+			listed = etags.filter(function (entry) {
+				return !isOther(item.uri)(entry);
+			})[0];
+			if (listed && listed.etag !== item.etag) {
+				Log.log("Object changed on the server, not deleting it.");
+				next();
+				return;
+			}
+
+			sent = CalDav.deleteObject(self.params, item);
+			sent.then(function deleteRetriedCB() {
+				var result = checkResult(sent);
+				if (result.returnValue === true || result.returnCode === 404) {
+					etags = etags.filter(isOther(item.uri));
+				} else if (self._isTemporaryFailure(result.returnCode)) {
+					kept.push(item);
+					etags = etags.filter(isOther(item.uri));
+				} else {
+					Log.log("Server refused delete, keeping its version. Status ", result.returnCode);
+				}
+				next();
+			});
+		}
+
+		if (pending.length && !ObjectMerge.uploadAllowed(this.client.config, kindName)) {
+			pending = [];
+		}
+		next();
+		return outer;
+	},
+
+	/*
+	 * Puts what can be edited here into the server's current version of an object.
+	 * Result conflict: the server has something newer, its version wins.
+	 */
+	_mergeWithServer: function (kindName, remote) {
+		"use strict";
+		var future = new Future(), outer = new Future();
+
+		if (remote.etag === "0") {
+			outer.result = {returnValue: false, conflict: true};
+			return outer;
+		}
+		future.nest(CalDav.downloadObject(this.params, remote));
+		future.then(this, function currentVersionCB() {
+			var result = checkResult(future);
+			if (result.returnValue !== true) {
+				outer.result = {returnValue: false, conflict: result.returnCode === 404 || result.returnCode === 410};
+			} else if (result.etag && result.etag !== remote.etag) {
+				Log.log("Object changed on the server, keeping that version.");
+				outer.result = {returnValue: false, conflict: true};
+			} else {
+				if (kindName === Kinds.objects.contact.name) {
+					remote.data = ObjectMerge.mergeCard(result.data, remote.data);
+				} else if (kindName === Kinds.objects.task.name) {
+					remote.data = ObjectMerge.mergeTask(result.data, remote.data);
+				} else {
+					remote.data = ObjectMerge.mergeEvent(result.data, remote.data);
+				}
+				outer.result = {returnValue: true};
+			}
+		});
+		return outer;
 	},
 
 	/*
@@ -1245,6 +1577,9 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		Log.log("\n\n**************************SyncAssistant:_putOneRemoteObject*****************************");
 		var future = new Future(), self = this;
 
+		//a failed first upload leaves a placeholder etag, the object is still new.
+		obj.isNew = obj.operation === "save" && !!(obj.remote.add || !obj.local.etag || obj.local.notOnServer);
+
 		//check if URI is present. If not, get URI.
 		if (!obj.remote.uri) { //this always happens for new objects and deleted objects.
 			if (!obj.remote.add && obj.operation === "save") {
@@ -1266,6 +1601,12 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			obj.local.remoteId = obj.remote.remoteId;
 		}
 
+		if (obj.operation === "delete" && obj.local.notOnServer) {
+			Log.log("Deleted before it ever reached the server, nothing to send.");
+			future.result = {uri: obj.remote.uri, returnValue: true};
+			return future;
+		}
+
 		if (obj.local.preventSync) {
 			Log.log("Prevent sync flag set, skipping upload.");
 			future.result = {
@@ -1276,10 +1617,25 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			return future;
 		}
 
+		//Occurrences worked out here do not exist on the server, and a series stored that way
+		//cannot be written back. Removing one occurrence is a change of its series.
+		if (obj.local.generatedOccurrence || (obj.local.expandedRule && obj.operation === "save") ||
+				(obj.local.parentId && obj.operation === "delete")) {
+			Log.log("Not an object of the server, skipping upload.");
+			future.result = {etag: obj.local.etag, uri: obj.remote.uri, returnValue: true};
+			return future;
+		}
+
+		this.params.cardDav = kindName === Kinds.objects.contact.name;
+		this.params.tasks = kindName === Kinds.objects.task.name;
+
 		function conversionCB(f) {
-			var result = checkResult(f);
+			var result = checkResult(f), merged;
 			if (result.returnValue === true) {
 				obj.remote.data = result.result; //copy vCard/iCal result into obj.
+				if (kindName === Kinds.objects.calendarevent.name) {
+					obj.remote.data = ObjectMerge.prepareCalendar(obj.remote.data, "VEVENT", obj.local.uid || obj.local.uId || obj.remote.remoteId, Date.now());
+				}
 
 				if (result.uri) {
 					obj.remote.uri = result.uri;
@@ -1293,7 +1649,20 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 					ID.findURIofRemoteObject(kindName, obj, self.SyncKey);
 				}
 
-				future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+				if (obj.isNew) {
+					delete obj.remote.etag; //must not exist on the server yet.
+					future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+				} else {
+					merged = self._mergeWithServer(kindName, obj.remote);
+					merged.then(function mergedCB() {
+						var mergeResult = checkResult(merged);
+						if (mergeResult.returnValue === true) {
+							future.nest(self._sendObjToServer(kindName, obj.remote, obj.local.calendarId));
+						} else {
+							future.result = {uri: obj.remote.uri, returnValue: false, noReUpload: mergeResult.conflict};
+						}
+					});
+				}
 			} else {
 				Log.log("Conversion of ", obj.local, " failed: ", result);
 				if (!obj.remote.uri) {
@@ -1313,6 +1682,8 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 			} else if (kindName === Kinds.objects.contact.name) {
 				future.nest(vCard.generateVCard({accountName: this.client.config.name,
 												contact: obj.local, kind: Kinds.objects[kindName].id}));
+			} else if (kindName === Kinds.objects.task.name) {
+				future.result = {returnValue: true, result: iCalTask.generateTask(obj.local, Date.now())};
 			} else {
 				throw new Error("Kind '" + kindName + "' not supported in _putOneRemoteObject.");
 			}
@@ -1333,8 +1704,10 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 							result.returnValue = true;
 						} else {
 							Log.log("Could not delete object: ", obj, " -> ", result);
+							result.retryDelete = this._isTemporaryFailure(result.returnCode);
 						}
 					}
+					result.uri = result.uri || obj.remote.uri;
 					future.result = result;
 				});
 			} else {
@@ -1459,7 +1832,7 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		if (!syncObj) {
 			future.result = { returnValue: true};
 		} else {
-			if (syncObj.allowUpsync && (!this.client.transport.syncKey[syncObj.name] || !this.client.transport.syncKey[syncObj.name].error)) {
+			if (ObjectMerge.uploadAllowed(this.client.config, syncObj.name) && (!this.client.transport.syncKey[syncObj.name] || !this.client.transport.syncKey[syncObj.name].error)) {
 				//only redo upsync if not in error state
 
 				rev = this.client.transport.modnum;
@@ -1507,79 +1880,116 @@ var SyncAssistant = Class.create(Sync.SyncCommand, {
 		return future;
 	},
 
-	//Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
+	/*
+	 * Completes the activity first and only then creates the SyncOnEdit
+	 * activities. A SyncOnEdit activity replaces the one with its name, which
+	 * is often the activity being completed here. The activity manager drops a
+	 * running activity that gets replaced without releasing its power lock, so
+	 * the phone stayed awake for 15 minutes after each edit.
+	 * Edits made in between are not lost: the new activities watch for every
+	 * revision after the one this sync uploaded.
+	 * Returns a future that always gives true.
+	 */
+	_completeThenSyncOnEdit: function (activity, createSyncOnEdit) {
+		"use strict";
+		var completed = new Future(), created = new Future(), done = new Future(),
+			syncObjects = this.getSyncObjects(), kindName, upSyncs = [], call;
+
+		call = activity.complete();
+		if (call) {
+			completed.nest(call);
+		} else {
+			completed.result = {returnValue: false, notOwned: true};
+		}
+
+		completed.then(this, function completedCB() {
+			var result = checkResult(completed);
+			if (result && result.exception) {
+				Log.log("Complete FAILED, exception = ", result.exception);
+			} else {
+				Log.log("Complete came back.");
+			}
+
+			if (createSyncOnEdit) {
+				for (kindName in syncObjects) {
+					if (syncObjects.hasOwnProperty(kindName)) {
+						upSyncs.push(syncObjects[kindName]);
+					}
+				}
+				created.nest(this._buildSyncOnEditActivity(upSyncs, 0));
+			} else {
+				Log.log("CDav-complete(): skipping creating of sync activities");
+				created.result = {returnValue: true};
+			}
+		});
+
+		created.then(this, function createdCB() {
+			var result = checkResult(created);
+			if (result && result.exception) {
+				Log.log("Creating sync-on-edit activities FAILED, exception = ", result.exception);
+			} else {
+				Log.debug("All sync on edit creation came back.");
+			}
+			done.result = true;
+		});
+
+		return done;
+	},
+
+	/*
+	 * Completes the activity that started this sync. Inner syncs for one
+	 * capability then set up the SyncOnEdit activities again.
+	 * Overwriting stuff from synccommand.js in mojo-sync-framework, because it can not handle multiple kinds. :(
+	 */
 	complete: function (activity) {
 		"use strict";
 
 		var syncActivity, outerFuture = new Future(), future = new Future(),
-			syncObjects = this.getSyncObjects(), kindName, upSyncs = [],
 			args = this.controller.args;
 		Log.log("CDav-Completing activity ", activity.name);
 
-		//handle sync on edit acitivities:
-		if (this.recreateActivitiesOnComplete && args.capability) { //only create sync on edit activities for inner service calls
-			for (kindName in syncObjects) {
-				if (syncObjects.hasOwnProperty(kindName)) {
-					upSyncs.push(syncObjects[kindName]);
-				}
-			}
-
-			future.nest(this._buildSyncOnEditActivity(upSyncs, 0));
-
-			future.then(this, function syncOnEditCB() {
-				Log.debug("All sync on edit creation came back.");
-				future.result = true;
+		// this.recreateActivitiesOnComplete will be set to false when
+		// the sync command is run while the capability is disabled
+		if (!this.recreateActivitiesOnComplete || args.capability) {
+			this._completeThenSyncOnEdit(activity, this.recreateActivitiesOnComplete && args.capability).then(this, function completedCB(f) {
+				checkResult(f);
+				outerFuture.result = true;
 			});
-		} else {
-			Log.debug("Not creating sync-on-edit activities, because no capability in args: ", args);
-			future.result = true;
+			return outerFuture;
 		}
 
-		future.then(this, function completeDoneCB(future) {
-			checkResult(future);
-			// this.recreateActivitiesOnComplete will be set to false when
-			// the sync command is run while the capability is disabled
-			// This is a little messy
-			if (!this.recreateActivitiesOnComplete || args.capability) {
-				Log.log("CDav-complete(): skipping creating of sync activities");
-				activity.complete().then(this, function () {
-					Log.log("Complete came back.");
-					future.result = true;
-				});
+		Log.debug("Not creating sync-on-edit activities, because no capability in args: ", args);
+		future.nest(this.getPeriodicSyncActivity());
+
+		future.then(this, function getPeriodicSyncActivityCB() {
+			var restart = false, f;
+			syncActivity = checkResult(future);
+			if (activity._activityId === syncActivity.activityId) {
+				Log.log("Periodic sync. Restarting activity");
+				restart = true;
 			} else {
-				future.nest(this.getPeriodicSyncActivity());
-
-				future.then(this, function getPeriodicSyncActivityCB() {
-					var restart = false, f;
-					syncActivity = checkResult(future);
-					if (activity._activityId === syncActivity.activityId) {
-						Log.log("Periodic sync. Restarting activity");
-						restart = true;
-					} else {
-						Log.log("Not periodic sync. Completing activity");
-					}
-					if (this._hadLocalRevisionError) { //no clue, comes from mojoservice-sync-framework so we will keep this here.
-						restart = true;
-						this._hadLocalRevisionError = false;
-					}
-
-					f = activity.complete(restart);
-					if (f) {
-						future.nest(f);
-					} else {
-						Log.log("Completing activity failed.");
-						future.result = {returnValue: true};
-					}
-				});
-
-				future.then(this, function completeCB(future) {
-					Log.debug("Complete succeeded, result = ", checkResult(future));
-					outerFuture.result = true;
-				}, function completeErrorCB(future) {
-					Log.log("Complete FAILED, exception = ", future.exception);
-					outerFuture.result = false;
-				});
+				Log.log("Not periodic sync. Completing activity");
 			}
+			if (this._hadLocalRevisionError) { //no clue, comes from mojoservice-sync-framework so we will keep this here.
+				restart = true;
+				this._hadLocalRevisionError = false;
+			}
+
+			f = activity.complete(restart);
+			if (f) {
+				future.nest(f);
+			} else {
+				Log.log("Completing activity failed.");
+				future.result = {returnValue: true};
+			}
+		});
+
+		future.then(this, function completeCB(future) {
+			Log.debug("Complete succeeded, result = ", checkResult(future));
+			outerFuture.result = true;
+		}, function completeErrorCB(future) {
+			Log.log("Complete FAILED, exception = ", future.exception);
+			outerFuture.result = false;
 		});
 
 		return outerFuture;

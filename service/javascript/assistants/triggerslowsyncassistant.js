@@ -1,5 +1,5 @@
 /*jslint nomen: false */
-/*global Future, Log, DB, KindsContacts, KindsCalendar, checkResult */
+/*global Future, Log, DB, KindsContacts, KindsCalendar, KindsTasks, checkResult */
 
 var TriggerSlowSyncAssistant = function () { "use strict"; };
 
@@ -26,6 +26,13 @@ TriggerSlowSyncAssistant.prototype.run = function (outerFuture) {
 
 	future.then(this, function contactsFinished() {
 		query.from = KindsCalendar.account.metadata_id;
+		future.nest(DB.find(query, false, false));
+	});
+
+	future.then(this, this.gotDBObject);
+
+	future.then(this, function calendarFinished() {
+		query.from = KindsTasks.account.metadata_id;
 		future.nest(DB.find(query, false, false));
 	});
 
