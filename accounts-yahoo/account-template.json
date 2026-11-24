@@ -28,9 +28,10 @@
 	"loc_usernameLabel": "Yahoo ID",
 	"icon": {
 		"loc_32x32": "images/yahoo_32.png",
+		"loc_48x48": "images/yahoo_48.png",
 		"loc_64x64": "images/yahoo_64.png",
-		"loc_128x128": "images/yahoo_128x128.png",
-		"loc_256x256": "images/yahoo_256x256.png"
+		"loc_128x128": "images/yahoo_128.png",
+		"loc_256x256": "images/yahoo_256.png"
 	},
 	"config": {
 		"name": "Yahoo",

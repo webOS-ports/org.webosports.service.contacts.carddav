@@ -30,9 +30,10 @@
 	"loc_usernameLabel": "AppleId",
 	"icon": {
 		"loc_32x32": "images/icloud_32.png",
+		"loc_48x48": "images/icloud_48.png",
 		"loc_64x64": "images/icloud_64.png",
-		"loc_128x128": "images/icloud_128x128.png",
-		"loc_256x256": "images/icloud_256x256.png"
+		"loc_128x128": "images/icloud_128.png",
+		"loc_256x256": "images/icloud_256.png"
 	},
 	"config": {
 		"name": "iCloud",
