@@ -18,13 +18,16 @@ var root = path.join(__dirname, "..");
 var crossAppTarget = path.join(root, "app-enyo", "GoogleOauth", "CrossAppTarget.js");
 
 /* Loads CrossAppTarget.js with the placeholders replaced as the build does (null: left as they are),
-   runs the kind's create() and reports what it did. */
-function runCreate(fill) {
+   runs the kind's create() with the given launch parameters (default: creating an account) and
+   reports what it did. */
+function runCreate(fill, params) {
 	var source = fs.readFileSync(crossAppTarget, "utf8"),
 		kind,
 		opened = [],
 		started = [],
 		errors = [],
+		results = [],
+		closed = [],
 		instance,
 		context;
 
@@ -38,10 +41,10 @@ function runCreate(fill) {
 		$L: function (s) { return s; },
 		enyo: {kind: function (k) { kind = k; }},
 		PalmSystem: {
-			launchParams: JSON.stringify({mode: "create"}),
+			launchParams: JSON.stringify(params || {mode: "create"}),
 			deviceInfo: JSON.stringify({modelName: "LuneOS Device"})
 		},
-		OAuthWindow: {open: function (opts) { opened.push(opts); return {close: function () {}}; }}
+		OAuthWindow: {open: function (opts) { opened.push(opts); return {close: function () { closed.push(opts); }}; }}
 	};
 	context.window = context;
 	vm.createContext(context);
@@ -59,10 +62,18 @@ function runCreate(fill) {
 			hide: function () { this.hidden = true; },
 			setDisabled: function (value) { this.disabled = value; }
 		},
-		alert: {hide: function () {}}
+		alert: {hide: function () {}},
+		doneButton: {disabled: false, setDisabled: function (value) { this.disabled = value; }},
+		crossAppResult: {sendResult: function (r) { results.push(r); }},
+		removeAccountButton: {
+			showing: false,
+			inits: [],
+			init: function (account, capability) { this.inits.push({account: account, capability: capability}); },
+			show: function () { this.showing = true; }
+		}
 	};
 	instance.create();
-	return {instance: instance, started: started, opened: opened, errors: errors};
+	return {instance: instance, started: started, opened: opened, errors: errors, results: results, closed: closed};
 }
 
 bdd.describe("Google OAuth client configuration", function () {
@@ -125,5 +136,64 @@ bdd.describe("Google OAuth client configuration", function () {
 			}
 		});
 		assert.deepStrictEqual(found, []);
+	});
+});
+
+bdd.describe("Google sign-in screen: removing the account", function () {
+	var CLIENT = {id: "test-id.apps.googleusercontent.com", secret: "test-secret"},
+		ACCOUNT = {_id: "acc1", templateId: "org.webosports.cdav.account.google",
+			capabilityProviders: [{id: "org.webosports.cdav.contact", capability: "CONTACTS", _id: "c1"}]};
+
+	function withError() {
+		var a = JSON.parse(JSON.stringify(ACCOUNT));
+		a.credentialError = true;
+		return a;
+	}
+
+	bdd.it("offers Remove for an account with a credentials error, for the whole account", function () {
+		var b = runCreate(CLIENT, {mode: "modify", account: withError()}).instance.$.removeAccountButton;
+		assert.strictEqual(b.showing, true);
+		assert.strictEqual(b.inits.length, 1);
+		assert.strictEqual(b.inits[0].account._id, "acc1");
+		assert.strictEqual(b.inits[0].capability, undefined);
+	});
+
+	bdd.it("offers Remove when opened from Contacts or Calendar, for that capability", function () {
+		var b = runCreate(CLIENT, {mode: "modify", account: ACCOUNT, capability: "CONTACTS"}).instance.$.removeAccountButton;
+		assert.strictEqual(b.showing, true);
+		assert.strictEqual(b.inits[0].capability, "CONTACTS");
+	});
+
+	bdd.it("does not offer Remove for Change Login from the account's own settings screen", function () {
+		var b = runCreate(CLIENT, {mode: "modify", account: ACCOUNT}).instance.$.removeAccountButton;
+		assert.strictEqual(b.showing, false);
+		assert.deepStrictEqual(b.inits, []);
+	});
+
+	bdd.it("does not offer Remove while creating an account", function () {
+		var b = runCreate(CLIENT, {mode: "create", capability: "CONTACTS"}).instance.$.removeAccountButton;
+		assert.strictEqual(b.showing, false);
+		assert.deepStrictEqual(b.inits, []);
+	});
+
+	bdd.it("offers Remove in a build without a Google client", function () {
+		var r = runCreate(null, {mode: "modify", account: withError()});
+		assert.strictEqual(r.instance.$.signInButton.hidden, true);
+		assert.strictEqual(r.instance.$.removeAccountButton.showing, true);
+		assert.strictEqual(r.instance.$.removeAccountButton.inits.length, 1);
+	});
+
+	bdd.it("stops sign-in while removing and returns to the caller when removed", function () {
+		var r = runCreate(CLIENT, {mode: "modify", account: withError()}),
+			i = r.instance;
+		i.startSignIn();
+		i.signInReady({}, {url: "https://accounts.example/", redirectUri: "http://localhost/cb", state: "s"});
+		i.removingAccount();
+		assert.strictEqual(r.closed.length, 1);
+		assert.strictEqual(i.$.signInButton.disabled, true);
+		assert.strictEqual(i.$.doneButton.disabled, true);
+		assert.deepStrictEqual(r.results, []);
+		i.accountRemoved();
+		assert.strictEqual(JSON.stringify(r.results), JSON.stringify([{returnValue: false}]));
 	});
 });
