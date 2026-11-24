@@ -49,6 +49,10 @@ enyo.kind({
 		{ layoutKind: "HFlexLayout", pack: "center", components: [
 			{ name: "signInButton", kind: "Button", caption: "Continue to Google", onclick: "startSignIn", className: "enyo-button-affirmative" }
 		]},
+		/* The Accounts app sends an account with a credentials error (and Contacts or Calendar any
+		   account) here instead of to its own settings screen, so removing it has to be possible here. */
+		{ name: "removeAccountButton", kind: "Accounts.RemoveAccount", showing: false,
+			onAccountsRemove_Removing: "removingAccount", onAccountsRemove_Done: "accountRemoved" },
 		{ name: "alert", flex: 1, style: "margin-bottom:30px;text-align:center; background-color:red; color:yellow;", showing: false },
 		{ flex: 9 },
 		{kind: "CrossAppResult", name: "crossAppResult" },
@@ -67,6 +71,13 @@ enyo.kind({
 
 		if (enyo.windowParams) {
 			this.params = enyo.windowParams;
+		}
+
+		/* before the client check: an account must stay removable in a build without a client */
+		if (this.params && this.params.mode === "modify" && this.params.account &&
+				(this.params.account.credentialError || this.params.capability)) {
+			this.$.removeAccountButton.init(this.params.account, this.params.capability);
+			this.$.removeAccountButton.show();
 		}
 
 		if (!googleClientConfigured(CLIENT_ID, CLIENT_SECRET)) {
@@ -269,6 +280,18 @@ enyo.kind({
 		}
 
 		console.error("<<<<<<<<<<<<<<<<<<<< windowParamsChangeHandler");
+	},
+	removingAccount: function () {
+		if (this.oauthWindow) {
+			this.oauthWindow.close();
+			this.oauthWindow = null;
+		}
+		this.$.signInButton.setDisabled(true);
+		this.$.doneButton.setDisabled(true);
+	},
+	accountRemoved: function () {
+		log("Account removed.");
+		this.$.crossAppResult.sendResult({returnValue: false});
 	},
 	doBack: function () {
 		if (this.oauthWindow) {

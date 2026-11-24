@@ -34,9 +34,10 @@
 	"loc_usernameLabel": "Google-Mail",
 	"icon": {
 		"loc_32x32": "images/google_32.png",
+		"loc_48x48": "images/google_48.png",
 		"loc_64x64": "images/google_64.png",
-		"loc_128x128": "images/google_128x128.png",
-		"loc_256x256": "images/google_256x256.png"
+		"loc_128x128": "images/google_128.png",
+		"loc_256x256": "images/google_256.png"
 	},
 	"config": {
 		"name": "Google C+DAV",
